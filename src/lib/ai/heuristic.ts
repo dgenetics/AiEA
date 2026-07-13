@@ -1,6 +1,7 @@
 import { addDays, formatISO, startOfDay } from "date-fns";
 import { nanoid } from "nanoid";
 import type { ProposedItem, RecurrenceRule } from "@/lib/types";
+import { enrichRuleWithTimes } from "@/lib/recurrence";
 
 /** Heuristic fallback when no API key or AI fails — keeps the product usable. */
 export function heuristicPropose(rawText: string): ProposedItem[] {
@@ -16,23 +17,20 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
     const lower = line.toLowerCase();
     let areaSlug: string = "life";
     if (
-      /work|meeting|deck|slide|email|client|boss|standup|pr\b|deploy|invoice|q[1-4]/i.test(
+      /work|meeting|deck|slide|client|boss|standup|pr\b|deploy|invoice|q[1-4]|coworker|colleague|office|slack|jira/i.test(
         lower,
       )
     ) {
       areaSlug = "work";
-    } else if (
-      /home|house|plumber|laundry|trash|dishes|plant|grocery|clean|repair|lease|rent/i.test(
-        lower,
-      )
-    ) {
-      areaSlug = "home";
     }
 
     const isRecurring =
       /every\s+(day|week|month|sunday|monday|tuesday|wednesday|thursday|friday|saturday)/i.test(
         lower,
-      ) || /daily|weekly|monthly|each week|each day/i.test(lower);
+      ) ||
+      /daily|weekly|monthly|each week|each day/i.test(lower) ||
+      /\d+\s*(?:x|times?)\s*(?:a\s*)?day/i.test(lower) ||
+      /times?\s*daily|twice a day|thrice/i.test(lower);
 
     const isFollowUp =
       /follow\s*up|ping|respond to|get back to|call back|check in with|reply to/i.test(
@@ -74,7 +72,7 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
 
     let recurrenceRule: RecurrenceRule | null = null;
     if (isRecurring) {
-      if (/daily|every day|each day/i.test(lower)) {
+      if (/daily|every day|each day|times?\s*a\s*day|times?\s*daily/i.test(lower)) {
         recurrenceRule = { frequency: "daily", interval: 1, time: "09:00" };
       } else if (/monthly|every month/i.test(lower)) {
         recurrenceRule = { frequency: "monthly", interval: 1, time: "09:00" };
@@ -99,6 +97,8 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
           time: "09:00",
         };
       }
+      // Multi-slot from "3 times a day" / explicit times
+      recurrenceRule = enrichRuleWithTimes(recurrenceRule, line);
     }
 
     const cleanTitle = line.replace(/[.]+$/, "").trim();
@@ -134,7 +134,7 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
       priority: 3,
       dueAt: formatISO(addDays(today, 3)),
       estimateMinutes: 30,
-      aiRationale: "Single capture item; default medium priority with a 3-day target.",
+      aiRationale: "Single capture item; default life / medium priority with a 3-day target.",
       accepted: false,
       dismissed: false,
     });

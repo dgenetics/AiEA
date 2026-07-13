@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Archive,
   Bell,
   Briefcase,
   CalendarDays,
@@ -10,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Repeat,
+  Settings,
   Sparkles,
   Sunrise,
   Users,
@@ -22,8 +24,10 @@ const nav = [
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/people", label: "People", icon: Users },
   { href: "/recurring", label: "Recurring", icon: Repeat },
+  { href: "/archive", label: "Archive", icon: Archive },
   { href: "/brief", label: "Daily Brief", icon: Sunrise },
   { href: "/areas", label: "Areas", icon: Briefcase },
+  { href: "/account", label: "Account", icon: Settings },
 ];
 
 export function Sidebar({
@@ -90,20 +94,25 @@ export function Sidebar({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-zinc-200">{userName}</p>
-            <p className="text-[11px] text-zinc-500">Personal workspace</p>
+            <Link
+              href="/account"
+              className="text-[11px] text-zinc-500 transition hover:text-indigo-300"
+            >
+              Account & password
+            </Link>
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-md p-1.5 text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200"
-            title="Log out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
         </div>
+        <button
+          type="button"
+          onClick={logout}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-zinc-900/60 px-2.5 py-2 text-sm text-zinc-300 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-200"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
         <div className="flex items-center gap-2 rounded-lg bg-zinc-900/80 px-2.5 py-2 text-[11px] text-zinc-500">
           <Home className="h-3.5 w-3.5" />
-          <span>Work · Home · Life</span>
+          <span>Work · Life</span>
           <Bell className="ml-auto h-3.5 w-3.5 text-zinc-600" />
         </div>
       </div>

@@ -1,6 +1,10 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { describeRecurrence, parseRecurrenceRule } from "@/lib/recurrence";
+import {
+  describeRecurrence,
+  enrichRuleWithTimes,
+  parseRecurrenceRule,
+} from "@/lib/recurrence";
 import { formatRelativeDue } from "@/lib/utils";
 import { Repeat } from "lucide-react";
 
@@ -38,7 +42,10 @@ export default async function RecurringPage() {
       ) : (
         <div className="space-y-2">
           {templates.map((t) => {
-            const rule = parseRecurrenceRule(t.recurrenceRule);
+            const raw = parseRecurrenceRule(t.recurrenceRule);
+            const rule = raw
+              ? enrichRuleWithTimes(raw, t.notes, t.title)
+              : null;
             return (
               <div
                 key={t.id}
@@ -56,6 +63,9 @@ export default async function RecurringPage() {
                       ? ` · next ${formatRelativeDue(t.nextOccurrenceAt)}`
                       : ""}
                   </p>
+                  {t.notes && (
+                    <p className="mt-0.5 text-[11px] text-zinc-600">{t.notes}</p>
+                  )}
                 </div>
               </div>
             );

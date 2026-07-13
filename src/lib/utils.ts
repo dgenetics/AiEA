@@ -62,8 +62,6 @@ export function areaColor(slug: string): string {
   switch (slug) {
     case "work":
       return "#6366f1";
-    case "home":
-      return "#14b8a6";
     case "life":
       return "#f59e0b";
     default:

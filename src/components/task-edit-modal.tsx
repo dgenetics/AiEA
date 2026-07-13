@@ -52,7 +52,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved }: Props) {
     setError(null);
     try {
       if (!areaId) {
-        throw new Error("Pick a category (Work / Home / Life) first");
+        throw new Error("Pick a category (Work / Life) first");
       }
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",

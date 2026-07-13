@@ -5,7 +5,7 @@ export const proposedItemSchema = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(2000).nullable().optional(),
   kind: z.enum(["ONE_TIME", "RECURRING_TEMPLATE"]),
-  areaSlug: z.enum(["work", "home", "life"]),
+  areaSlug: z.enum(["work", "life"]),
   priority: z.number().int().min(1).max(5),
   dueAt: z.string().nullable().optional(),
   scheduledFor: z.string().nullable().optional(),
@@ -16,6 +16,7 @@ export const proposedItemSchema = z.object({
       interval: z.number().int().min(1).max(30),
       byWeekday: z.array(z.number().int().min(0).max(6)).optional(),
       time: z.string().optional(),
+      times: z.array(z.string()).optional(),
     })
     .nullable()
     .optional(),
@@ -84,7 +85,8 @@ export const CAPTURE_JSON_SCHEMA = {
           },
           areaSlug: {
             type: "string",
-            enum: ["work", "home", "life"],
+            enum: ["work", "life"],
+            description: "Only work or life. Never home.",
           },
           priority: {
             type: "integer",
@@ -110,7 +112,7 @@ export const CAPTURE_JSON_SCHEMA = {
               {
                 type: "object",
                 additionalProperties: false,
-                required: ["frequency", "interval", "byWeekday", "time"],
+                required: ["frequency", "interval", "byWeekday", "time", "times"],
                 properties: {
                   frequency: {
                     type: "string",
@@ -124,7 +126,13 @@ export const CAPTURE_JSON_SCHEMA = {
                   },
                   time: {
                     type: "string",
-                    description: 'Local time HH:mm, default "09:00".',
+                    description: 'Primary HH:mm; first of times if multi-slot.',
+                  },
+                  times: {
+                    type: "array",
+                    items: { type: "string" },
+                    description:
+                      'Multi check-in times on each day, e.g. ["10:00","14:00","18:00"] for 3× daily. Empty array if single time.',
                   },
                 },
               },

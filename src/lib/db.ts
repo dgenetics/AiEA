@@ -2,7 +2,14 @@ import path from "node:path";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  /** Bump when schema fields change so HMR picks up a fresh client */
+  prismaSchemaVersion?: string;
+};
+
+/** Increment when adding Prisma fields so dev doesn't keep a stale client. */
+const SCHEMA_VERSION = "checkins-v1";
 
 function createClient() {
   const raw = process.env.DATABASE_URL ?? "file:./dev.db";
@@ -19,8 +26,21 @@ function createClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createClient();
+function getClient() {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    globalForPrisma.prisma &&
+    globalForPrisma.prismaSchemaVersion !== SCHEMA_VERSION
+  ) {
+    void globalForPrisma.prisma.$disconnect().catch(() => undefined);
+    globalForPrisma.prisma = undefined;
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createClient();
+    globalForPrisma.prismaSchemaVersion = SCHEMA_VERSION;
+  }
+  return globalForPrisma.prisma;
 }
+
+export const prisma = getClient();

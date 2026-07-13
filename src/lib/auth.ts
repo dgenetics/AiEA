@@ -47,9 +47,29 @@ export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (token) {
-    await prisma.session.deleteMany({ where: { token: hashToken(token) } });
+    await prisma.session.deleteMany({ where: { token: hashToken(token) } }).catch(() => undefined);
   }
-  jar.delete(SESSION_COOKIE);
+  jar.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  });
+}
+
+/** Drop all sessions for a user except the current browser (if any). */
+export async function revokeOtherSessions(userId: string) {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (token) {
+    await prisma.session.deleteMany({
+      where: { userId, token: { not: hashToken(token) } },
+    });
+  } else {
+    await prisma.session.deleteMany({ where: { userId } });
+  }
 }
 
 export async function getCurrentUser() {

@@ -1,5 +1,6 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ensureWorkLifeAreas } from "@/lib/workspace";
 
 export default async function AreasPage() {
   const user = await getCurrentUser();
@@ -7,8 +8,10 @@ export default async function AreasPage() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
+  await ensureWorkLifeAreas(workspaceId);
+
   const areas = await prisma.area.findMany({
-    where: { workspaceId },
+    where: { workspaceId, slug: { in: ["work", "life"] } },
     orderBy: { sortOrder: "asc" },
     include: {
       tasks: {
@@ -28,13 +31,13 @@ export default async function AreasPage() {
         <p className="text-xs font-medium uppercase tracking-wider text-indigo-300/80">
           Areas
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-white">Life domains</h1>
+        <h1 className="mt-1 text-2xl font-semibold text-white">Areas</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Work, Home, and Life — neat buckets so nothing collapses into chaos.
+          Work and Life — two buckets so nothing collapses into chaos.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {areas.map((area) => (
           <div
             key={area.id}

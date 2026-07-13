@@ -1,13 +1,72 @@
 import { prisma } from "@/lib/db";
-import { nextOccurrence, parseRecurrenceRule, stringifyRecurrenceRule } from "@/lib/recurrence";
+import {
+  advanceFrom,
+  buildCheckInsForDay,
+  dayBounds,
+  enrichRuleWithTimes,
+  getRuleTimes,
+  isMultiSlot,
+  nextOccurrence,
+  parseRecurrenceRule,
+  slotDateTime,
+  stringifyCheckIns,
+  stringifyRecurrenceRule,
+} from "@/lib/recurrence";
 import type { ProposedItem } from "@/lib/types";
-import { addHours } from "date-fns";
+import { addHours, startOfDay } from "date-fns";
 
 const DEFAULT_AREAS = [
   { name: "Work", slug: "work", color: "#6366f1", icon: "briefcase", sortOrder: 0 },
-  { name: "Home", slug: "home", color: "#14b8a6", icon: "home", sortOrder: 1 },
-  { name: "Life", slug: "life", color: "#f59e0b", icon: "heart", sortOrder: 2 },
+  { name: "Life", slug: "life", color: "#f59e0b", icon: "heart", sortOrder: 1 },
 ];
+
+/**
+ * Ensure only Work + Life areas exist. Migrates any legacy "home" tasks to Life
+ * and deletes the Home area.
+ */
+export async function ensureWorkLifeAreas(workspaceId: string) {
+  const areas = await prisma.area.findMany({ where: { workspaceId } });
+  const bySlug = new Map(areas.map((a) => [a.slug, a]));
+
+  for (const def of DEFAULT_AREAS) {
+    if (!bySlug.has(def.slug)) {
+      const created = await prisma.area.create({
+        data: { workspaceId, ...def },
+      });
+      bySlug.set(def.slug, created);
+    }
+  }
+
+  const home = bySlug.get("home");
+  const life = bySlug.get("life");
+  if (home && life) {
+    await prisma.task.updateMany({
+      where: { workspaceId, areaId: home.id },
+      data: { areaId: life.id },
+    });
+    await prisma.area.delete({ where: { id: home.id } }).catch(() => undefined);
+    bySlug.delete("home");
+  } else if (home && !life) {
+    await prisma.area.update({
+      where: { id: home.id },
+      data: {
+        name: "Life",
+        slug: "life",
+        color: "#f59e0b",
+        icon: "heart",
+        sortOrder: 1,
+      },
+    });
+  }
+
+  return prisma.area.findMany({
+    where: { workspaceId, slug: { in: ["work", "life"] } },
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+/** @deprecated use ensureWorkLifeAreas */
+export const ensureWorkHomeAreas = ensureWorkLifeAreas;
 
 export async function createWorkspaceForUser(userId: string, name: string, userName: string) {
   const baseSlug =
@@ -33,7 +92,6 @@ export async function createWorkspaceForUser(userId: string, name: string, userN
 
   // Seed a few starter tasks so the dashboard isn't empty
   const work = workspace.areas.find((a) => a.slug === "work");
-  const home = workspace.areas.find((a) => a.slug === "home");
   const life = workspace.areas.find((a) => a.slug === "life");
 
   await prisma.task.createMany({
@@ -41,7 +99,7 @@ export async function createWorkspaceForUser(userId: string, name: string, userN
       {
         workspaceId: workspace.id,
         areaId: work?.id,
-        title: "Capture everything on your mind in Inbox",
+        title: "Capture everything on your mind",
         kind: "ONE_TIME",
         status: "ACTIVE",
         priority: 2,
@@ -51,7 +109,7 @@ export async function createWorkspaceForUser(userId: string, name: string, userN
       },
       {
         workspaceId: workspace.id,
-        areaId: home?.id,
+        areaId: life?.id,
         title: "Set trash / recycling night",
         kind: "ONE_TIME",
         status: "ACTIVE",
@@ -61,7 +119,7 @@ export async function createWorkspaceForUser(userId: string, name: string, userN
       },
       {
         workspaceId: workspace.id,
-        areaId: life?.id,
+        areaId: work?.id,
         title: `Welcome, ${userName.split(" ")[0]} — review your Daily Brief`,
         kind: "ONE_TIME",
         status: "ACTIVE",
@@ -102,7 +160,7 @@ export async function acceptProposals(
   proposals: ProposedItem[],
   selectedIds: string[],
 ) {
-  const areas = await prisma.area.findMany({ where: { workspaceId } });
+  const areas = await ensureWorkLifeAreas(workspaceId);
   const areaBySlug = new Map(areas.map((a) => [a.slug, a.id]));
 
   const createdTaskIds: string[] = [];
@@ -114,20 +172,29 @@ export async function acceptProposals(
       ? await ensurePerson(workspaceId, item.personName)
       : null;
 
-    const areaId =
-      (item.areaSlug && areaBySlug.get(item.areaSlug)) || areaBySlug.get("life") || null;
+    // Map legacy "home" (or anything else) → life
+    const slug = item.areaSlug === "work" ? "work" : "life";
+    const areaId = areaBySlug.get(slug) || areaBySlug.get("life") || null;
 
     const dueAt = item.dueAt ? new Date(item.dueAt) : null;
     const scheduledFor = item.scheduledFor ? new Date(item.scheduledFor) : dueAt;
     const followUpDueAt = item.followUpDueAt ? new Date(item.followUpDueAt) : null;
 
     if (item.kind === "RECURRING_TEMPLATE") {
-      const rule = item.recurrenceRule ?? {
+      let rule = item.recurrenceRule ?? {
         frequency: "weekly" as const,
         interval: 1,
         time: "09:00",
       };
+      rule = enrichRuleWithTimes(rule, item.notes, item.title);
       const next = nextOccurrence(rule);
+      const times = getRuleTimes(rule);
+      const checkIns = isMultiSlot(rule)
+        ? buildCheckInsForDay(next, times)
+        : null;
+      const dueAt = checkIns
+        ? slotDateTime(next, times[0]!)
+        : next;
 
       const template = await prisma.task.create({
         data: {
@@ -159,24 +226,33 @@ export async function acceptProposals(
           kind: "OCCURRENCE",
           status: "ACTIVE",
           priority: item.priority ?? 3,
-          dueAt: next,
-          scheduledFor: next,
+          dueAt,
+          scheduledFor: dueAt,
           estimateMinutes: item.estimateMinutes ?? 15,
-          aiRationale: "Generated from recurring template",
+          checkIns: stringifyCheckIns(checkIns),
+          recurrenceRule: stringifyRecurrenceRule(rule),
+          aiRationale: checkIns
+            ? `Multi-slot day: ${times.join(", ")}`
+            : "Generated from recurring template",
           sourceCaptureId: captureId,
         },
       });
 
-      await prisma.reminder.create({
-        data: {
-          workspaceId,
-          taskId: occurrence.id,
-          title: item.title,
-          body: "Recurring task due",
-          fireAt: next,
-          channel: "IN_APP",
-        },
-      });
+      for (const t of times) {
+        await prisma.reminder.create({
+          data: {
+            workspaceId,
+            taskId: occurrence.id,
+            title: item.title,
+            body:
+              times.length > 1
+                ? `Check-in due · ${t}`
+                : "Recurring task due",
+            fireAt: slotDateTime(next, t),
+            channel: "IN_APP",
+          },
+        });
+      }
 
       createdTaskIds.push(template.id, occurrence.id);
     } else {
@@ -246,6 +322,40 @@ export async function acceptProposals(
 }
 
 export async function materializeDueOccurrences(workspaceId?: string) {
+  try {
+    return await materializeDueOccurrencesInner(workspaceId);
+  } catch (err) {
+    console.error("materializeDueOccurrences failed:", err);
+    return 0;
+  }
+}
+
+async function materializeDueOccurrencesInner(workspaceId?: string) {
+  // Also upgrade active templates whose notes imply multi-slot but rule lacks times
+  const allTemplates = await prisma.task.findMany({
+    where: {
+      kind: "RECURRING_TEMPLATE",
+      status: "ACTIVE",
+      ...(workspaceId ? { workspaceId } : {}),
+    },
+  });
+
+  for (const template of allTemplates) {
+    let rule = parseRecurrenceRule(template.recurrenceRule);
+    if (!rule) continue;
+    const enriched = enrichRuleWithTimes(rule, template.notes, template.title);
+    if (
+      JSON.stringify(enriched.times ?? null) !== JSON.stringify(rule.times ?? null)
+    ) {
+      rule = enriched;
+      await prisma.task.update({
+        where: { id: template.id },
+        data: { recurrenceRule: stringifyRecurrenceRule(rule) },
+      });
+      template.recurrenceRule = stringifyRecurrenceRule(rule);
+    }
+  }
+
   const templates = await prisma.task.findMany({
     where: {
       kind: "RECURRING_TEMPLATE",
@@ -257,19 +367,29 @@ export async function materializeDueOccurrences(workspaceId?: string) {
 
   let created = 0;
   for (const template of templates) {
-    const rule = parseRecurrenceRule(template.recurrenceRule);
+    let rule = parseRecurrenceRule(template.recurrenceRule);
     if (!rule || !template.nextOccurrenceAt) continue;
+    rule = enrichRuleWithTimes(rule, template.notes, template.title);
+    const times = getRuleTimes(rule);
+    const day = startOfDay(template.nextOccurrenceAt);
+    const { start, end } = dayBounds(day);
 
     const existing = await prisma.task.findFirst({
       where: {
         parentId: template.id,
         kind: "OCCURRENCE",
-        dueAt: template.nextOccurrenceAt,
         status: { not: "CANCELLED" },
+        OR: [
+          { dueAt: { gte: start, lte: end } },
+          { scheduledFor: { gte: start, lte: end } },
+        ],
       },
     });
 
     if (!existing) {
+      const checkIns = isMultiSlot(rule) ? buildCheckInsForDay(day, times) : null;
+      const dueAt = slotDateTime(day, times[0]!);
+
       const occurrence = await prisma.task.create({
         data: {
           workspaceId: template.workspaceId,
@@ -282,32 +402,154 @@ export async function materializeDueOccurrences(workspaceId?: string) {
           kind: "OCCURRENCE",
           status: "ACTIVE",
           priority: template.priority,
-          dueAt: template.nextOccurrenceAt,
-          scheduledFor: template.nextOccurrenceAt,
+          dueAt,
+          scheduledFor: dueAt,
           estimateMinutes: template.estimateMinutes,
-          aiRationale: "Auto-generated occurrence",
+          checkIns: stringifyCheckIns(checkIns),
+          recurrenceRule: stringifyRecurrenceRule(rule),
+          aiRationale: checkIns
+            ? `Multi-slot day: ${times.join(", ")}`
+            : "Auto-generated occurrence",
         },
       });
 
-      await prisma.reminder.create({
-        data: {
-          workspaceId: template.workspaceId,
-          taskId: occurrence.id,
-          title: template.title,
-          body: "Recurring task is due",
-          fireAt: template.nextOccurrenceAt,
-          channel: "IN_APP",
-        },
-      });
+      for (const t of times) {
+        await prisma.reminder.create({
+          data: {
+            workspaceId: template.workspaceId,
+            taskId: occurrence.id,
+            title: template.title,
+            body:
+              times.length > 1
+                ? `Check-in due · ${t}`
+                : "Recurring task is due",
+            fireAt: slotDateTime(day, t),
+            channel: "IN_APP",
+          },
+        });
+      }
       created++;
+    } else if (isMultiSlot(rule) && !existing.checkIns) {
+      // Backfill multi-slot checkboxes on today's open occurrence
+      await safeSetCheckIns(
+        existing.id,
+        stringifyCheckIns(buildCheckInsForDay(day, times)),
+        stringifyRecurrenceRule(rule),
+      );
     }
 
-    const next = nextOccurrence(rule, template.nextOccurrenceAt);
+    // Advance template to next day only after today's occurrence exists
+    const next = advanceFrom(rule, day);
     await prisma.task.update({
       where: { id: template.id },
-      data: { nextOccurrenceAt: next },
+      data: {
+        nextOccurrenceAt: next,
+        recurrenceRule: stringifyRecurrenceRule(rule),
+      },
     });
   }
 
+  // Ensure today's multi-slot occurrences exist even if nextOccurrenceAt was advanced early
+  await ensureTodayMultiSlotOccurrences(workspaceId);
+
   return created;
+}
+
+/** Write checkIns even if a stale Prisma client rejects the field name. */
+async function safeSetCheckIns(
+  taskId: string,
+  checkInsJson: string | null,
+  recurrenceRuleJson: string | null,
+) {
+  try {
+    await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        checkIns: checkInsJson,
+        ...(recurrenceRuleJson ? { recurrenceRule: recurrenceRuleJson } : {}),
+      },
+    });
+  } catch (err) {
+    console.warn("task.update(checkIns) failed, trying raw SQL:", err);
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "Task" SET "checkIns" = ?, "recurrenceRule" = COALESCE(?, "recurrenceRule") WHERE id = ?`,
+        checkInsJson,
+        recurrenceRuleJson,
+        taskId,
+      );
+    } catch (rawErr) {
+      console.error("safeSetCheckIns raw failed:", rawErr);
+    }
+  }
+}
+
+/** If a multi-slot template has no ACTIVE occurrence for today, create one. */
+async function ensureTodayMultiSlotOccurrences(workspaceId?: string) {
+  const today = new Date();
+  const { start, end } = dayBounds(today);
+
+  const templates = await prisma.task.findMany({
+    where: {
+      kind: "RECURRING_TEMPLATE",
+      status: "ACTIVE",
+      ...(workspaceId ? { workspaceId } : {}),
+    },
+  });
+
+  for (const template of templates) {
+    let rule = parseRecurrenceRule(template.recurrenceRule);
+    if (!rule) continue;
+    rule = enrichRuleWithTimes(rule, template.notes, template.title);
+    if (!isMultiSlot(rule)) continue;
+
+    const existing = await prisma.task.findFirst({
+      where: {
+        parentId: template.id,
+        kind: "OCCURRENCE",
+        status: "ACTIVE",
+        OR: [
+          { dueAt: { gte: start, lte: end } },
+          { scheduledFor: { gte: start, lte: end } },
+        ],
+      },
+    });
+    if (existing) {
+      if (!existing.checkIns) {
+        await safeSetCheckIns(
+          existing.id,
+          stringifyCheckIns(buildCheckInsForDay(today, getRuleTimes(rule))),
+          stringifyRecurrenceRule(rule),
+        );
+      }
+      continue;
+    }
+
+    const times = getRuleTimes(rule);
+    const dueAt = slotDateTime(today, times[0]!);
+    try {
+      await prisma.task.create({
+        data: {
+          workspaceId: template.workspaceId,
+          areaId: template.areaId,
+          projectId: template.projectId,
+          personId: template.personId,
+          parentId: template.id,
+          title: template.title,
+          notes: template.notes,
+          kind: "OCCURRENCE",
+          status: "ACTIVE",
+          priority: template.priority,
+          dueAt,
+          scheduledFor: dueAt,
+          estimateMinutes: template.estimateMinutes,
+          checkIns: stringifyCheckIns(buildCheckInsForDay(today, times)),
+          recurrenceRule: stringifyRecurrenceRule(rule),
+          aiRationale: `Multi-slot day: ${times.join(", ")}`,
+        },
+      });
+    } catch (err) {
+      console.error("ensureToday multi-slot create failed:", err);
+    }
+  }
 }

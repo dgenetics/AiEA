@@ -8,9 +8,15 @@ import { TaskEditModal, type AreaOption } from "@/components/task-edit-modal";
 export function TaskList({
   initialTasks,
   emptyMessage = "Nothing here yet.",
+  /** Archive: completed tasks; checkmark reopens instead of completing */
+  mode = "active",
+  onArchiveReopen,
 }: {
   initialTasks: TaskRowData[];
   emptyMessage?: string;
+  mode?: "active" | "archive";
+  /** Called after a completed task is reopened (archive mode) */
+  onArchiveReopen?: (id: string) => void;
 }) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
@@ -44,6 +50,18 @@ export function TaskList({
   }, []);
 
   async function complete(id: string) {
+    if (mode === "archive") {
+      // Reopen completed task
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      onArchiveReopen?.(id);
+      await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reopen" }),
+      });
+      router.refresh();
+      return;
+    }
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: "DONE" } : t)),
     );
@@ -52,6 +70,42 @@ export function TaskList({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "complete" }),
     });
+    router.refresh();
+  }
+
+  async function checkIn(id: string, slotIndex: number, done: boolean) {
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: done ? "checkIn" : "uncheckIn",
+        slotIndex,
+      }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.allDone) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? { ...t, status: "DONE", checkIns: data.task?.checkIns ?? t.checkIns }
+            : t,
+        ),
+      );
+    } else if (data.task) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                status: data.task.status,
+                checkIns: data.task.checkIns,
+                dueAt: data.task.dueAt,
+              }
+            : t,
+        ),
+      );
+    }
     router.refresh();
   }
 
@@ -81,13 +135,14 @@ export function TaskList({
             key={task.id}
             task={task}
             onComplete={complete}
-            onSnooze={snooze}
-            onEdit={setEditing}
+            onSnooze={mode === "archive" ? undefined : snooze}
+            onEdit={mode === "archive" ? undefined : setEditing}
+            onCheckIn={mode === "archive" ? undefined : checkIn}
           />
         ))}
       </div>
 
-      {editing && (
+      {editing && mode !== "archive" && (
         <TaskEditModal
           task={editing}
           areas={areas}

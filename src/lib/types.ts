@@ -18,7 +18,13 @@ export type RecurrenceRule = {
   frequency: "daily" | "weekly" | "monthly" | "custom";
   interval: number;
   byWeekday?: number[]; // 0=Sun … 6=Sat
-  time?: string; // HH:mm
+  /** Primary / first slot (HH:mm). Prefer `times` when multi-slot. */
+  time?: string;
+  /**
+   * Multiple check-in times on each occurrence day.
+   * One task row with N checkboxes, e.g. ["10:00","14:00","18:00"].
+   */
+  times?: string[];
 };
 
 export type ProposedItem = {
@@ -26,7 +32,7 @@ export type ProposedItem = {
   title: string;
   notes?: string;
   kind: TaskKind;
-  areaSlug?: "work" | "home" | "life" | string;
+  areaSlug?: "work" | "life" | string;
   priority?: 1 | 2 | 3 | 4 | 5;
   dueAt?: string | null; // ISO
   scheduledFor?: string | null;

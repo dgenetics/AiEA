@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { ReminderBell } from "@/components/reminder-bell";
 import { AiStatusBadge } from "@/components/ai-status-badge";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <header className="flex h-14 items-center justify-end gap-3 border-b border-white/5 px-6">
             <AiStatusBadge />
             <ReminderBell />
+            <SignOutButton />
           </header>
           <main className="flex-1 overflow-y-auto px-6 py-6">{children}</main>
         </div>

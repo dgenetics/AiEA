@@ -8,7 +8,6 @@ import { cn, priorityColor, priorityLabel } from "@/lib/utils";
 
 const AREAS = [
   { slug: "work", label: "Work" },
-  { slug: "home", label: "Home" },
   { slug: "life", label: "Life" },
 ] as const;
 

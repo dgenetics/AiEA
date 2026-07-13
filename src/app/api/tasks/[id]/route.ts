@@ -3,10 +3,19 @@ import { z } from "zod";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { recordCorrections } from "@/lib/ai/corrections";
 import { prisma } from "@/lib/db";
-import { advanceFrom, parseRecurrenceRule } from "@/lib/recurrence";
+import {
+  advanceFrom,
+  checkInsProgress,
+  parseCheckIns,
+  parseRecurrenceRule,
+  slotDateTime,
+  stringifyCheckIns,
+} from "@/lib/recurrence";
 
 const patchSchema = z.object({
-  action: z.enum(["complete", "reopen", "snooze", "update", "cancel"]).optional(),
+  action: z
+    .enum(["complete", "reopen", "snooze", "update", "cancel", "checkIn", "uncheckIn"])
+    .optional(),
   title: z.string().min(1).max(300).optional(),
   priority: z.number().int().min(1).max(5).optional().nullable(),
   dueAt: z.string().optional().nullable(),
@@ -16,6 +25,8 @@ const patchSchema = z.object({
   isFollowUp: z.boolean().optional(),
   estimateMinutes: z.number().int().min(1).max(480).optional().nullable(),
   snoozeDays: z.number().int().min(1).max(30).optional(),
+  /** Index into multi-slot checkIns.slots */
+  slotIndex: z.number().int().min(0).max(23).optional(),
   /** When true, log field changes as AI training corrections */
   trainAi: z.boolean().optional(),
 });
@@ -49,7 +60,116 @@ export async function PATCH(
 
     const action = body.action || "update";
 
+    if (action === "checkIn" || action === "uncheckIn") {
+      const state = parseCheckIns(task.checkIns);
+      if (!state?.slots?.length) {
+        return NextResponse.json(
+          { error: "This task has no multi-slot check-ins" },
+          { status: 400 },
+        );
+      }
+      const idx = body.slotIndex ?? 0;
+      if (idx < 0 || idx >= state.slots.length) {
+        return NextResponse.json({ error: "Invalid slotIndex" }, { status: 400 });
+      }
+
+      const now = new Date();
+      state.slots[idx] = {
+        ...state.slots[idx],
+        done: action === "checkIn",
+        completedAt: action === "checkIn" ? now.toISOString() : null,
+      };
+
+      const progress = checkInsProgress(state);
+      const nextSlot = state.slots.find((s) => !s.done);
+      const dueAt = nextSlot
+        ? slotDateTime(state.day, nextSlot.time)
+        : now;
+
+      if (progress.allDone) {
+        const updated = await prisma.task.update({
+          where: { id },
+          data: {
+            checkIns: stringifyCheckIns(state),
+            status: "DONE",
+            completedAt: now,
+            dueAt,
+          },
+          include: { area: true, person: true },
+        });
+
+        await prisma.reminder.updateMany({
+          where: { taskId: id, status: "PENDING" },
+          data: { status: "DISMISSED" },
+        });
+
+        if (task.parentId) {
+          const parent = await prisma.task.findUnique({
+            where: { id: task.parentId },
+          });
+          if (parent?.kind === "RECURRING_TEMPLATE") {
+            const rule = parseRecurrenceRule(parent.recurrenceRule);
+            if (rule) {
+              await prisma.task.update({
+                where: { id: parent.id },
+                data: { nextOccurrenceAt: advanceFrom(rule, now) },
+              });
+            }
+          }
+        }
+
+        return NextResponse.json({ task: updated, allDone: true });
+      }
+
+      const updated = await prisma.task.update({
+        where: { id },
+        data: {
+          checkIns: stringifyCheckIns(state),
+          status: "ACTIVE",
+          completedAt: null,
+          dueAt,
+          scheduledFor: dueAt,
+        },
+        include: { area: true, person: true },
+      });
+      return NextResponse.json({ task: updated, allDone: false });
+    }
+
     if (action === "complete") {
+      // Multi-slot: complete only marks all remaining slots if forced, else first incomplete
+      const multi = parseCheckIns(task.checkIns);
+      if (multi?.slots?.length && multi.slots.some((s) => !s.done)) {
+        const incomplete = multi.slots.findIndex((s) => !s.done);
+        body.action = "checkIn";
+        body.slotIndex = incomplete;
+        // re-enter as checkIn by recursive logic inline:
+        multi.slots[incomplete] = {
+          ...multi.slots[incomplete],
+          done: true,
+          completedAt: new Date().toISOString(),
+        };
+        const progress = checkInsProgress(multi);
+        if (!progress.allDone) {
+          const nextSlot = multi.slots.find((s) => !s.done)!;
+          const dueAt = slotDateTime(multi.day, nextSlot.time);
+          const updated = await prisma.task.update({
+            where: { id },
+            data: {
+              checkIns: stringifyCheckIns(multi),
+              dueAt,
+              scheduledFor: dueAt,
+            },
+            include: { area: true, person: true },
+          });
+          return NextResponse.json({ task: updated, allDone: false });
+        }
+        // all done — fall through to full complete with updated checkIns
+        await prisma.task.update({
+          where: { id },
+          data: { checkIns: stringifyCheckIns(multi) },
+        });
+      }
+
       const updated = await prisma.task.update({
         where: { id },
         data: { status: "DONE", completedAt: new Date() },

@@ -44,6 +44,7 @@ export default async function TodayPage() {
   const toRow = (t: (typeof tasks)[number]) => ({
     ...t,
     dueAt: t.dueAt?.toISOString() ?? null,
+    checkIns: t.checkIns,
   });
 
   return (

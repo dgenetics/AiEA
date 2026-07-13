@@ -175,10 +175,14 @@ model Task {
   snoozedUntil  DateTime?
   estimateMinutes Int?
 
-  /// JSON: { frequency: "daily"|"weekly"|"monthly"|"custom", interval: number, byWeekday?: number[], time?: "HH:mm" }
+  /// JSON: { frequency, interval, byWeekday?, time?, times?: string[] }
+  /// times = multiple daily slots e.g. ["10:00","14:00","18:00"] → one task, multiple checkboxes
   recurrenceRule String?
 
   nextOccurrenceAt DateTime?
+
+  /// JSON for multi-slot days: { day, slots: [{ time, done, completedAt? }] }
+  checkIns String?
 
   isFollowUp    Boolean   @default(false)
   followUpDueAt DateTime?

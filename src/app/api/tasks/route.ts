@@ -83,6 +83,49 @@ export async function GET(req: Request) {
     return NextResponse.json({ tasks });
   }
 
+  if (view === "archive") {
+    const pageSize = Math.min(
+      Math.max(Number(searchParams.get("limit") || 40), 1),
+      100,
+    );
+    const offset = Math.max(Number(searchParams.get("offset") || 0), 0);
+    const kindFilter = searchParams.get("kind"); // one_time | occurrence | all
+
+    const where = {
+      workspaceId,
+      status: "DONE" as const,
+      kind:
+        kindFilter === "one_time"
+          ? { equals: "ONE_TIME" as const }
+          : kindFilter === "occurrence"
+            ? { equals: "OCCURRENCE" as const }
+            : { not: "RECURRING_TEMPLATE" as const },
+    };
+
+    const [total, tasks] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.findMany({
+        where,
+        include: baseInclude,
+        orderBy: [{ completedAt: "desc" }, { id: "desc" }],
+        take: pageSize,
+        skip: offset,
+      }),
+    ]);
+
+    const nextOffset = offset + tasks.length;
+    const hasMore = nextOffset < total;
+
+    return NextResponse.json({
+      tasks,
+      total,
+      hasMore,
+      offset,
+      nextOffset: hasMore ? nextOffset : null,
+      pageSize,
+    });
+  }
+
   const tasks = await prisma.task.findMany({
     where: { workspaceId, status: { not: "CANCELLED" } },
     include: baseInclude,

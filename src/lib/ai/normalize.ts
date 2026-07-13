@@ -1,8 +1,9 @@
 import { nanoid } from "nanoid";
 import type { ProposedItem, RecurrenceRule } from "@/lib/types";
 import type { AiProposedItem } from "@/lib/ai/schemas";
+import { enrichRuleWithTimes } from "@/lib/recurrence";
 
-const AREA = new Set(["work", "home", "life"]);
+const AREA = new Set(["work", "life"]);
 
 function clampPriority(n: number | undefined): 1 | 2 | 3 | 4 | 5 {
   if (!n || n < 1) return 3;
@@ -29,17 +30,22 @@ function parseDate(value: string | null | undefined): string | null {
 function normalizeRecurrence(
   rule: AiProposedItem["recurrenceRule"],
   kind: string,
+  title: string,
+  notes?: string | null,
 ): RecurrenceRule | null {
   if (kind !== "RECURRING_TEMPLATE") return null;
-  if (!rule) {
-    return { frequency: "weekly", interval: 1, time: "09:00" };
-  }
-  return {
-    frequency: rule.frequency,
-    interval: rule.interval || 1,
-    byWeekday: rule.byWeekday?.length ? rule.byWeekday : undefined,
-    time: rule.time || "09:00",
-  };
+  let base: RecurrenceRule = rule
+    ? {
+        frequency: rule.frequency,
+        interval: rule.interval || 1,
+        byWeekday: rule.byWeekday?.length ? rule.byWeekday : undefined,
+        time: rule.time || "09:00",
+        times: rule.times?.length ? rule.times : undefined,
+      }
+    : { frequency: "weekly", interval: 1, time: "09:00" };
+
+  base = enrichRuleWithTimes(base, notes, title);
+  return base;
 }
 
 /** Map validated AI items → app ProposedItem with ids and safe defaults. */
@@ -51,7 +57,9 @@ export function normalizeProposals(raw: AiProposedItem[]): ProposedItem[] {
     if (!title) continue;
 
     const kind = p.kind === "RECURRING_TEMPLATE" ? "RECURRING_TEMPLATE" : "ONE_TIME";
-    const areaSlug = AREA.has(p.areaSlug) ? p.areaSlug : "life";
+    // Legacy "home" (or anything else) maps to life
+    const rawArea = String(p.areaSlug || "life");
+    const areaSlug = rawArea === "work" ? "work" : "life";
     const priority = clampPriority(p.priority);
     const isFollowUp = Boolean(p.isFollowUp);
     const dueAt = parseDate(p.dueAt);
@@ -72,7 +80,12 @@ export function normalizeProposals(raw: AiProposedItem[]): ProposedItem[] {
       dueAt: kind === "RECURRING_TEMPLATE" ? null : dueAt,
       scheduledFor: kind === "RECURRING_TEMPLATE" ? null : scheduledFor,
       estimateMinutes: p.estimateMinutes ?? (kind === "RECURRING_TEMPLATE" ? 15 : 30),
-      recurrenceRule: normalizeRecurrence(p.recurrenceRule, kind),
+      recurrenceRule: normalizeRecurrence(
+        p.recurrenceRule,
+        kind,
+        title,
+        p.notes,
+      ),
       isFollowUp,
       personName,
       followUpDueAt,
