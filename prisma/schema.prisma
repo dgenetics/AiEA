@@ -1,0 +1,248 @@
+// AiEA — AI Executive Assistant
+// Multi-tenant ready: every domain entity is scoped to a Workspace.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships WorkspaceMember[]
+  sessions    Session[]
+  captures    CaptureBatch[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Last time Daily Brief called Grok (polish). Skips AI until a new capture is accepted.
+  lastAiBriefAt      DateTime?
+  /// Cached polished summary from last successful Grok brief
+  lastAiBriefSummary String?
+  /// JSON string array of tips from last successful Grok brief
+  lastAiBriefTips    String?
+  lastAiBriefModel   String?
+
+  members     WorkspaceMember[]
+  areas       Area[]
+  projects    Project[]
+  people      Person[]
+  tasks       Task[]
+  captures    CaptureBatch[]
+  reminders   Reminder[]
+  corrections AiCorrection[]
+}
+
+/// User corrections used as few-shot "training" for future AI capture proposals.
+model AiCorrection {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// What was wrong, e.g. area | priority | kind
+  field       String
+  taskTitle   String
+  beforeValue String?
+  afterValue  String
+  /// Optional free-text hint from the user
+  note        String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, field])
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("OWNER") // OWNER | ADMIN | MEMBER
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Area {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String
+  color       String   @default("#6366f1")
+  icon        String   @default("circle")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects  Project[]
+  tasks     Task[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  workspaceId String
+  areaId      String?
+  name        String
+  status      String   @default("ACTIVE") // ACTIVE | DONE | ARCHIVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  area      Area?     @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  tasks     Task[]
+
+  @@index([workspaceId])
+}
+
+model Person {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  name          String
+  email         String?
+  company       String?
+  notes         String?
+  lastContactAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+  reminders Reminder[]
+
+  @@index([workspaceId])
+}
+
+/// Tasks cover one-time work, recurring templates, generated occurrences, and people follow-ups.
+model Task {
+  id          String  @id @default(cuid())
+  workspaceId String
+  areaId      String?
+  projectId   String?
+  personId    String?
+  parentId    String? // recurrence parent or subtask parent
+
+  title String
+  notes String?
+
+  /// ONE_TIME | RECURRING_TEMPLATE | OCCURRENCE
+  kind String @default("ONE_TIME")
+
+  /// INBOX | PROPOSED | ACTIVE | DONE | CANCELLED | SNOOZED
+  status String @default("ACTIVE")
+
+  /// 1 (highest) … 5 (lowest). Null = unprioritized.
+  priority Int?
+
+  urgencyScore Float?
+  impactScore  Float?
+
+  dueAt         DateTime?
+  scheduledFor  DateTime?
+  completedAt   DateTime?
+  snoozedUntil  DateTime?
+  estimateMinutes Int?
+
+  /// JSON: { frequency: "daily"|"weekly"|"monthly"|"custom", interval: number, byWeekday?: number[], time?: "HH:mm" }
+  recurrenceRule String?
+
+  nextOccurrenceAt DateTime?
+
+  isFollowUp    Boolean   @default(false)
+  followUpDueAt DateTime?
+
+  aiRationale     String?
+  sourceCaptureId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  area      Area?      @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  person    Person?    @relation(fields: [personId], references: [id], onDelete: SetNull)
+  parent    Task?      @relation("TaskTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Task[]     @relation("TaskTree")
+  reminders Reminder[]
+  capture   CaptureBatch? @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, dueAt])
+  @@index([workspaceId, scheduledFor])
+  @@index([workspaceId, kind])
+  @@index([personId])
+}
+
+model CaptureBatch {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  rawText     String
+  /// PENDING | PROPOSED | PARTIALLY_ACCEPTED | ACCEPTED | DISMISSED
+  status      String   @default("PENDING")
+  /// JSON array of ProposedItem
+  proposals   String   @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@index([workspaceId])
+}
+
+model Reminder {
+  id          String    @id @default(cuid())
+  workspaceId String
+  taskId      String?
+  personId    String?
+  title       String
+  body        String?
+  fireAt      DateTime
+  /// PENDING | SENT | DISMISSED | SNOOZED
+  status      String    @default("PENDING")
+  /// IN_APP | PUSH
+  channel     String    @default("IN_APP")
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  person    Person?   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, fireAt])
+  @@index([fireAt, status])
+}
