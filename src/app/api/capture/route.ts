@@ -15,6 +15,12 @@ const proposeSchema = z.object({
   text: z.string().min(1).max(8000),
 });
 
+const proposalSubtaskSchema = z.object({
+  title: z.string(),
+  dueAt: z.string().nullable().optional(),
+  notes: z.string().optional(),
+});
+
 const proposalEditSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
@@ -24,12 +30,13 @@ const proposalEditSchema = z.object({
   kind: z.enum(["ONE_TIME", "RECURRING_TEMPLATE", "OCCURRENCE"]).optional(),
   isFollowUp: z.boolean().optional(),
   personName: z.string().nullable().optional(),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
   estimateMinutes: z.number().optional().nullable(),
   aiRationale: z.string().optional(),
   recurrenceRule: z.any().optional().nullable(),
   scheduledFor: z.string().nullable().optional(),
   followUpDueAt: z.string().nullable().optional(),
+  subtasks: z.array(proposalSubtaskSchema).optional(),
   accepted: z.boolean().optional(),
   dismissed: z.boolean().optional(),
 });
@@ -92,29 +99,57 @@ export async function POST(req: Request) {
     const original = JSON.parse(capture.proposals) as ProposedItem[];
     const byId = new Map(original.map((p) => [p.id, p]));
 
-    // Merge user edits onto stored proposals
+    // Merge user edits onto stored proposals (full pre-accept edit surface)
     let proposals: ProposedItem[] = original;
     if (body.items?.length) {
       const editedById = new Map(body.items.map((i) => [i.id, i]));
       proposals = original.map((p) => {
         const e = editedById.get(p.id);
         if (!e) return p;
+        const kind = (e.kind as ProposedItem["kind"]) ?? p.kind;
         return {
           ...p,
-          title: e.title ?? p.title,
+          title: e.title?.trim() || p.title,
           areaSlug: e.areaSlug ?? p.areaSlug,
           priority: (e.priority as ProposedItem["priority"]) ?? p.priority,
           dueAt: e.dueAt !== undefined ? e.dueAt : p.dueAt,
-          kind: (e.kind as ProposedItem["kind"]) ?? p.kind,
+          scheduledFor:
+            e.scheduledFor !== undefined
+              ? e.scheduledFor
+              : e.dueAt !== undefined
+                ? e.dueAt
+                : p.scheduledFor,
+          kind,
           isFollowUp: e.isFollowUp ?? p.isFollowUp,
           personName: e.personName !== undefined ? e.personName : p.personName,
-          notes: e.notes ?? p.notes,
+          notes:
+            e.notes !== undefined
+              ? e.notes?.trim() || undefined
+              : p.notes,
           estimateMinutes:
             e.estimateMinutes !== undefined ? e.estimateMinutes : p.estimateMinutes,
+          followUpDueAt:
+            e.followUpDueAt !== undefined ? e.followUpDueAt : p.followUpDueAt,
+          recurrenceRule:
+            e.recurrenceRule !== undefined
+              ? e.recurrenceRule
+              : kind === "RECURRING_TEMPLATE"
+                ? p.recurrenceRule
+                : null,
+          subtasks:
+            e.subtasks !== undefined
+              ? e.subtasks
+                  .map((s) => ({
+                    title: s.title.trim(),
+                    dueAt: s.dueAt ?? null,
+                    notes: s.notes,
+                  }))
+                  .filter((s) => s.title.length > 0)
+              : p.subtasks,
         };
       });
 
-      // Train AI: log area/priority changes vs original proposal
+      // Train AI: log field changes vs original proposal
       const corrections: Array<{
         field: string;
         taskTitle: string;
@@ -147,6 +182,14 @@ export async function POST(req: Request) {
             taskTitle: p.title,
             beforeValue: String(Boolean(o.isFollowUp)),
             afterValue: String(Boolean(p.isFollowUp)),
+          });
+        }
+        if (p.kind !== o.kind) {
+          corrections.push({
+            field: "kind",
+            taskTitle: p.title,
+            beforeValue: o.kind,
+            afterValue: p.kind,
           });
         }
       }

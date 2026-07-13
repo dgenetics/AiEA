@@ -1,5 +1,10 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  calendarDayDiff,
+  formatCalendarDate,
+  toLocalCalendarDay,
+} from "@/lib/calendar";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -7,21 +12,18 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatRelativeDue(date: Date | string | null | undefined): string {
   if (!date) return "No date";
-  const d = typeof date === "string" ? new Date(date) : date;
+  const d = toLocalCalendarDay(date);
   if (Number.isNaN(d.getTime())) return "No date";
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfTarget = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const dayDiff = Math.round(
-    (startOfTarget.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const dayDiff = calendarDayDiff(d);
 
   if (dayDiff < 0) return dayDiff === -1 ? "Yesterday" : `${Math.abs(dayDiff)}d overdue`;
   if (dayDiff === 0) return "Today";
   if (dayDiff === 1) return "Tomorrow";
-  if (dayDiff < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (dayDiff < 7) {
+    return d.toLocaleDateString(undefined, { weekday: "short" });
+  }
+  return formatCalendarDate(d, { month: "short", day: "numeric" });
 }
 
 export function priorityLabel(priority: number | null | undefined): string {

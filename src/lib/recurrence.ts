@@ -67,40 +67,152 @@ export function evenDayTimes(count: number): string[] {
   return times;
 }
 
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function minutesToHhmm(total: number): string {
+  const t = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const h = Math.floor(t / 60);
+  const m = t % 60;
+  return `${pad2(h)}:${pad2(m)}`;
+}
+
+function parseClockToMinutes(
+  h: number,
+  min: number,
+  ap?: string | null,
+): number {
+  let hour = h;
+  if (ap) {
+    const a = ap.toLowerCase();
+    if (a === "pm" && hour < 12) hour += 12;
+    if (a === "am" && hour === 12) hour = 0;
+  }
+  return hour * 60 + min;
+}
+
 /**
- * Infer multi-slot times from notes/title, e.g. "3 times a day, evenly spread out".
- * Returns null if no multi-slot pattern found.
+ * Rough dusk (sunset) hour for mid-latitude Northern Hemisphere by month,
+ * minus one hour — for "before dusk" / "before sundown" habits.
  */
-export function inferTimesFromText(...texts: Array<string | null | undefined>): string[] | null {
+export function approxHourBeforeDusk(date: Date = new Date()): string {
+  // Approximate local sunset hour (decimal) by month index 0–11
+  const duskByMonth = [
+    17.0, 17.5, 18.5, 19.5, 20.25, 20.75, 20.5, 20.0, 19.0, 18.0, 17.0, 16.5,
+  ];
+  const dusk = duskByMonth[date.getMonth()] ?? 19;
+  const targetMin = Math.round((dusk - 1) * 60);
+  return minutesToHhmm(targetMin);
+}
+
+/** Midpoint of a morning/afternoon range like "8-10am" or "8am-10am". */
+function parseTimeRangeMidpoint(blob: string): string | null {
+  // 8-10am / 8:00-10:30am
+  let m = blob.match(
+    /\b(\d{1,2})(?::(\d{2}))?\s*[-–—to]+\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i,
+  );
+  if (m) {
+    const ap = m[5].toLowerCase();
+    const start = parseClockToMinutes(Number(m[1]), m[2] ? Number(m[2]) : 0, ap);
+    const end = parseClockToMinutes(Number(m[3]), m[4] ? Number(m[4]) : 0, ap);
+    return minutesToHhmm(Math.round((start + end) / 2));
+  }
+  // 8am-10am
+  m = blob.match(
+    /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*[-–—to]+\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i,
+  );
+  if (m) {
+    const start = parseClockToMinutes(Number(m[1]), m[2] ? Number(m[2]) : 0, m[3]);
+    const end = parseClockToMinutes(Number(m[4]), m[5] ? Number(m[5]) : 0, m[6]);
+    return minutesToHhmm(Math.round((start + end) / 2));
+  }
+  return null;
+}
+
+/**
+ * Infer multi-slot times from notes/title.
+ * Examples:
+ * - "3 times a day, evenly spread out" → 10:00, 14:00, 18:00
+ * - "morning 8-10am and put to bed before dusk" → ~09:00 and ~1h before dusk
+ */
+export function inferTimesFromText(
+  ...texts: Array<string | null | undefined>
+): string[] | null {
   const blob = texts.filter(Boolean).join(" ").toLowerCase();
   if (!blob) return null;
 
-  // Explicit clock times: 10am, 2pm, 6:30 pm
+  const slots: string[] = [];
+
+  // Morning range e.g. "every morning 8-10am"
+  const morningRange = parseTimeRangeMidpoint(blob);
+  if (morningRange && /morning|am\b|put (them |goats )?out|turnout/i.test(blob)) {
+    slots.push(morningRange);
+  }
+
+  // Explicit clock times: 10am, 2pm, 6:30 pm (skip if already captured as range mid)
   const explicit: string[] = [];
   const re = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(blob)) !== null) {
-    let h = Number(m[1]);
-    const min = m[2] ? Number(m[2]) : 0;
-    const ap = m[3].toLowerCase();
-    if (ap === "pm" && h < 12) h += 12;
-    if (ap === "am" && h === 12) h = 0;
-    explicit.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
-  }
-  if (explicit.length >= 2) {
-    return [...new Set(explicit)].sort();
+    // Skip times that are part of a range already handled (rough: if next to hyphen)
+    const idx = m.index ?? 0;
+    const around = blob.slice(Math.max(0, idx - 2), idx + m[0].length + 2);
+    if (/[-–—]/.test(around) && morningRange) continue;
+    explicit.push(
+      minutesToHhmm(
+        parseClockToMinutes(Number(m[1]), m[2] ? Number(m[2]) : 0, m[3]),
+      ),
+    );
   }
 
-  // "3 times a day" / "3x daily" / "thrice a day"
+  // Evening / dusk / bed language
+  const eveningLanguage =
+    /dusk|sundown|sunset|before dark|put to bed|bedtime|evening|tonight|nightly|every night/i.test(
+      blob,
+    );
+  if (eveningLanguage) {
+    slots.push(approxHourBeforeDusk());
+  }
+
+  // Morning without numeric range
+  if (
+    /every morning|each morning|\b mornings?\b|in the morning/i.test(blob) &&
+    !slots.some((t) => {
+      const h = Number(t.split(":")[0]);
+      return h >= 5 && h < 12;
+    })
+  ) {
+    slots.push("09:00");
+  }
+
+  // Merge explicit times not already near an existing slot
+  for (const t of explicit) {
+    if (!slots.includes(t)) slots.push(t);
+  }
+
+  const unique = [...new Set(slots)].sort();
+  if (unique.length >= 2) return unique;
+
+  // Pure multi-count with no named periods
   const nMatch =
     blob.match(/(\d+)\s*(?:x|times?)\s*(?:a\s*)?day/i) ||
     blob.match(/(\d+)\s*times?\s*daily/i);
-  if (nMatch) {
-    return evenDayTimes(Number(nMatch[1]));
-  }
+  if (nMatch) return evenDayTimes(Number(nMatch[1]));
   if (/\bthrice\b/.test(blob) || /three times/.test(blob)) return evenDayTimes(3);
   if (/\btwice\b/.test(blob) || /two times/.test(blob)) return evenDayTimes(2);
 
+  // Two daily actions joined by "and" (morning + night) even if only one time resolved
+  if (
+    unique.length === 1 &&
+    /morning/.test(blob) &&
+    /(night|dusk|evening|bed)/.test(blob)
+  ) {
+    if (!eveningLanguage) unique.push(approxHourBeforeDusk());
+    return [...new Set(unique)].sort();
+  }
+
+  if (unique.length === 1) return unique;
   return null;
 }
 
@@ -111,11 +223,16 @@ export function enrichRuleWithTimes(
 ): RecurrenceRule {
   const inferred = inferTimesFromText(...texts);
   if (inferred?.length) {
-    return {
-      ...rule,
-      times: inferred,
-      time: inferred[0],
-    };
+    // Upgrade single-slot defaults when notes describe multiple daily actions
+    const existing = rule.times?.length ?? (rule.time ? 1 : 0);
+    if (inferred.length >= 2 || existing < 2) {
+      return {
+        ...rule,
+        frequency: rule.frequency || "daily",
+        times: inferred,
+        time: inferred[0],
+      };
+    }
   }
   if (rule.times?.length) {
     return { ...rule, time: rule.times[0] ?? rule.time };

@@ -27,6 +27,13 @@ export type RecurrenceRule = {
   times?: string[];
 };
 
+/** Child part created under a parent task (own due date). */
+export type ProposedSubtask = {
+  title: string;
+  dueAt?: string | null;
+  notes?: string;
+};
+
 export type ProposedItem = {
   id: string;
   title: string;
@@ -42,6 +49,8 @@ export type ProposedItem = {
   personName?: string | null;
   followUpDueAt?: string | null;
   aiRationale?: string;
+  /** Parts to create as child tasks with their own due dates */
+  subtasks?: ProposedSubtask[];
   accepted?: boolean;
   dismissed?: boolean;
 };

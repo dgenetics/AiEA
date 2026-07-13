@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const proposedSubtaskSchema = z.object({
+  title: z.string().min(1).max(300),
+  dueAt: z.string().nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+});
+
 /** Zod schema for a single capture proposal (validated after AI response). */
 export const proposedItemSchema = z.object({
   title: z.string().min(1).max(300),
@@ -24,6 +30,7 @@ export const proposedItemSchema = z.object({
   personName: z.string().max(120).nullable().optional(),
   followUpDueAt: z.string().nullable().optional(),
   aiRationale: z.string().max(500).optional(),
+  subtasks: z.array(proposedSubtaskSchema).max(20).optional(),
 });
 
 export const captureProposalsSchema = z.object({
@@ -69,15 +76,39 @@ export const CAPTURE_JSON_SCHEMA = {
           "personName",
           "followUpDueAt",
           "aiRationale",
+          "subtasks",
         ],
         properties: {
           title: {
             type: "string",
-            description: "Short, actionable task title (verb-first).",
+            description: "Short, actionable parent task title (verb-first).",
           },
           notes: {
             type: ["string", "null"],
             description: "Optional context; null if none.",
+          },
+          subtasks: {
+            type: "array",
+            description:
+              'Parts under this task. Use when user lists "Subtasks: 1. … 2. …" or numbered parts. Each gets its own due date. Empty array if none.',
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["title", "dueAt", "notes"],
+              properties: {
+                title: {
+                  type: "string",
+                  description: "Part title only (not the whole list).",
+                },
+                dueAt: {
+                  type: ["string", "null"],
+                  description: "ISO due for this part; inherit parent due if shared.",
+                },
+                notes: {
+                  type: ["string", "null"],
+                },
+              },
+            },
           },
           kind: {
             type: "string",

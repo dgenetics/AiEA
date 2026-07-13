@@ -340,8 +340,21 @@ export async function DELETE(
     const task = await prisma.task.findFirst({ where: { id, workspaceId } });
     if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Cascade: delete subtasks / occurrences under this task, then the task itself
+    // (parent relation is SetNull, so children would otherwise be orphaned)
+    const children = await prisma.task.findMany({
+      where: { parentId: id, workspaceId },
+      select: { id: true },
+    });
+    const childIds = children.map((c) => c.id);
+    if (childIds.length) {
+      await prisma.reminder.deleteMany({ where: { taskId: { in: childIds } } });
+      await prisma.task.deleteMany({ where: { id: { in: childIds } } });
+    }
+    await prisma.reminder.deleteMany({ where: { taskId: id } });
     await prisma.task.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
+
+    return NextResponse.json({ ok: true, deletedChildren: childIds.length });
   } catch (err) {
     console.error("DELETE /api/tasks/[id] failed:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

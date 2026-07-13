@@ -31,7 +31,8 @@ export async function GET(req: Request) {
           { dueAt: { lte: end } },
           { scheduledFor: { gte: start, lte: end } },
           { followUpDueAt: { lte: end } },
-          { priority: { lte: 2 }, status: "ACTIVE" },
+          // P1/P2 only if undated — future-dated stay on Upcoming
+          { priority: { lte: 2 }, status: "ACTIVE", dueAt: null },
         ],
       },
       include: baseInclude,
@@ -81,6 +82,29 @@ export async function GET(req: Request) {
       orderBy: { nextOccurrenceAt: "asc" },
     });
     return NextResponse.json({ tasks });
+  }
+
+  if (view === "children") {
+    const parentId = searchParams.get("parentId");
+    if (!parentId) {
+      return NextResponse.json({ error: "parentId required" }, { status: 400 });
+    }
+    const parent = await prisma.task.findFirst({
+      where: { id: parentId, workspaceId },
+    });
+    if (!parent) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        workspaceId,
+        parentId,
+        kind: "ONE_TIME",
+        status: { not: "CANCELLED" },
+      },
+      include: baseInclude,
+      orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "asc" }],
+    });
+    return NextResponse.json({ tasks, parent });
   }
 
   if (view === "archive") {
@@ -141,6 +165,8 @@ const createSchema = z.object({
   priority: z.number().int().min(1).max(5).optional().nullable(),
   dueAt: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  /** Parent task id — creates a subtask with its own due date */
+  parentId: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -150,18 +176,46 @@ export async function POST(req: Request) {
   if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
 
   const body = createSchema.parse(await req.json());
+
+  let parent: {
+    id: string;
+    areaId: string | null;
+    priority: number | null;
+    personId: string | null;
+  } | null = null;
+
+  if (body.parentId) {
+    parent = await prisma.task.findFirst({
+      where: {
+        id: body.parentId,
+        workspaceId,
+        kind: { not: "RECURRING_TEMPLATE" },
+      },
+      select: { id: true, areaId: true, priority: true, personId: true },
+    });
+    if (!parent) {
+      return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
+    }
+  }
+
   const task = await prisma.task.create({
     data: {
       workspaceId,
+      parentId: parent?.id ?? null,
       title: body.title,
-      areaId: body.areaId || null,
-      priority: body.priority ?? 3,
+      areaId: body.areaId ?? parent?.areaId ?? null,
+      priority: body.priority ?? parent?.priority ?? 3,
+      personId: parent?.personId ?? null,
       dueAt: body.dueAt ? new Date(body.dueAt) : null,
       notes: body.notes || null,
       kind: "ONE_TIME",
       status: "ACTIVE",
     },
-    include: { area: true, person: true },
+    include: {
+      area: true,
+      person: true,
+      parent: { select: { id: true, title: true } },
+    },
   });
   return NextResponse.json({ task });
 }

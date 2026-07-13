@@ -136,13 +136,13 @@ export function TaskList({
             task={task}
             onComplete={complete}
             onSnooze={mode === "archive" ? undefined : snooze}
-            onEdit={mode === "archive" ? undefined : setEditing}
+            onEdit={setEditing}
             onCheckIn={mode === "archive" ? undefined : checkIn}
           />
         ))}
       </div>
 
-      {editing && mode !== "archive" && (
+      {editing && (
         <TaskEditModal
           task={editing}
           areas={areas}
@@ -150,8 +150,16 @@ export function TaskList({
           onClose={() => setEditing(null)}
           onSaved={(updated) => {
             setTasks((prev) =>
-              prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+              prev.map((t) =>
+                t.id === updated.id ? { ...t, ...updated } : t,
+              ),
             );
+            // Always refresh so nested subtasks re-load from the server
+            router.refresh();
+          }}
+          onDeleted={(id) => {
+            setTasks((prev) => prev.filter((t) => t.id !== id));
+            setEditing(null);
             router.refresh();
           }}
         />

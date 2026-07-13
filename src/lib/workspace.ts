@@ -7,6 +7,7 @@ import {
   getRuleTimes,
   isMultiSlot,
   nextOccurrence,
+  parseCheckIns,
   parseRecurrenceRule,
   slotDateTime,
   stringifyCheckIns,
@@ -254,6 +255,32 @@ export async function acceptProposals(
         });
       }
 
+      // Parts hang under the first occurrence (same pattern as one-time parents)
+      if (item.subtasks?.length) {
+        for (const part of item.subtasks) {
+          const partDue = part.dueAt ? new Date(part.dueAt) : dueAt;
+          const child = await prisma.task.create({
+            data: {
+              workspaceId,
+              parentId: occurrence.id,
+              areaId,
+              personId,
+              title: part.title,
+              notes: part.notes || null,
+              kind: "ONE_TIME",
+              status: "ACTIVE",
+              priority: item.priority ?? 3,
+              dueAt: partDue,
+              scheduledFor: partDue,
+              estimateMinutes: 15,
+              sourceCaptureId: captureId,
+              aiRationale: "Part of recurring occurrence",
+            },
+          });
+          createdTaskIds.push(child.id);
+        }
+      }
+
       createdTaskIds.push(template.id, occurrence.id);
     } else {
       const task = await prisma.task.create({
@@ -276,9 +303,36 @@ export async function acceptProposals(
         },
       });
 
+      // Create parts as child tasks with their own due dates
+      if (item.subtasks?.length) {
+        for (const part of item.subtasks) {
+          const partDue = part.dueAt
+            ? new Date(part.dueAt)
+            : dueAt;
+          const child = await prisma.task.create({
+            data: {
+              workspaceId,
+              parentId: task.id,
+              areaId,
+              personId,
+              title: part.title,
+              notes: part.notes || null,
+              kind: "ONE_TIME",
+              status: "ACTIVE",
+              priority: item.priority ?? 3,
+              dueAt: partDue,
+              scheduledFor: partDue,
+              estimateMinutes: 30,
+              sourceCaptureId: captureId,
+              aiRationale: "Subtask from capture",
+            },
+          });
+          createdTaskIds.push(child.id);
+        }
+      }
+
       if (task.dueAt || task.followUpDueAt) {
         const fireAt = task.followUpDueAt || task.dueAt!;
-        // Morning-of or 2h before if same day; otherwise day-of 9am-ish handled by fireAt itself
         await prisma.reminder.create({
           data: {
             workspaceId,
@@ -484,7 +538,10 @@ async function safeSetCheckIns(
   }
 }
 
-/** If a multi-slot template has no ACTIVE occurrence for today, create one. */
+/**
+ * Ensure every ACTIVE daily template has an ACTIVE occurrence for *today*
+ * (multi-slot or single). Fixes cases where nextOccurrenceAt was advanced past today.
+ */
 async function ensureTodayMultiSlotOccurrences(workspaceId?: string) {
   const today = new Date();
   const { start, end } = dayBounds(today);
@@ -501,31 +558,63 @@ async function ensureTodayMultiSlotOccurrences(workspaceId?: string) {
     let rule = parseRecurrenceRule(template.recurrenceRule);
     if (!rule) continue;
     rule = enrichRuleWithTimes(rule, template.notes, template.title);
-    if (!isMultiSlot(rule)) continue;
+
+    // Only auto-fill "today" for daily habits (weekly ones wait for their weekday)
+    if (rule.frequency !== "daily") continue;
 
     const existing = await prisma.task.findFirst({
       where: {
         parentId: template.id,
         kind: "OCCURRENCE",
-        status: "ACTIVE",
+        status: { in: ["ACTIVE", "SNOOZED"] },
         OR: [
           { dueAt: { gte: start, lte: end } },
           { scheduledFor: { gte: start, lte: end } },
         ],
       },
     });
+
+    const times = getRuleTimes(rule);
+    const multi = isMultiSlot(rule);
+
     if (existing) {
-      if (!existing.checkIns) {
-        await safeSetCheckIns(
-          existing.id,
-          stringifyCheckIns(buildCheckInsForDay(today, getRuleTimes(rule))),
-          stringifyRecurrenceRule(rule),
-        );
+      if (multi) {
+        const current = parseCheckIns(existing.checkIns);
+        const needsUpgrade =
+          !current || current.slots.length !== times.length;
+        if (needsUpgrade) {
+          // Preserve already-done slots by matching time when possible
+          const fresh = buildCheckInsForDay(today, times);
+          if (current?.slots?.length) {
+            for (const slot of fresh.slots) {
+              const prev = current.slots.find((s) => s.time === slot.time);
+              if (prev?.done) {
+                slot.done = true;
+                slot.completedAt = prev.completedAt;
+              }
+            }
+          }
+          await safeSetCheckIns(
+            existing.id,
+            stringifyCheckIns(fresh),
+            stringifyRecurrenceRule(rule),
+          );
+        }
       }
       continue;
     }
 
-    const times = getRuleTimes(rule);
+    // Don't recreate if already completed today
+    const doneToday = await prisma.task.findFirst({
+      where: {
+        parentId: template.id,
+        kind: "OCCURRENCE",
+        status: "DONE",
+        completedAt: { gte: start, lte: end },
+      },
+    });
+    if (doneToday) continue;
+
     const dueAt = slotDateTime(today, times[0]!);
     try {
       await prisma.task.create({
@@ -543,13 +632,17 @@ async function ensureTodayMultiSlotOccurrences(workspaceId?: string) {
           dueAt,
           scheduledFor: dueAt,
           estimateMinutes: template.estimateMinutes,
-          checkIns: stringifyCheckIns(buildCheckInsForDay(today, times)),
+          checkIns: multi
+            ? stringifyCheckIns(buildCheckInsForDay(today, times))
+            : null,
           recurrenceRule: stringifyRecurrenceRule(rule),
-          aiRationale: `Multi-slot day: ${times.join(", ")}`,
+          aiRationale: multi
+            ? `Multi-slot day: ${times.join(", ")}`
+            : "Today's occurrence",
         },
       });
     } catch (err) {
-      console.error("ensureToday multi-slot create failed:", err);
+      console.error("ensureToday occurrence create failed:", err);
     }
   }
 }

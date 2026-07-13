@@ -1,17 +1,57 @@
-import { addDays, formatISO, startOfDay } from "date-fns";
 import { nanoid } from "nanoid";
 import type { ProposedItem, RecurrenceRule } from "@/lib/types";
 import { enrichRuleWithTimes } from "@/lib/recurrence";
+import { parseSubtaskLines } from "@/lib/subtasks-parse";
+import { localNoonPlusDays, localNoonToday, toStoredDueDate } from "@/lib/calendar";
 
 /** Heuristic fallback when no API key or AI fails — keeps the product usable. */
-export function heuristicPropose(rawText: string): ProposedItem[] {
+export function heuristicPropose(
+  rawText: string,
+  _fullCapture?: string,
+): ProposedItem[] {
+  const full = rawText.trim();
+  const dueDays = (n: number) => toStoredDueDate(localNoonPlusDays(n));
+
+  // Prefer treating "Subtasks: 1. … 2. …" as one parent + parts
+  if (/subtasks?|parts?|steps?\s*:/i.test(full)) {
+    const parts = parseSubtaskLines(full);
+    if (parts.length >= 2) {
+      const dueAt =
+        parts[0]?.dueAt ||
+        (/\btoday\b/i.test(full)
+          ? dueDays(0)
+          : /\btomorrow\b/i.test(full)
+            ? dueDays(1)
+            : dueDays(3));
+      return [
+        {
+          id: nanoid(10),
+          title: "Work on listed subtasks",
+          notes: full.slice(0, 500),
+          kind: "ONE_TIME",
+          areaSlug: /work|client|event|business/i.test(full) ? "work" : "life",
+          priority: /\btoday\b|urgent/i.test(full) ? 1 : 2,
+          dueAt,
+          scheduledFor: dueAt,
+          estimateMinutes: 45,
+          subtasks: parts.map((p) => ({
+            title: p.title,
+            dueAt: p.dueAt ?? dueAt,
+          })),
+          aiRationale: `Parsed ${parts.length} subtasks from capture list`,
+          accepted: false,
+          dismissed: false,
+        },
+      ];
+    }
+  }
+
   const lines = rawText
     .split(/\n|;|(?<=[.!?])\s+/)
     .map((l) => l.replace(/^[-*•\d.)\s]+/, "").trim())
     .filter((l) => l.length > 3);
 
   const items: ProposedItem[] = [];
-  const today = startOfDay(new Date());
 
   for (const line of lines.slice(0, 20)) {
     const lower = line.toLowerCase();
@@ -58,16 +98,17 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
     else if (/someday|maybe|nice to have|low priority/i.test(lower)) priority = 5;
 
     let dueAt: string | null = null;
-    if (/today/i.test(lower)) dueAt = formatISO(today);
-    else if (/tomorrow/i.test(lower)) dueAt = formatISO(addDays(today, 1));
-    else if (/this week/i.test(lower)) dueAt = formatISO(addDays(today, 3));
+    if (/today/i.test(lower)) dueAt = dueDays(0);
+    else if (/tomorrow/i.test(lower)) dueAt = dueDays(1);
+    else if (/this week/i.test(lower)) dueAt = dueDays(3);
     else if (/end of (the )?month|eom/i.test(lower)) {
-      const eom = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      dueAt = formatISO(eom);
+      const n = localNoonToday();
+      const eom = new Date(n.getFullYear(), n.getMonth() + 1, 0, 12, 0, 0, 0);
+      dueAt = toStoredDueDate(eom);
     } else if (isFollowUp) {
-      dueAt = formatISO(addDays(today, 2));
+      dueAt = dueDays(2);
     } else if (!isRecurring) {
-      dueAt = formatISO(addDays(today, priority <= 2 ? 2 : 7));
+      dueAt = dueDays(priority <= 2 ? 2 : 7);
     }
 
     let recurrenceRule: RecurrenceRule | null = null;
@@ -97,7 +138,6 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
           time: "09:00",
         };
       }
-      // Multi-slot from "3 times a day" / explicit times
       recurrenceRule = enrichRuleWithTimes(recurrenceRule, line);
     }
 
@@ -132,7 +172,7 @@ export function heuristicPropose(rawText: string): ProposedItem[] {
       kind: "ONE_TIME",
       areaSlug: "life",
       priority: 3,
-      dueAt: formatISO(addDays(today, 3)),
+      dueAt: dueDays(3),
       estimateMinutes: 30,
       aiRationale: "Single capture item; default life / medium priority with a 3-day target.",
       accepted: false,

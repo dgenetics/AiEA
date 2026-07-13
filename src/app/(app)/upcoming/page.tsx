@@ -1,6 +1,7 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TaskList } from "@/components/task-list";
+import { toTaskRow } from "@/lib/tasks-display";
 
 export default async function UpcomingPage() {
   const user = await getCurrentUser();
@@ -8,13 +9,30 @@ export default async function UpcomingPage() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
+  // Show one-time top-level tasks + recurring occurrences.
+  // OCCURRENCEs always have parentId → template, so we must not require parentId: null.
+  // Subtasks (ONE_TIME with a parent) nest under their parent cards.
   const tasks = await prisma.task.findMany({
     where: {
       workspaceId,
-      kind: { not: "RECURRING_TEMPLATE" },
       status: { in: ["ACTIVE", "INBOX"] },
+      OR: [
+        { kind: "ONE_TIME", parentId: null },
+        { kind: "OCCURRENCE" },
+      ],
     },
-    include: { area: true, person: true },
+    include: {
+      area: true,
+      person: true,
+      children: {
+        where: {
+          kind: "ONE_TIME",
+          status: { not: "CANCELLED" },
+        },
+        include: { area: true, person: true },
+        orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+      },
+    },
     orderBy: [{ dueAt: "asc" }, { priority: "asc" }],
     take: 100,
   });
@@ -27,14 +45,12 @@ export default async function UpcomingPage() {
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-white">Timeline</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Everything active, ordered by deadline and priority.
+          Active work ordered by deadline. Open a task to break it into parts with their own
+          due dates.
         </p>
       </div>
       <TaskList
-        initialTasks={tasks.map((t) => ({
-          ...t,
-          dueAt: t.dueAt?.toISOString() ?? null,
-        }))}
+        initialTasks={tasks.map((t) => toTaskRow(t))}
         emptyMessage="No upcoming tasks. Your future self is free."
       />
     </div>

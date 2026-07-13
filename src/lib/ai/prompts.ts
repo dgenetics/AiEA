@@ -78,9 +78,13 @@ When recurring, set recurrenceRule:
   - "3 times a day, evenly spread" → times: ["10:00","14:00","18:00"], frequency: daily
   - "twice a day" → times: ["10:00","18:00"]
   - Explicit "at 9am, noon, and 9pm" → those times
+  - Morning + night routines in ONE task → two slots, e.g.
+    "Put goats out every morning 8-10am and put to bed every night before dusk"
+    → frequency: daily, times: ["09:00","19:00"] (mid-morning range + ~1h before dusk)
+  - "before dusk/sundown" ≈ local evening ~1 hour before typical sunset that month
   - Single daily habit → times: [] and time: "09:00" (or preferred hour)
-  - Put multi-slot description in notes too (e.g. "3× daily · 10am / 2pm / 6pm")
-  - Do NOT create three separate tasks for three times a day — use times[]
+  - Put multi-slot description in notes too
+  - Do NOT create separate tasks for each daily check-in — use times[] on one recurring template
 
 ## People / follow-ups
 If the user must respond, ping, check in, get back to, call, or follow up with a person:
@@ -89,11 +93,26 @@ If the user must respond, ping, check in, get back to, call, or follow up with a
 - followUpDueAt = suggested response deadline
 Do NOT invent people who are not mentioned or strongly implied.
 
+## Subtasks / parts (critical)
+When the user lists **Subtasks**, **Parts**, **Steps**, or a numbered list under one project:
+- Emit **ONE parent** task (summary title) with **subtasks: [{ title, dueAt, notes }, …]**
+- Do **NOT** flatten those into separate top-level items
+- Example input:
+  "Subtasks: 1. Colby chef dinner event 2. Eric Lewis yoga of plants event. Due today."
+  → parent title e.g. "Plan events" (or best summary from context),
+    subtasks: [
+      { title: "Colby chef dinner event", dueAt: today },
+      { title: "Eric Lewis yoga of plants event", dueAt: today }
+    ]
+- Shared "Due today/tomorrow" applies to **each** subtask dueAt (and parent if useful)
+- subtasks must be [] when there are no parts
+
 ## Titles
 - Verb-first, concrete, scannable ("Call plumber about kitchen leak")
 - Strip fluff and trailing punctuation
 - Keep under ~80 characters when possible
 - Put extra context in notes, not the title
+- Parent title should summarize the whole; each subtask title is one concrete part
 
 ## Estimates
 Honest minutes: quick ping 10–15, call 20–30, deep work 45–120. Prefer 15/30/45/60.
@@ -150,13 +169,12 @@ export function buildBriefUserPrompt(payload: unknown): string {
   return `Board snapshot (authoritative; do not invent items):\n${JSON.stringify(payload, null, 2)}`;
 }
 
-/** Local clock context for prompts (server timezone unless overridden). */
+/** Clock context for prompts — defaults to America/New_York. */
 export function getPromptClock(timezone?: string): CaptureContext {
   const tz =
     timezone ||
     process.env.AIEA_TIMEZONE?.trim() ||
-    Intl.DateTimeFormat().resolvedOptions().timeZone ||
-    "UTC";
+    "America/New_York";
 
   const now = new Date();
   const todayISO = formatInTimeZone(now, tz, "date");

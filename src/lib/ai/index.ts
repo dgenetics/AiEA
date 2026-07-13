@@ -1,5 +1,6 @@
-import { addDays, formatISO } from "date-fns";
+import { addDays } from "date-fns";
 import type { DailyBrief, ProposedItem } from "@/lib/types";
+import { formatCalendarDate } from "@/lib/calendar";
 import {
   getAiConfig,
   getXaiClient,
@@ -111,7 +112,7 @@ export async function proposeFromCapture(
   const config = getAiConfig();
   if (!config.configured) {
     return {
-      items: heuristicPropose(rawText),
+      items: heuristicPropose(rawText, rawText),
       source: "heuristic",
       fallbackReason: "XAI_API_KEY is not set in .env",
     };
@@ -145,18 +146,18 @@ export async function proposeFromCapture(
       );
       // One retry without structured output is overkill; fall back to heuristics
       return {
-        items: heuristicPropose(rawText),
+        items: heuristicPropose(rawText, rawText),
         source: "heuristic",
         model,
         fallbackReason: "AI response failed schema validation",
       };
     }
 
-    const items = normalizeProposals(validated.data.items);
+    const items = normalizeProposals(validated.data.items, rawText);
     if (items.length === 0 && rawText.trim()) {
       // Model returned empty — rare; use heuristic so user still gets something
       return {
-        items: heuristicPropose(rawText),
+        items: heuristicPropose(rawText, rawText),
         source: "heuristic",
         model,
         fallbackReason: "AI returned no items; used local parser",
@@ -168,7 +169,7 @@ export async function proposeFromCapture(
     const info = isAiError(err);
     console.error("SpaceXAI capture failed:", info.message);
     return {
-      items: heuristicPropose(rawText),
+      items: heuristicPropose(rawText, rawText),
       source: "heuristic",
       fallbackReason: `AI error: ${info.message}`,
     };
@@ -239,13 +240,13 @@ export async function generateDailyBrief(input: {
       id: t.id,
       title: t.title,
       personName: t.personName || "Someone",
-      dueLabel: t.dueAt ? formatISO(t.dueAt, { representation: "date" }) : "Soon",
+      dueLabel: t.dueAt ? formatCalendarDate(t.dueAt) : "Soon",
     })),
     recurringDue: recurring.slice(0, 5).map((t) => ({ id: t.id, title: t.title })),
     overdue: overdue.slice(0, 5).map((t) => ({
       id: t.id,
       title: t.title,
-      dueLabel: t.dueAt ? formatISO(t.dueAt, { representation: "date" }) : "Past due",
+      dueLabel: t.dueAt ? formatCalendarDate(t.dueAt) : "Past due",
     })),
     tips: [
       "Knock out one P1 before checking email deeply.",
