@@ -5,6 +5,7 @@ import { Check, Loader2, Plus, Trash2, X } from "lucide-react";
 import type { TaskRowData } from "@/components/task-row";
 import { cn, formatRelativeDue } from "@/lib/utils";
 import { toDateInputValue, toStoredDueDate } from "@/lib/calendar";
+import { DateField } from "@/components/date-field";
 
 export type AreaOption = { id: string; name: string; slug: string; color: string };
 
@@ -299,12 +300,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
               <span className="mb-1 block text-xs text-zinc-400">
                 Overall due date (optional if you use parts)
               </span>
-              <input
-                type="date"
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-                className={cn(fieldClass, "date-field")}
-              />
+              <DateField value={dueAt} onChange={setDueAt} />
             </label>
 
             <label className="flex min-w-0 items-center gap-2 text-sm text-zinc-300">
@@ -405,13 +401,14 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
                     placeholder="e.g. Outline first draft"
                     className="box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:border-indigo-500/40 focus:outline-none"
                   />
-                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                    <input
-                      type="date"
-                      value={newSubDue}
-                      onChange={(e) => setNewSubDue(e.target.value)}
-                      className="date-field box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-xs text-white focus:border-indigo-500/40 focus:outline-none sm:flex-1"
-                    />
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch">
+                    <div className="min-w-0 w-full sm:min-w-0 sm:flex-1">
+                      <DateField
+                        value={newSubDue}
+                        onChange={setNewSubDue}
+                        muted
+                      />
+                    </div>
                     <button
                       type="submit"
                       disabled={addingSub || !newSubTitle.trim()}

@@ -9,6 +9,7 @@ import {
   toDateInputValue,
   toStoredDueDate,
 } from "@/lib/calendar";
+import { DateField } from "@/components/date-field";
 
 const AREAS = [
   { slug: "work", label: "Work" },
@@ -512,25 +513,25 @@ export function CaptureForm() {
                                 <span className="mb-1 block text-[10px] uppercase tracking-wide text-zinc-500">
                                   Due date
                                 </span>
-                                <div className="flex items-center gap-1.5">
-                                  <input
-                                    type="date"
-                                    value={toDateInputValue(item.dueAt)}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      const dueAt = v
-                                        ? toStoredDueDate(v)
-                                        : null;
-                                      updateItem(item.id, {
-                                        dueAt,
-                                        scheduledFor: dueAt,
-                                        ...(item.isFollowUp
-                                          ? { followUpDueAt: dueAt }
-                                          : {}),
-                                      });
-                                    }}
-                                    className="w-full rounded-md border border-white/10 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-200 focus:border-indigo-500/40 focus:outline-none"
-                                  />
+                                <div className="flex min-w-0 items-center gap-1.5">
+                                  <div className="min-w-0 flex-1">
+                                    <DateField
+                                      muted
+                                      value={toDateInputValue(item.dueAt)}
+                                      onChange={(v) => {
+                                        const dueAt = v
+                                          ? toStoredDueDate(v)
+                                          : null;
+                                        updateItem(item.id, {
+                                          dueAt,
+                                          scheduledFor: dueAt,
+                                          ...(item.isFollowUp
+                                            ? { followUpDueAt: dueAt }
+                                            : {}),
+                                        });
+                                      }}
+                                    />
+                                  </div>
                                   {item.dueAt && (
                                     <button
                                       type="button"
@@ -544,7 +545,7 @@ export function CaptureForm() {
                                             : item.followUpDueAt,
                                         })
                                       }
-                                      className="rounded p-1 text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                                      className="shrink-0 rounded p-1 text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
                                     >
                                       <X className="h-3.5 w-3.5" />
                                     </button>
@@ -727,24 +728,24 @@ export function CaptureForm() {
                                       })
                                     }
                                     placeholder="Part title"
-                                    className="min-w-[8rem] flex-1 rounded border border-white/10 bg-zinc-950 px-1.5 py-1 text-[11px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
+                                    className="min-w-0 flex-1 rounded border border-white/10 bg-zinc-950 px-1.5 py-1 text-[11px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
                                   />
-                                  <input
-                                    type="date"
-                                    value={toDateInputValue(s.dueAt)}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      updateSubtask(item.id, i, {
-                                        dueAt: v ? toStoredDueDate(v) : null,
-                                      });
-                                    }}
-                                    className="rounded border border-white/10 bg-zinc-950 px-1.5 py-1 text-[11px] text-zinc-200"
-                                  />
+                                  <div className="w-full min-w-0 sm:w-[9.5rem] sm:shrink-0">
+                                    <DateField
+                                      muted
+                                      value={toDateInputValue(s.dueAt)}
+                                      onChange={(v) =>
+                                        updateSubtask(item.id, i, {
+                                          dueAt: v ? toStoredDueDate(v) : null,
+                                        })
+                                      }
+                                    />
+                                  </div>
                                   <button
                                     type="button"
                                     title="Remove part"
                                     onClick={() => removeSubtask(item.id, i)}
-                                    className="rounded p-1 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-300"
+                                    className="shrink-0 rounded p-1 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-300"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>

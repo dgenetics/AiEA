@@ -30,13 +30,81 @@ body {
   scrollbar-color: #3f3f46 transparent;
 }
 
-/* Native date controls often force a min-width wider than small phones */
-input[type="date"],
-input[type="time"],
-input[type="datetime-local"],
-.date-field {
+/**
+ * Date fields: WebKit/iOS native controls ignore max-width and paint past padding.
+ * Border/background live on .date-field-shell; the input is clipped inside it.
+ */
+.date-field-shell {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgb(24 24 27); /* zinc-900 */
+}
+
+.date-field-shell--muted {
+  background-color: rgb(9 9 11); /* zinc-950 */
+}
+
+.date-field-shell .date-field-input,
+input.date-field-input[type="date"],
+input.date-field-input[type="time"] {
+  display: block;
+  width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
+  box-sizing: border-box !important;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  -webkit-appearance: none;
+  appearance: none;
+  /* Contain flex-like internal layout of the control */
+  overflow: hidden;
+}
+
+/* WebKit: internal segments force a wide min-content width */
+.date-field-input::-webkit-datetime-edit,
+.date-field-input::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+}
+.date-field-input::-webkit-datetime-edit-text,
+.date-field-input::-webkit-datetime-edit-month-field,
+.date-field-input::-webkit-datetime-edit-day-field,
+.date-field-input::-webkit-datetime-edit-year-field {
+  padding: 0 0.1em;
+}
+.date-field-input::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+.date-field-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.75;
+  margin-inline-start: 0.25rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Fallback for any bare date inputs not using the shell */
+input[type="date"]:not(.date-field-input),
+input[type="time"]:not(.date-field-input),
+input[type="datetime-local"]:not(.date-field-input) {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  width: 100%;
   box-sizing: border-box;
 }
 
