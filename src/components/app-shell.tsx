@@ -81,16 +81,16 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-[#07070b] text-zinc-100">
+    <div className="flex min-h-screen max-w-[100vw] overflow-x-hidden bg-[#07070b] text-zinc-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.12),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(139,92,246,0.08),_transparent_40%)]" />
 
-      <div className="relative z-10 flex min-h-screen w-full">
+      <div className="relative z-10 flex min-h-screen w-full max-w-[100vw] min-w-0 overflow-x-hidden">
         {/* Desktop sidebar — original component, md+ only */}
-        <div className="hidden md:flex">
+        <div className="hidden shrink-0 md:flex">
           <Sidebar userName={userName} />
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
           {/* Mobile top bar only */}
           <header className="sticky top-0 z-40 flex h-12 items-center gap-2 border-b border-white/5 bg-[#07070b]/95 px-3 backdrop-blur-md md:hidden safe-top">
             <button
@@ -117,7 +117,7 @@ export function AppShell({
           </header>
 
           {/* Main: original desktop padding; mobile only adds bottom tab clearance */}
-          <main className="flex-1 overflow-y-auto px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-6 md:py-6 md:pb-6">
+          <main className="min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-6 md:py-6 md:pb-6">
             {children}
           </main>
         </div>
