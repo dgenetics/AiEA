@@ -15,6 +15,9 @@
 html {
   max-width: 100%;
   overflow-x: hidden;
+  /* Reduce accidental double-tap / pinch zoom (viewport also locks scale) */
+  touch-action: pan-x pan-y;
+  -ms-touch-action: pan-x pan-y;
 }
 
 body {
@@ -23,6 +26,8 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   max-width: 100%;
   overflow-x: hidden;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: none;
 }
 
 * {
