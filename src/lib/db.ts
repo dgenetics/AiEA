@@ -1,24 +1,43 @@
 import path from "node:path";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
-  /** Bump when schema fields change so HMR picks up a fresh client */
   prismaSchemaVersion?: string;
 };
 
-/** Increment when adding Prisma fields so dev doesn't keep a stale client. */
-const SCHEMA_VERSION = "checkins-v1";
+const SCHEMA_VERSION = "turso-durable-v1";
 
-function createClient() {
+/**
+ * Production (Vercel): Turso libSQL — durable, serverless-friendly SQLite.
+ *   Requires TURSO_DATABASE_URL + TURSO_AUTH_TOKEN (Marketplace free Starter).
+ * Local dev: file SQLite via DATABASE_URL (default file:./dev.db).
+ */
+function createClient(): PrismaClient {
+  const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+  const tursoToken = process.env.TURSO_AUTH_TOKEN?.trim();
+
+  if (tursoUrl) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaLibSql } =
+      require("@prisma/adapter-libsql") as typeof import("@prisma/adapter-libsql");
+    const adapter = new PrismaLibSql({
+      url: tursoUrl,
+      authToken: tursoToken,
+    });
+    return new PrismaClient({ adapter });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaBetterSqlite3 } =
+    require("@prisma/adapter-better-sqlite3") as typeof import("@prisma/adapter-better-sqlite3");
+
   const raw = process.env.DATABASE_URL ?? "file:./dev.db";
-  // Prisma CLI resolves file:./ relative to project root — match that here.
   let url = raw;
   if (raw.startsWith("file:")) {
     const filePath = raw.slice("file:".length);
     if (!path.isAbsolute(filePath)) {
-      url = `file:${path.resolve(process.cwd(), filePath)}`;
+      url = `file:${path.resolve(/* turbopackIgnore: true */ process.cwd(), filePath)}`;
     }
   }
 
