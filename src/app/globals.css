@@ -33,7 +33,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Comfortable tap targets on mobile forms */
+/* Prevent iOS zoom-on-focus for form controls on phones only */
 @media (max-width: 767px) {
   input[type="text"],
   input[type="email"],
@@ -43,6 +43,6 @@ body {
   input[type="number"],
   select,
   textarea {
-    font-size: 16px; /* prevents iOS zoom-on-focus */
+    font-size: 16px;
   }
 }

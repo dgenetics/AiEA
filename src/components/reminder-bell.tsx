@@ -50,7 +50,9 @@ export function ReminderBell() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-zinc-900/60 text-zinc-400 transition active:bg-white/10 sm:h-auto sm:w-auto sm:p-2 sm:hover:text-white",
+          "relative rounded-lg border border-white/10 bg-zinc-900/60 p-2 text-zinc-400 transition hover:text-white md:p-2",
+          // Mobile top bar: square hit target
+          "flex h-9 w-9 items-center justify-center md:inline-flex md:h-auto md:w-auto",
           fired.length > 0 && "text-amber-300",
         )}
         aria-label="Reminders"
@@ -67,22 +69,18 @@ export function ReminderBell() {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
             aria-label="Close reminders"
             onClick={() => setOpen(false)}
           />
-        <div className="fixed inset-x-3 top-14 z-50 max-h-[70dvh] overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-2xl shadow-black/50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-h-none">
-          <div className="flex items-center justify-between border-b border-white/5 px-3 py-2.5">
+        <div className="fixed inset-x-3 top-14 z-50 max-h-[70dvh] overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-2xl shadow-black/50 md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:w-80 md:max-h-none">
+          <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
             <p className="text-xs font-medium text-zinc-300">Pings</p>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1.5 text-zinc-500 active:bg-white/10"
-            >
-              <X className="h-4 w-4" />
+            <button type="button" onClick={() => setOpen(false)} className="text-zinc-500">
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="max-h-[60dvh] overflow-y-auto sm:max-h-80">
+          <div className="max-h-[60dvh] overflow-y-auto md:max-h-80">
             {reminders.length === 0 ? (
               <p className="px-3 py-6 text-center text-xs text-zinc-600">
                 No pings right now. You&apos;re clear.

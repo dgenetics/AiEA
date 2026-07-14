@@ -270,11 +270,11 @@ export function CaptureForm() {
           placeholder={`Examples:\n• Call plumber about the kitchen leak\n• Follow up with Sarah on the Q3 deck by Thursday\n• Water plants every Sunday\n• Renew car registration before end of month`}
           className="w-full resize-y rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
           <button
             type="submit"
             disabled={loading || !text.trim()}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-400 hover:to-violet-500 disabled:opacity-50 sm:w-auto sm:py-2"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-400 hover:to-violet-500 disabled:opacity-50 md:w-auto md:py-2"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -283,8 +283,8 @@ export function CaptureForm() {
             )}
             Organize with AI
           </button>
-          <p className="text-xs text-zinc-500 sm:flex-1">
-            Edit fields before accept — that trains future captures
+          <p className="text-xs text-zinc-500 md:flex-1">
+            Review and edit every field before you accept — that trains future captures
           </p>
         </div>
       </form>
@@ -297,10 +297,10 @@ export function CaptureForm() {
 
       {items.length > 0 && (
         <div className="space-y-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-white">
-                Review &amp; edit
+                Review &amp; edit before accept
               </h2>
               <p className="text-xs text-zinc-500">
                 {source === "ai" ? (
@@ -326,12 +326,12 @@ export function CaptureForm() {
                 )}
               </p>
             </div>
-            <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="flex w-full items-center gap-2 md:w-auto">
               <button
                 type="button"
                 onClick={discardProposals}
                 disabled={accepting}
-                className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 hover:text-zinc-200 disabled:opacity-50 sm:py-1.5"
+                className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 hover:text-zinc-200 disabled:opacity-50 md:py-1.5"
               >
                 Discard
               </button>
@@ -339,7 +339,7 @@ export function CaptureForm() {
                 type="button"
                 onClick={accept}
                 disabled={accepting || selected.size === 0}
-                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 sm:flex-none sm:py-1.5"
+                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 md:flex-none md:py-1.5"
               >
                 {accepting
                   ? "Saving…"
@@ -798,12 +798,12 @@ export function CaptureForm() {
             })}
           </div>
 
-          <div className="flex gap-2 pt-1 sm:justify-end">
+          <div className="flex gap-2 pt-1 md:justify-end">
             <button
               type="button"
               onClick={discardProposals}
               disabled={accepting}
-              className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 disabled:opacity-50 sm:py-1.5"
+              className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 disabled:opacity-50 md:py-1.5"
             >
               Discard
             </button>
@@ -811,7 +811,7 @@ export function CaptureForm() {
               type="button"
               onClick={accept}
               disabled={accepting || selected.size === 0}
-              className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 sm:flex-none sm:py-1.5"
+              className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 md:flex-none md:py-1.5"
             >
               {accepting
                 ? "Saving…"

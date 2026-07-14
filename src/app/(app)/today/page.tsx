@@ -163,33 +163,33 @@ export default async function TodayPage() {
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
-      <div className="flex items-start justify-between gap-3">
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="flex items-start justify-between gap-3 md:gap-4">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wider text-indigo-300/80">
             Today
           </p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-white md:text-2xl">
             {greeting}, {user.name.split(" ")[0]}
           </h1>
-          <p className="mt-1 text-xs text-zinc-500 sm:text-sm">
+          <p className="mt-1 text-xs text-zinc-500 md:text-sm">
             {oneTimeDisplay.length} one-time · {recurringRows.length} recurring ·{" "}
             {followUps.length} follow-up{followUps.length === 1 ? "" : "s"}
           </p>
         </div>
         <Link
           href="/capture"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-2.5 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 sm:gap-2 sm:px-3"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20"
         >
           <Sparkles className="h-4 w-4" />
-          <span className="hidden xs:inline sm:inline">Capture</span>
+          Capture
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
         {[
           {
-            label: "Focus",
+            label: "Focus now",
             value: matching.filter((t) => (t.priority ?? 9) <= 2).length,
           },
           { label: "Follow-ups", value: followUps.length },
@@ -200,12 +200,12 @@ export default async function TodayPage() {
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-white/5 bg-zinc-900/40 px-2.5 py-2.5 sm:px-4 sm:py-3"
+            className="rounded-xl border border-white/5 bg-zinc-900/40 px-2.5 py-2.5 md:px-4 md:py-3"
           >
-            <p className="text-[10px] uppercase tracking-wide text-zinc-500 sm:text-[11px]">
+            <p className="text-[10px] uppercase tracking-wide text-zinc-500 md:text-[11px]">
               {s.label}
             </p>
-            <p className="mt-0.5 text-xl font-semibold text-white sm:mt-1 sm:text-2xl">
+            <p className="mt-0.5 text-xl font-semibold text-white md:mt-1 md:text-2xl">
               {s.value}
             </p>
           </div>
