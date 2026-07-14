@@ -35,9 +35,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#07070b] px-4">
+    <div className="relative flex min-h-[100dvh] items-center justify-center bg-[#07070b] px-4 py-8 safe-top safe-bottom">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.18),_transparent_55%)]" />
-      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur">
+      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl backdrop-blur sm:p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white">
             A

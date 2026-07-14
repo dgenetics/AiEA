@@ -67,7 +67,7 @@ export function TaskRow({
     >
       <div
         className={cn(
-          "group flex items-start gap-3 px-3",
+          "group flex items-start gap-2.5 sm:gap-3 px-2.5 sm:px-3",
           dense ? "py-2.5" : "py-3",
         )}
       >
@@ -76,17 +76,17 @@ export function TaskRow({
             type="button"
             onClick={() => onComplete?.(task.id)}
             className={cn(
-              "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition",
+              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition sm:h-6 sm:w-6",
               done
                 ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
-                : "border-zinc-600 text-transparent hover:border-indigo-400 hover:text-indigo-300",
+                : "border-zinc-600 text-transparent active:border-indigo-400 active:text-indigo-300 sm:hover:border-indigo-400 sm:hover:text-indigo-300",
             )}
             aria-label={done ? "Completed" : "Mark complete"}
           >
-            <Check className="h-3 w-3" />
+            <Check className="h-4 w-4 sm:h-3 sm:w-3" />
           </button>
         ) : (
-          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-teal-500/30 bg-teal-500/10 text-[9px] font-semibold text-teal-300">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-teal-500/30 bg-teal-500/10 text-[10px] font-semibold text-teal-300 sm:h-6 sm:w-6 sm:text-[9px]">
             {progress.done}/{progress.total}
           </div>
         )}
@@ -184,10 +184,10 @@ export function TaskRow({
                     onCheckIn?.(task.id, i, !slot.done);
                   }}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition",
+                    "inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition sm:min-h-0 sm:px-2.5 sm:py-1.5",
                     slot.done
                       ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                      : "border-white/10 bg-zinc-950/50 text-zinc-300 hover:border-indigo-400/40 hover:text-white",
+                      : "border-white/10 bg-zinc-950/50 text-zinc-300 active:border-indigo-400/40 active:text-white sm:hover:border-indigo-400/40 sm:hover:text-white",
                   )}
                   aria-label={`${slot.done ? "Unmark" : "Mark"} check-in at ${formatTimeLabel(slot.time)}`}
                 >
@@ -214,22 +214,22 @@ export function TaskRow({
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1 opacity-0 transition group-hover:opacity-100">
+        <div className="flex shrink-0 flex-col items-end gap-1 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
           {onEdit && (
             <button
               type="button"
               onClick={() => onEdit(task)}
-              className="rounded-md p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+              className="rounded-lg p-2.5 text-zinc-400 active:bg-white/10 active:text-zinc-100 sm:p-1.5 sm:text-zinc-500 sm:hover:bg-white/5 sm:hover:text-zinc-200"
               title="Edit task"
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
           )}
           {onSnooze && !done && (
             <button
               type="button"
               onClick={() => onSnooze(task.id)}
-              className="rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+              className="rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-500 active:bg-white/10 active:text-zinc-300 sm:px-2 sm:py-1 sm:hover:bg-white/5"
             >
               Snooze
             </button>
@@ -238,7 +238,7 @@ export function TaskRow({
       </div>
 
       {openChildren.length > 0 && (
-        <div className="space-y-1.5 border-t border-white/5 px-3 py-2.5 pl-8">
+        <div className="space-y-1.5 border-t border-white/5 px-2.5 py-2.5 pl-6 sm:px-3 sm:pl-8">
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
             Next parts
           </p>

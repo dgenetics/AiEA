@@ -50,7 +50,7 @@ export function ReminderBell() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "relative rounded-lg border border-white/10 bg-zinc-900/60 p-2 text-zinc-400 transition hover:text-white",
+          "relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-zinc-900/60 text-zinc-400 transition active:bg-white/10 sm:h-auto sm:w-auto sm:p-2 sm:hover:text-white",
           fired.length > 0 && "text-amber-300",
         )}
         aria-label="Reminders"
@@ -64,14 +64,25 @@ export function ReminderBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-2xl shadow-black/50">
-          <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+            aria-label="Close reminders"
+            onClick={() => setOpen(false)}
+          />
+        <div className="fixed inset-x-3 top-14 z-50 max-h-[70dvh] overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-2xl shadow-black/50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-h-none">
+          <div className="flex items-center justify-between border-b border-white/5 px-3 py-2.5">
             <p className="text-xs font-medium text-zinc-300">Pings</p>
-            <button type="button" onClick={() => setOpen(false)} className="text-zinc-500">
-              <X className="h-3.5 w-3.5" />
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg p-1.5 text-zinc-500 active:bg-white/10"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[60dvh] overflow-y-auto sm:max-h-80">
             {reminders.length === 0 ? (
               <p className="px-3 py-6 text-center text-xs text-zinc-600">
                 No pings right now. You&apos;re clear.
@@ -114,6 +125,7 @@ export function ReminderBell() {
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );

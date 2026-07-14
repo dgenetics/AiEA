@@ -270,11 +270,11 @@ export function CaptureForm() {
           placeholder={`Examples:\n• Call plumber about the kitchen leak\n• Follow up with Sarah on the Q3 deck by Thursday\n• Water plants every Sunday\n• Renew car registration before end of month`}
           className="w-full resize-y rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         />
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <button
             type="submit"
             disabled={loading || !text.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-400 hover:to-violet-500 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-400 hover:to-violet-500 disabled:opacity-50 sm:w-auto sm:py-2"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -283,8 +283,8 @@ export function CaptureForm() {
             )}
             Organize with AI
           </button>
-          <p className="text-xs text-zinc-500">
-            Review and edit every field before you accept — that trains future captures
+          <p className="text-xs text-zinc-500 sm:flex-1">
+            Edit fields before accept — that trains future captures
           </p>
         </div>
       </form>
@@ -297,10 +297,10 @@ export function CaptureForm() {
 
       {items.length > 0 && (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-white">
-                Review &amp; edit before accept
+                Review &amp; edit
               </h2>
               <p className="text-xs text-zinc-500">
                 {source === "ai" ? (

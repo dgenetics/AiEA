@@ -216,14 +216,14 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
   const openCount = subtasks.filter((s) => s.status !== "DONE").length;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950 p-5 shadow-2xl">
+      <div className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-white/10 bg-zinc-950 p-4 shadow-2xl sm:max-h-[90vh] sm:rounded-2xl sm:p-5 safe-bottom">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-white">Edit task</h2>

@@ -14,7 +14,7 @@ type Status = {
   error?: string;
 };
 
-export function AiStatusBadge() {
+export function AiStatusBadge({ compact = false }: { compact?: boolean }) {
   const [status, setStatus] = useState<Status | null>(null);
 
   useEffect(() => {
@@ -34,6 +34,30 @@ export function AiStatusBadge() {
     };
   }, []);
 
+  const on = Boolean(status?.configured || status?.ok);
+
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-lg border",
+          !status
+            ? "border-white/5 text-zinc-600"
+            : on
+              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+              : "border-amber-500/20 bg-amber-500/10 text-amber-300",
+        )}
+        title={
+          status?.hint ||
+          status?.error ||
+          (on ? "SpaceXAI ready" : "Set XAI_API_KEY")
+        }
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+      </div>
+    );
+  }
+
   if (!status) {
     return (
       <div className="hidden items-center gap-1.5 rounded-lg border border-white/5 bg-zinc-900/50 px-2.5 py-1.5 text-[11px] text-zinc-600 sm:flex">
@@ -42,8 +66,6 @@ export function AiStatusBadge() {
       </div>
     );
   }
-
-  const on = Boolean(status.configured || status.ok);
 
   return (
     <div
