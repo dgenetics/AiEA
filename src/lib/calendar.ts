@@ -134,7 +134,30 @@ export function toStoredDueDate(date: Date | string): string {
 /** YYYY-MM-DD for date inputs */
 export function toDateInputValue(date: Date | string | null | undefined): string {
   if (!date) return "";
+  // Prefer raw calendar prefix so controlled inputs don't re-encode ISO mid-edit
+  // (ISO round-trips break year field editing in capture/task forms).
+  if (typeof date === "string") {
+    const m = date.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1]!;
+  }
   return localYmd(toLocalCalendarDay(date));
+}
+
+/**
+ * Parse a form/API due value into a Date at app-local noon.
+ * Prefer this over `new Date("YYYY-MM-DD")` (UTC midnight → wrong calendar day).
+ */
+export function parseDueDate(
+  date: Date | string | null | undefined,
+): Date | null {
+  if (date == null || date === "") return null;
+  if (date instanceof Date) {
+    return Number.isNaN(date.getTime()) ? null : toLocalCalendarDay(date);
+  }
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return localNoonFromYmd(date);
+  }
+  return toLocalCalendarDay(date);
 }
 
 export function formatCalendarDate(

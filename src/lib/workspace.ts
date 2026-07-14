@@ -14,6 +14,7 @@ import {
   stringifyRecurrenceRule,
 } from "@/lib/recurrence";
 import type { ProposedItem } from "@/lib/types";
+import { parseDueDate } from "@/lib/calendar";
 import { addHours, startOfDay } from "date-fns";
 
 const DEFAULT_AREAS = [
@@ -177,9 +178,9 @@ export async function acceptProposals(
     const slug = item.areaSlug === "work" ? "work" : "life";
     const areaId = areaBySlug.get(slug) || areaBySlug.get("life") || null;
 
-    const dueAt = item.dueAt ? new Date(item.dueAt) : null;
-    const scheduledFor = item.scheduledFor ? new Date(item.scheduledFor) : dueAt;
-    const followUpDueAt = item.followUpDueAt ? new Date(item.followUpDueAt) : null;
+    const dueAt = parseDueDate(item.dueAt);
+    const scheduledFor = parseDueDate(item.scheduledFor) ?? dueAt;
+    const followUpDueAt = parseDueDate(item.followUpDueAt);
 
     if (item.kind === "RECURRING_TEMPLATE") {
       let rule = item.recurrenceRule ?? {
@@ -258,7 +259,7 @@ export async function acceptProposals(
       // Parts hang under the first occurrence (same pattern as one-time parents)
       if (item.subtasks?.length) {
         for (const part of item.subtasks) {
-          const partDue = part.dueAt ? new Date(part.dueAt) : dueAt;
+          const partDue = parseDueDate(part.dueAt) ?? dueAt;
           const child = await prisma.task.create({
             data: {
               workspaceId,
@@ -306,9 +307,7 @@ export async function acceptProposals(
       // Create parts as child tasks with their own due dates
       if (item.subtasks?.length) {
         for (const part of item.subtasks) {
-          const partDue = part.dueAt
-            ? new Date(part.dueAt)
-            : dueAt;
+          const partDue = parseDueDate(part.dueAt) ?? dueAt;
           const child = await prisma.task.create({
             data: {
               workspaceId,

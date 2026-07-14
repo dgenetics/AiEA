@@ -72,9 +72,8 @@ input.date-field-input[type="time"] {
   /* 16px default — required to stop iOS Safari zoom-on-focus */
   font-size: 16px;
   line-height: 1.25rem;
-  -webkit-appearance: none;
-  appearance: none;
-  overflow: hidden;
+  /* Do NOT set appearance:none or overflow:hidden on the input —
+     that breaks year/month field editing in Safari/Chrome. */
 }
 
 @media (min-width: 768px) {
@@ -85,30 +84,9 @@ input.date-field-input[type="time"] {
   }
 }
 
-/* WebKit: internal segments force a wide min-content width */
-.date-field-input::-webkit-datetime-edit,
-.date-field-input::-webkit-datetime-edit-fields-wrapper {
-  min-width: 0;
-  max-width: 100%;
-  padding: 0;
-}
-.date-field-input::-webkit-datetime-edit-text,
-.date-field-input::-webkit-datetime-edit-month-field,
-.date-field-input::-webkit-datetime-edit-day-field,
-.date-field-input::-webkit-datetime-edit-year-field {
-  padding: 0 0.1em;
-}
-.date-field-input::-webkit-date-and-time-value {
-  text-align: left;
-  min-width: 0;
-}
 .date-field-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 0.75;
-  margin-inline-start: 0.25rem;
-  width: 1.1rem;
-  height: 1.1rem;
-  flex-shrink: 0;
 }
 
 /* Fallback for any bare date inputs not using the shell */

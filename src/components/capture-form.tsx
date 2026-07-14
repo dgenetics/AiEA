@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
 import type { ProposedItem, ProposedSubtask, RecurrenceRule } from "@/lib/types";
 import { cn, priorityColor, priorityLabel } from "@/lib/utils";
-import {
-  toDateInputValue,
-  toStoredDueDate,
-} from "@/lib/calendar";
+import { toDateInputValue } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
 
 const AREAS = [
@@ -519,9 +516,9 @@ export function CaptureForm() {
                                       muted
                                       value={toDateInputValue(item.dueAt)}
                                       onChange={(v) => {
-                                        const dueAt = v
-                                          ? toStoredDueDate(v)
-                                          : null;
+                                        // Keep YYYY-MM-DD while reviewing — ISO round-trip
+                                        // breaks year spin/edit on date inputs.
+                                        const dueAt = v || null;
                                         updateItem(item.id, {
                                           dueAt,
                                           scheduledFor: dueAt,
@@ -736,7 +733,7 @@ export function CaptureForm() {
                                       value={toDateInputValue(s.dueAt)}
                                       onChange={(v) =>
                                         updateSubtask(item.id, i, {
-                                          dueAt: v ? toStoredDueDate(v) : null,
+                                          dueAt: v || null,
                                         })
                                       }
                                     />
