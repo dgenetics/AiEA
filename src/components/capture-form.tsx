@@ -326,12 +326,12 @@ export function CaptureForm() {
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               <button
                 type="button"
                 onClick={discardProposals}
                 disabled={accepting}
-                className="rounded-lg px-3 py-1.5 text-sm text-zinc-400 hover:bg-white/5 hover:text-zinc-200 disabled:opacity-50"
+                className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 hover:text-zinc-200 disabled:opacity-50 sm:py-1.5"
               >
                 Discard
               </button>
@@ -339,7 +339,7 @@ export function CaptureForm() {
                 type="button"
                 onClick={accept}
                 disabled={accepting || selected.size === 0}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 sm:flex-none sm:py-1.5"
               >
                 {accepting
                   ? "Saving…"
@@ -798,12 +798,12 @@ export function CaptureForm() {
             })}
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex gap-2 pt-1 sm:justify-end">
             <button
               type="button"
               onClick={discardProposals}
               disabled={accepting}
-              className="rounded-lg px-3 py-1.5 text-sm text-zinc-400 hover:bg-white/5 disabled:opacity-50"
+              className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 disabled:opacity-50 sm:py-1.5"
             >
               Discard
             </button>
@@ -811,7 +811,7 @@ export function CaptureForm() {
               type="button"
               onClick={accept}
               disabled={accepting || selected.size === 0}
-              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 sm:flex-none sm:py-1.5"
             >
               {accepting
                 ? "Saving…"
