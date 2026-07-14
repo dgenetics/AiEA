@@ -216,8 +216,9 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
 
   const openCount = subtasks.filter((s) => s.status !== "DONE").length;
 
+  // text-base on mobile (≥16px) prevents iOS Safari focus-zoom; denser on md+
   const fieldClass =
-    "box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-indigo-500/50 focus:outline-none";
+    "box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-base text-white focus:border-indigo-500/50 focus:outline-none md:text-sm";
 
   return (
     <div className="fixed inset-0 z-[100] flex max-w-[100vw] items-end justify-center overflow-x-hidden md:items-center md:p-4">
@@ -396,10 +397,13 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
 
                 <form onSubmit={addSubtask} className="min-w-0 space-y-2">
                   <input
+                    type="text"
                     value={newSubTitle}
                     onChange={(e) => setNewSubTitle(e.target.value)}
                     placeholder="e.g. Outline first draft"
-                    className="box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:border-indigo-500/40 focus:outline-none"
+                    enterKeyHint="done"
+                    autoComplete="off"
+                    className="box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-2 text-base text-white placeholder:text-zinc-600 focus:border-indigo-500/40 focus:outline-none md:py-1.5 md:text-xs"
                   />
                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch">
                     <div className="min-w-0 w-full sm:min-w-0 sm:flex-1">
@@ -412,7 +416,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
                     <button
                       type="submit"
                       disabled={addingSub || !newSubTitle.trim()}
-                      className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 sm:w-auto"
+                      className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 sm:w-auto sm:py-2 sm:text-xs"
                     >
                       {addingSub ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

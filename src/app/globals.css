@@ -64,12 +64,20 @@ input.date-field-input[type="time"] {
   background: transparent !important;
   color: #fff;
   padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  /* 16px default — required to stop iOS Safari zoom-on-focus */
+  font-size: 16px;
   line-height: 1.25rem;
   -webkit-appearance: none;
   appearance: none;
-  /* Contain flex-like internal layout of the control */
   overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .date-field-shell .date-field-input,
+  input.date-field-input[type="date"],
+  input.date-field-input[type="time"] {
+    font-size: 0.875rem;
+  }
 }
 
 /* WebKit: internal segments force a wide min-content width */
@@ -116,16 +124,26 @@ input[type="datetime-local"]:not(.date-field-input) {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Prevent iOS zoom-on-focus for form controls on phones only */
+/**
+ * iOS Safari zooms the page when focusing an input with font-size < 16px.
+ * Tailwind utilities like text-xs override a plain rule, so use !important.
+ * Keep this only on narrow viewports so desktop density is unchanged.
+ */
 @media (max-width: 767px) {
+  input,
   input[type="text"],
   input[type="email"],
   input[type="password"],
   input[type="date"],
   input[type="time"],
   input[type="number"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
   select,
-  textarea {
-    font-size: 16px;
+  textarea,
+  .date-field-input {
+    font-size: 16px !important;
+    line-height: 1.25rem !important;
   }
 }
