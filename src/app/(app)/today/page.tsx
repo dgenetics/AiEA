@@ -163,23 +163,31 @@ export default async function TodayPage() {
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
 
-  // All open farm-imported tasks (not only due today) so Pull → Import is visible
-  const farmTasks = await prisma.task.findMany({
-    where: {
-      workspaceId,
-      externalSource: "bf-maintenance",
-      kind: "ONE_TIME",
-      status: { in: ["ACTIVE", "INBOX", "PROPOSED"] },
-    },
-    include: {
-      area: true,
-      person: true,
-      parent: { select: { id: true, title: true, kind: true } },
-    },
-    orderBy: [{ dueAt: "asc" }, { priority: "asc" }],
-    take: 20,
-  });
-  const farmRows = farmTasks.map((t) => toTaskRow(t));
+  const [inboxCount, farmActiveTasks] = await Promise.all([
+    prisma.task.count({
+      where: {
+        workspaceId,
+        status: { in: ["PROPOSED", "INBOX"] },
+        kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        workspaceId,
+        externalSource: "bf-maintenance",
+        kind: "ONE_TIME",
+        status: "ACTIVE",
+      },
+      include: {
+        area: true,
+        person: true,
+        parent: { select: { id: true, title: true, kind: true } },
+      },
+      orderBy: [{ dueAt: "asc" }, { priority: "asc" }],
+      take: 20,
+    }),
+  ]);
+  const farmRows = farmActiveTasks.map((t) => toTaskRow(t));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -194,10 +202,18 @@ export default async function TodayPage() {
           <p className="mt-1 text-xs text-zinc-500 md:text-sm">
             {oneTimeDisplay.length} one-time · {recurringRows.length} recurring ·{" "}
             {followUps.length} follow-up{followUps.length === 1 ? "" : "s"}
+            {inboxCount > 0 ? ` · ${inboxCount} in inbox` : ""}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
-          <FarmMaintenancePullButton className="text-xs sm:text-sm" />
+          {inboxCount > 0 && (
+            <Link
+              href="/inbox"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-500/15 sm:text-sm"
+            >
+              Inbox · {inboxCount}
+            </Link>
+          )}
           <Link
             href="/capture"
             className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20"
@@ -205,6 +221,24 @@ export default async function TodayPage() {
             <Sparkles className="h-4 w-4" />
             Capture
           </Link>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/10 to-transparent p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <Sprout className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-100">
+                Farm maintenance
+              </p>
+              <p className="mt-0.5 text-xs text-zinc-400">
+                Pull suggestions from BF Maintenance into Inbox, then accept what
+                you want on the board.
+              </p>
+            </div>
+          </div>
+          <FarmMaintenancePullButton className="w-full justify-center sm:w-auto" />
         </div>
       </div>
 
@@ -234,28 +268,23 @@ export default async function TodayPage() {
         ))}
       </div>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Sprout className="h-4 w-4 text-emerald-300" />
-          <h2 className="text-sm font-semibold text-white">Farm maintenance</h2>
-          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-            {farmRows.length}
-          </span>
-        </div>
-        {farmRows.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-zinc-400">
-            No farm tasks imported yet. Use{" "}
-            <span className="text-emerald-200">Pull farm maintenance</span> above,
-            select tasks, then <span className="text-zinc-200">Import selected</span>{" "}
-            — they land in this section and on Upcoming.
-          </p>
-        ) : (
+      {farmRows.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sprout className="h-4 w-4 text-emerald-300" />
+            <h2 className="text-sm font-semibold text-white">
+              Accepted farm work
+            </h2>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
+              {farmRows.length}
+            </span>
+          </div>
           <TaskList
             initialTasks={farmRows}
-            emptyMessage="No open farm maintenance tasks."
+            emptyMessage="No accepted farm tasks on the board."
           />
-        )}
-      </section>
+        </section>
+      )}
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">

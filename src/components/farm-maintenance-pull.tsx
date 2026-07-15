@@ -158,8 +158,7 @@ export function FarmMaintenancePullButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           suggestions,
-          // ACTIVE so tasks appear on Today / Upcoming (PROPOSED has no UI surface)
-          asStatus: "ACTIVE",
+          asStatus: "PROPOSED",
         }),
       });
       const data = await res.json();
@@ -167,7 +166,7 @@ export function FarmMaintenancePullButton({
       const n = data.importedCount as number;
       setSuccess(
         n > 0
-          ? `Imported ${n} task${n === 1 ? "" : "s"} to the Farm area — due items show on Today, others on Upcoming.${
+          ? `Imported ${n} task${n === 1 ? "" : "s"} to Inbox (Proposed). Accept them to put on Today / Upcoming.${
               data.skippedCount ? ` Skipped ${data.skippedCount} already imported.` : ""
             }`
           : `Nothing new imported.${
@@ -183,11 +182,10 @@ export function FarmMaintenancePullButton({
         setPayload(next);
         setSelected(new Set());
       }
-      // Close after short delay so user sees success, then land on Today
       if (n > 0) {
         setTimeout(() => {
           setOpen(false);
-          router.push("/today");
+          router.push("/inbox");
           router.refresh();
         }, 900);
       }

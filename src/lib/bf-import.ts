@@ -85,14 +85,14 @@ export type ImportResult = {
 };
 
 /**
- * Import BF suggestions into a workspace as ACTIVE tasks (Farm area).
+ * Import BF suggestions into a workspace as PROPOSED (Inbox review).
  * Idempotent via externalSource + externalId.
- * ACTIVE is the default so items appear on Today / Upcoming immediately.
+ * User accepts in Inbox → ACTIVE → Today / Upcoming.
  */
 export async function importBfSuggestions(
   workspaceId: string,
   suggestions: BfSuggestion[],
-  asStatus: "PROPOSED" | "ACTIVE" | "INBOX" = "ACTIVE",
+  asStatus: "PROPOSED" | "ACTIVE" | "INBOX" = "PROPOSED",
 ): Promise<ImportResult> {
   const farmArea = await ensureFarmArea(workspaceId);
   const imported: ImportResult["imported"] = [];
@@ -166,7 +166,7 @@ export async function autoPullWorkspace(
   const result = await importBfSuggestions(
     workspaceId,
     payload.suggestions,
-    "ACTIVE",
+    "PROPOSED",
   );
   await prisma.workspace.update({
     where: { id: workspaceId },

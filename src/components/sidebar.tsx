@@ -8,6 +8,7 @@ import {
   Briefcase,
   CalendarDays,
   Home,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Repeat,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/today", label: "Today", icon: LayoutDashboard },
+  { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/capture", label: "Capture", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/people", label: "People", icon: Users },

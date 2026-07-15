@@ -7,6 +7,7 @@ import {
   Archive,
   Briefcase,
   CalendarDays,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -28,6 +29,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 /** Primary destinations on the mobile bottom bar */
 const mobilePrimary = [
   { href: "/today", label: "Today", icon: LayoutDashboard },
+  { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/capture", label: "Capture", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
 ] as const;

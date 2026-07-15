@@ -41,7 +41,16 @@ async function syncBfComplete(task: {
 
 const patchSchema = z.object({
   action: z
-    .enum(["complete", "reopen", "snooze", "update", "cancel", "checkIn", "uncheckIn"])
+    .enum([
+      "complete",
+      "reopen",
+      "snooze",
+      "update",
+      "cancel",
+      "checkIn",
+      "uncheckIn",
+      "accept",
+    ])
     .optional(),
   title: z.string().min(1).max(300).optional(),
   priority: z.number().int().min(1).max(5).optional().nullable(),
@@ -238,6 +247,22 @@ export async function PATCH(
       const updated = await prisma.task.update({
         where: { id },
         data: { status: "ACTIVE", completedAt: null },
+        include: { area: true, person: true },
+      });
+      return NextResponse.json({ task: updated });
+    }
+
+    /** Promote PROPOSED / INBOX task to ACTIVE (Inbox review accept). */
+    if (action === "accept") {
+      if (!["PROPOSED", "INBOX"].includes(task.status)) {
+        return NextResponse.json(
+          { error: "Only proposed or inbox tasks can be accepted" },
+          { status: 400 },
+        );
+      }
+      const updated = await prisma.task.update({
+        where: { id },
+        data: { status: "ACTIVE" },
         include: { area: true, person: true },
       });
       return NextResponse.json({ task: updated });

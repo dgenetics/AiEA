@@ -11,7 +11,7 @@ export const maxDuration = 60;
  * Auth: Authorization: Bearer <CRON_SECRET> or x-cron-secret header
  *
  * For each workspace with bfAutoPullEnabled, pulls BF suggestions and
- * imports new ones as ACTIVE (Farm area — visible on Today / Upcoming).
+ * imports new ones as PROPOSED (Inbox for review).
  */
 async function handle(req: Request) {
   const auth =

@@ -6,14 +6,14 @@ import { importBfSuggestions } from "@/lib/bf-import";
 
 const importSchema = z.object({
   suggestions: z.array(bfSuggestionSchema).min(1).max(100),
-  /** ACTIVE = on board (Today/Upcoming). PROPOSED is legacy (no dedicated inbox UI). */
-  asStatus: z.enum(["PROPOSED", "ACTIVE", "INBOX"]).default("ACTIVE"),
+  /** PROPOSED = Inbox review; ACTIVE = skip review onto board */
+  asStatus: z.enum(["PROPOSED", "ACTIVE", "INBOX"]).default("PROPOSED"),
 });
 
 /**
  * POST /api/integrations/bf-maintenance/import
  * Body: { suggestions: BfSuggestion[], asStatus?: "PROPOSED" | "ACTIVE" | "INBOX" }
- * Default ACTIVE so tasks are visible on Today / Upcoming / Areas.
+ * Default PROPOSED so tasks land in Inbox for explicit accept.
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();

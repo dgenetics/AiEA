@@ -14,7 +14,7 @@ export function TaskList({
 }: {
   initialTasks: TaskRowData[];
   emptyMessage?: string;
-  mode?: "active" | "archive";
+  mode?: "active" | "archive" | "inbox";
   /** Called after a completed task is reopened (archive mode) */
   onArchiveReopen?: (id: string) => void;
 }) {
@@ -51,7 +51,6 @@ export function TaskList({
 
   async function complete(id: string) {
     if (mode === "archive") {
-      // Reopen completed task
       setTasks((prev) => prev.filter((t) => t.id !== id));
       onArchiveReopen?.(id);
       await fetch(`/api/tasks/${id}`, {
@@ -69,6 +68,26 @@ export function TaskList({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "complete" }),
+    });
+    router.refresh();
+  }
+
+  async function accept(id: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "accept" }),
+    });
+    router.refresh();
+  }
+
+  async function dismiss(id: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
     });
     router.refresh();
   }
@@ -134,10 +153,13 @@ export function TaskList({
           <TaskRow
             key={task.id}
             task={task}
-            onComplete={complete}
-            onSnooze={mode === "archive" ? undefined : snooze}
+            mode={mode}
+            onComplete={mode === "inbox" ? undefined : complete}
+            onSnooze={mode === "archive" || mode === "inbox" ? undefined : snooze}
             onEdit={setEditing}
-            onCheckIn={mode === "archive" ? undefined : checkIn}
+            onCheckIn={mode === "archive" || mode === "inbox" ? undefined : checkIn}
+            onAccept={mode === "inbox" ? accept : undefined}
+            onDismiss={mode === "inbox" ? dismiss : undefined}
           />
         ))}
       </div>
@@ -154,7 +176,6 @@ export function TaskList({
                 t.id === updated.id ? { ...t, ...updated } : t,
               ),
             );
-            // Always refresh so nested subtasks re-load from the server
             router.refresh();
           }}
           onDeleted={(id) => {

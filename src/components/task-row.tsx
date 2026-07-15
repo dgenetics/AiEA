@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock, Pencil, UserRound } from "lucide-react";
+import { Check, Clock, Pencil, Sprout, UserRound } from "lucide-react";
 import {
   cn,
   formatRelativeDue,
@@ -26,6 +26,8 @@ export type TaskRowData = {
   estimateMinutes?: number | null;
   aiRationale?: string | null;
   checkIns?: string | null;
+  externalSource?: string | null;
+  externalId?: string | null;
   area?: { id?: string; name: string; color: string; slug: string } | null;
   person?: { name: string } | null;
   parentId?: string | null;
@@ -40,28 +42,37 @@ export function TaskRow({
   onSnooze,
   onEdit,
   onCheckIn,
+  onAccept,
+  onDismiss,
   dense,
   nested,
+  mode = "active",
 }: {
   task: TaskRowData;
   onComplete?: (id: string) => void;
   onSnooze?: (id: string) => void;
   onEdit?: (task: TaskRowData) => void;
   onCheckIn?: (id: string, slotIndex: number, done: boolean) => void;
+  onAccept?: (id: string) => void;
+  onDismiss?: (id: string) => void;
   dense?: boolean;
   nested?: boolean;
+  mode?: "active" | "archive" | "inbox";
 }) {
   const done = task.status === "DONE";
   const checkIns = parseCheckIns(task.checkIns);
   const multi = checkIns && checkIns.slots.length > 1;
   const progress = checkInsProgress(checkIns);
   const openChildren = (task.children ?? []).filter((c) => c.status !== "DONE");
+  const fromFarm = task.externalSource === "bf-maintenance";
+  const inboxMode = mode === "inbox";
 
   return (
     <div
       className={cn(
         "rounded-xl border border-white/5 bg-zinc-900/40 transition hover:border-white/10 hover:bg-zinc-900/70",
         nested && "border-l-2 border-l-indigo-500/30 bg-zinc-950/40",
+        fromFarm && "border-emerald-500/15",
         done && "opacity-50",
       )}
     >
@@ -71,7 +82,11 @@ export function TaskRow({
           dense ? "py-2.5" : "py-3",
         )}
       >
-        {!multi ? (
+        {inboxMode ? (
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-200 md:h-5 md:w-5 md:text-[9px]">
+            ?
+          </div>
+        ) : !multi ? (
           <button
             type="button"
             onClick={() => onComplete?.(task.id)}
@@ -113,6 +128,12 @@ export function TaskRow({
               >
                 {task.title}
               </p>
+              {fromFarm && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                  <Sprout className="h-3 w-3" />
+                  Farm
+                </span>
+              )}
               {task.isFollowUp && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300">
                   <UserRound className="h-3 w-3" />
@@ -209,33 +230,71 @@ export function TaskRow({
           )}
 
           {task.notes && !dense && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-600">
-              {task.notes}
+            <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-zinc-600">
+              {task.notes.split("\n---")[0]?.trim() || task.notes}
+            </p>
+          )}
+          {fromFarm && task.aiRationale && !dense && (
+            <p className="mt-1 text-[10px] text-emerald-500/80">
+              {task.aiRationale}
             </p>
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
-          {onEdit && (
-            <button
-              type="button"
-              onClick={() => onEdit(task)}
-              className="rounded-md p-2.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200 md:p-1.5"
-              title="Edit task"
-            >
-              <Pencil className="h-4 w-4 md:h-3.5 md:w-3.5" />
-            </button>
-          )}
-          {onSnooze && !done && (
-            <button
-              type="button"
-              onClick={() => onSnooze(task.id)}
-              className="rounded-md px-2.5 py-1.5 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-zinc-300 md:px-2 md:py-1"
-            >
-              Snooze
-            </button>
-          )}
-        </div>
+        {inboxMode ? (
+          <div className="flex shrink-0 flex-col items-stretch gap-1.5">
+            {onAccept && (
+              <button
+                type="button"
+                onClick={() => onAccept(task.id)}
+                className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-400"
+              >
+                Accept
+              </button>
+            )}
+            {onDismiss && (
+              <button
+                type="button"
+                onClick={() => onDismiss(task.id)}
+                className="rounded-lg px-3 py-1.5 text-xs text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+              >
+                Dismiss
+              </button>
+            )}
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(task)}
+                className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+                title="Edit"
+              >
+                <Pencil className="mx-auto h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex shrink-0 flex-col items-end gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(task)}
+                className="rounded-md p-2.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200 md:p-1.5"
+                title="Edit task"
+              >
+                <Pencil className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              </button>
+            )}
+            {onSnooze && !done && (
+              <button
+                type="button"
+                onClick={() => onSnooze(task.id)}
+                className="rounded-md px-2.5 py-1.5 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-zinc-300 md:px-2 md:py-1"
+              >
+                Snooze
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {openChildren.length > 0 && (
