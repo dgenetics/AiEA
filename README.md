@@ -74,6 +74,9 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 | `AIEA_TIMEZONE` | Optional IANA tz for AI date reasoning (e.g. `America/New_York`) |
 | `AUTH_SECRET` | Session hardening (change in prod) |
 | `CRON_SECRET` | Future scheduled jobs |
+| `BF_MAINTENANCE_URL` | BF Maintenance base URL (server) |
+| `BF_INTEGRATION_SECRET` | Shared secret with BF Maintenance |
+| `NEXT_PUBLIC_BF_MAINTENANCE_URL` | Optional public BF URL |
 
 ### Wire SpaceXAI
 

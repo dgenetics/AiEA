@@ -190,6 +190,11 @@ model Task {
   aiRationale     String?
   sourceCaptureId String?
 
+  /// External integration provenance (e.g. "bf-maintenance")
+  externalSource String?
+  /// Stable id from source system for idempotent import (e.g. "bf-task:cuid")
+  externalId     String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -202,11 +207,13 @@ model Task {
   reminders Reminder[]
   capture   CaptureBatch? @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
 
+  @@unique([workspaceId, externalSource, externalId])
   @@index([workspaceId, status])
   @@index([workspaceId, dueAt])
   @@index([workspaceId, scheduledFor])
   @@index([workspaceId, kind])
   @@index([personId])
+  @@index([workspaceId, externalSource])
 }
 
 model CaptureBatch {

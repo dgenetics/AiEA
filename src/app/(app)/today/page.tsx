@@ -6,6 +6,7 @@ import { toTaskRow } from "@/lib/tasks-display";
 import { endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
 import { CheckSquare, Repeat, Sparkles } from "lucide-react";
+import { FarmMaintenancePullButton } from "@/components/farm-maintenance-pull";
 
 export default async function TodayPage() {
   const user = await getCurrentUser();
@@ -177,13 +178,16 @@ export default async function TodayPage() {
             {followUps.length} follow-up{followUps.length === 1 ? "" : "s"}
           </p>
         </div>
-        <Link
-          href="/capture"
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20"
-        >
-          <Sparkles className="h-4 w-4" />
-          Capture
-        </Link>
+        <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+          <FarmMaintenancePullButton className="text-xs sm:text-sm" />
+          <Link
+            href="/capture"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20"
+          >
+            <Sparkles className="h-4 w-4" />
+            Capture
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 md:gap-3">
