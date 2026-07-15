@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { materializeDueOccurrences } from "@/lib/workspace";
 import { TaskList } from "@/components/task-list";
 import { toTaskRow } from "@/lib/tasks-display";
-import { endOfDay, startOfDay } from "date-fns";
+import { addDays, endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
 import { CheckSquare, Repeat, Sparkles } from "lucide-react";
 
@@ -17,6 +17,9 @@ export default async function TodayPage() {
 
   const start = startOfDay(new Date());
   const end = endOfDay(new Date());
+  // Include due-soon work (next 7 days) so accepted farm tasks and other
+  // scheduled one-time work aren't "invisible" until their exact due date.
+  const dueSoonEnd = endOfDay(addDays(new Date(), 7));
 
   const matching = await prisma.task.findMany({
     where: {
@@ -25,8 +28,8 @@ export default async function TodayPage() {
       kind: { in: ["ONE_TIME", "OCCURRENCE"] },
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
-        // Due today or overdue
-        { dueAt: { lte: end } },
+        // Overdue, due today, or due within the next 7 days
+        { dueAt: { lte: dueSoonEnd } },
         // Explicitly scheduled for today
         { scheduledFor: { gte: start, lte: end } },
         // Follow-up due today or overdue
@@ -162,8 +165,8 @@ export default async function TodayPage() {
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
 
-  // Accepted farm tasks (ACTIVE + ONE_TIME/OCCURRENCE) already flow into
-  // oneTimeDisplay / recurringRows via the matching query above — no separate section.
+  // Accepted farm tasks flow into oneTimeDisplay / recurringRows like any other
+  // ACTIVE task (kind ONE_TIME → One-time, OCCURRENCE → Recurring).
   const inboxCount = await prisma.task.count({
     where: {
       workspaceId,
@@ -215,8 +218,10 @@ export default async function TodayPage() {
           },
           { label: "Follow-ups", value: followUps.length },
           {
-            label: "Due today",
-            value: matching.filter((t) => t.dueAt && t.dueAt <= end).length,
+            label: "Due soon",
+            value: matching.filter(
+              (t) => t.dueAt && t.dueAt <= dueSoonEnd,
+            ).length,
           },
         ].map((s) => (
           <div
