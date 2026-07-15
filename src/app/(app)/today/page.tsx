@@ -17,9 +17,9 @@ export default async function TodayPage() {
 
   const start = startOfDay(new Date());
   const end = endOfDay(new Date());
-  // Include due-soon work (next 7 days) so accepted farm tasks and other
+  // Include due-soon work (next 14 days) so accepted farm tasks and other
   // scheduled one-time work aren't "invisible" until their exact due date.
-  const dueSoonEnd = endOfDay(addDays(new Date(), 7));
+  const dueSoonEnd = endOfDay(addDays(new Date(), 14));
 
   const matching = await prisma.task.findMany({
     where: {
@@ -28,7 +28,7 @@ export default async function TodayPage() {
       kind: { in: ["ONE_TIME", "OCCURRENCE"] },
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
-        // Overdue, due today, or due within the next 7 days
+        // Overdue, due today, or due within the next 14 days
         { dueAt: { lte: dueSoonEnd } },
         // Explicitly scheduled for today
         { scheduledFor: { gte: start, lte: end } },
