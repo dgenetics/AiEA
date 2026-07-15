@@ -5,7 +5,7 @@ import { TaskList } from "@/components/task-list";
 import { toTaskRow } from "@/lib/tasks-display";
 import { endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
-import { CheckSquare, Repeat, Sparkles, Sprout } from "lucide-react";
+import { CheckSquare, Repeat, Sparkles } from "lucide-react";
 
 export default async function TodayPage() {
   const user = await getCurrentUser();
@@ -162,31 +162,15 @@ export default async function TodayPage() {
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
 
-  const [inboxCount, farmActiveTasks] = await Promise.all([
-    prisma.task.count({
-      where: {
-        workspaceId,
-        status: { in: ["PROPOSED", "INBOX"] },
-        kind: { in: ["ONE_TIME", "OCCURRENCE"] },
-      },
-    }),
-    prisma.task.findMany({
-      where: {
-        workspaceId,
-        externalSource: "bf-maintenance",
-        kind: "ONE_TIME",
-        status: "ACTIVE",
-      },
-      include: {
-        area: true,
-        person: true,
-        parent: { select: { id: true, title: true, kind: true } },
-      },
-      orderBy: [{ dueAt: "asc" }, { priority: "asc" }],
-      take: 20,
-    }),
-  ]);
-  const farmRows = farmActiveTasks.map((t) => toTaskRow(t));
+  // Accepted farm tasks (ACTIVE + ONE_TIME/OCCURRENCE) already flow into
+  // oneTimeDisplay / recurringRows via the matching query above — no separate section.
+  const inboxCount = await prisma.task.count({
+    where: {
+      workspaceId,
+      status: { in: ["PROPOSED", "INBOX"] },
+      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+    },
+  });
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -248,24 +232,6 @@ export default async function TodayPage() {
           </div>
         ))}
       </div>
-
-      {farmRows.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Sprout className="h-4 w-4 text-emerald-300" />
-            <h2 className="text-sm font-semibold text-white">
-              Accepted farm work
-            </h2>
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-              {farmRows.length}
-            </span>
-          </div>
-          <TaskList
-            initialTasks={farmRows}
-            emptyMessage="No accepted farm tasks on the board."
-          />
-        </section>
-      )}
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
