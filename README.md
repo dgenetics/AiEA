@@ -73,7 +73,7 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 | `XAI_BASE_URL` | Optional API base (default `https://api.x.ai/v1`) |
 | `AIEA_TIMEZONE` | Optional IANA tz for AI date reasoning (e.g. `America/New_York`) |
 | `AUTH_SECRET` | Session hardening (change in prod) |
-| `CRON_SECRET` | Future scheduled jobs |
+| `CRON_SECRET` | Auth for cron jobs including `/api/cron/bf-maintenance-pull` (daily 12:00 UTC) |
 | `BF_MAINTENANCE_URL` | BF Maintenance base URL (server) |
 | `BF_INTEGRATION_SECRET` | Shared secret with BF Maintenance |
 | `NEXT_PUBLIC_BF_MAINTENANCE_URL` | Optional public BF URL |

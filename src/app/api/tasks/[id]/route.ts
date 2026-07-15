@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { recordCorrections } from "@/lib/ai/corrections";
+import {
+  completeBfMaintenanceTask,
+  parseBfTaskExternalId,
+} from "@/lib/api/maintenance";
 import { prisma } from "@/lib/db";
 import {
   advanceFrom,
@@ -11,6 +15,29 @@ import {
   slotDateTime,
   stringifyCheckIns,
 } from "@/lib/recurrence";
+
+/** Best-effort: if task came from BF Maintenance, mark it complete there too. */
+async function syncBfComplete(task: {
+  externalSource: string | null;
+  externalId: string | null;
+  notes: string | null;
+  title: string;
+}) {
+  if (task.externalSource !== "bf-maintenance") return;
+  const bfTaskId = parseBfTaskExternalId(task.externalId);
+  if (!bfTaskId) return;
+  try {
+    const result = await completeBfMaintenanceTask(
+      bfTaskId,
+      `Completed in AiEA: ${task.title}`,
+    );
+    if (!result.ok) {
+      console.warn("BF Maintenance complete sync failed:", result.error);
+    }
+  } catch (err) {
+    console.warn("BF Maintenance complete sync error:", err);
+  }
+}
 
 const patchSchema = z.object({
   action: z
@@ -118,6 +145,7 @@ export async function PATCH(
           }
         }
 
+        await syncBfComplete(task);
         return NextResponse.json({ task: updated, allDone: true });
       }
 
@@ -202,6 +230,7 @@ export async function PATCH(
         }
       }
 
+      await syncBfComplete(task);
       return NextResponse.json({ task: updated });
     }
 

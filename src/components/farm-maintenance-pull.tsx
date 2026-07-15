@@ -4,8 +4,10 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import {
+  AlertTriangle,
   CheckSquare,
   Loader2,
+  MapPin,
   Sprout,
   X,
 } from "lucide-react";
@@ -49,6 +51,13 @@ const statusTone: Record<string, string> = {
   PENDING: "bg-zinc-500/15 text-zinc-300",
 };
 
+function priorityLabel(p: number) {
+  if (p <= 1) return "Urgent";
+  if (p === 2) return "High";
+  if (p === 3) return "Normal";
+  return `P${p}`;
+}
+
 export function FarmMaintenancePullButton({
   className,
   label = "Pull farm maintenance",
@@ -73,13 +82,31 @@ export function FarmMaintenancePullButton({
     setSelected(new Set());
     try {
       const res = await fetch("/api/integrations/bf-maintenance/pull");
-      const data = await res.json();
+      let data: { error?: string } & Partial<PullPayload>;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(
+          res.ok
+            ? "Unexpected response from AiEA"
+            : `Pull failed (HTTP ${res.status}). Try again in a moment.`,
+        );
+      }
       if (!res.ok) {
-        throw new Error(data.error || "Pull failed");
+        const msg = data.error || "Pull failed";
+        if (
+          res.status === 502 ||
+          /cannot reach|unavailable|not set|rejected/i.test(msg)
+        ) {
+          throw new Error(
+            `${msg} Open Account → Farm maintenance to check connection status.`,
+          );
+        }
+        throw new Error(msg);
       }
       setPayload(data as PullPayload);
       const auto = new Set(
-        (data.suggestions as Suggestion[])
+        ((data.suggestions as Suggestion[]) ?? [])
           .filter((s) => !s.alreadyImported)
           .map((s) => s.externalId),
       );
@@ -100,6 +127,17 @@ export function FarmMaintenancePullButton({
       else next.add(id);
       return next;
     });
+  }
+
+  function selectAllNew() {
+    if (!payload) return;
+    setSelected(
+      new Set(
+        payload.suggestions
+          .filter((s) => !s.alreadyImported)
+          .map((s) => s.externalId),
+      ),
+    );
   }
 
   async function importSelected() {
@@ -131,7 +169,6 @@ export function FarmMaintenancePullButton({
         }`,
       );
       router.refresh();
-      // Refresh pull state so checkmarks update
       const refresh = await fetch("/api/integrations/bf-maintenance/pull");
       if (refresh.ok) {
         const next = (await refresh.json()) as PullPayload;
@@ -180,7 +217,7 @@ export function FarmMaintenancePullButton({
                   Farm maintenance
                 </h2>
                 <p className="text-xs text-zinc-500">
-                  Suggestions from BF Maintenance
+                  Suggestions from BF Maintenance · select to import
                 </p>
               </div>
               <button
@@ -195,9 +232,10 @@ export function FarmMaintenancePullButton({
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               {error && (
-                <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-                  {error}
-                </p>
+                <div className="flex gap-2 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>{error}</p>
+                </div>
               )}
               {success && (
                 <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
@@ -211,9 +249,21 @@ export function FarmMaintenancePullButton({
 
               {payload && payload.suggestions.length === 0 && (
                 <p className="text-sm text-zinc-400">
-                  No open maintenance tasks in BF Maintenance. Add schedules
-                  and use Suggest tasks there first.
+                  No open maintenance tasks in BF Maintenance. Add schedules on
+                  a component and try again.
                 </p>
+              )}
+
+              {payload && payload.newCount > 0 && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={selectAllNew}
+                    className="text-xs text-indigo-300 hover:text-indigo-200"
+                  >
+                    Select all new
+                  </button>
+                </div>
               )}
 
               {payload?.suggestions.map((s) => {
@@ -225,7 +275,9 @@ export function FarmMaintenancePullButton({
                     className={cn(
                       "flex cursor-pointer gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3 transition",
                       disabled && "cursor-default opacity-60",
-                      checked && !disabled && "border-emerald-500/30 bg-emerald-500/5",
+                      checked &&
+                        !disabled &&
+                        "border-emerald-500/30 bg-emerald-500/5",
                     )}
                   >
                     <input
@@ -235,7 +287,7 @@ export function FarmMaintenancePullButton({
                       checked={disabled ? true : checked}
                       onChange={() => !disabled && toggle(s.externalId)}
                     />
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-zinc-100">{s.title}</p>
                         <span
@@ -252,25 +304,52 @@ export function FarmMaintenancePullButton({
                           </span>
                         )}
                       </div>
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        {s.systemName} · {s.componentName}
-                        {s.componentLocation
-                          ? ` · ${s.componentLocation}`
-                          : ""}
+
+                      <p className="text-xs text-zinc-400">
+                        <span className="text-zinc-300">{s.systemName}</span>
+                        <span className="text-zinc-600"> · </span>
+                        {s.componentName}
                       </p>
-                      <p className="mt-1 text-xs text-zinc-400">
-                        {s.reason} · due{" "}
-                        {format(parseISO(s.dueAt), "MMM d, yyyy")} · P
-                        {s.priority}
-                        {s.scheduleName
-                          ? ` · ${s.scheduleName}`
-                          : ""}
-                        {s.frequency
-                          ? ` · every ${s.frequency}`
-                          : s.isRecurring
-                            ? " · recurring"
-                            : ""}
-                      </p>
+
+                      {s.componentLocation ? (
+                        <p className="flex items-center gap-1 text-[11px] text-zinc-500">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          {s.componentLocation}
+                        </p>
+                      ) : null}
+
+                      <p className="text-xs text-zinc-500">{s.reason}</p>
+
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-zinc-500">
+                        <span>
+                          Due{" "}
+                          <span className="text-zinc-300">
+                            {format(parseISO(s.dueAt), "MMM d, yyyy")}
+                          </span>
+                        </span>
+                        <span>
+                          Priority{" "}
+                          <span className="text-zinc-300">
+                            {priorityLabel(s.priority)}
+                          </span>
+                        </span>
+                        {s.scheduleName ? (
+                          <span>
+                            Schedule{" "}
+                            <span className="text-zinc-300">
+                              {s.scheduleName}
+                            </span>
+                          </span>
+                        ) : null}
+                        {s.frequency ? (
+                          <span>
+                            Every{" "}
+                            <span className="text-zinc-300">{s.frequency}</span>
+                          </span>
+                        ) : s.isRecurring ? (
+                          <span className="text-zinc-300">Recurring</span>
+                        ) : null}
+                      </div>
                     </div>
                   </label>
                 );
@@ -293,9 +372,7 @@ export function FarmMaintenancePullButton({
                 </button>
                 <button
                   type="button"
-                  disabled={
-                    importing || !payload || selected.size === 0
-                  }
+                  disabled={importing || !payload || selected.size === 0}
                   onClick={() => void importSelected()}
                   className="inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
                 >
@@ -303,6 +380,7 @@ export function FarmMaintenancePullButton({
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : null}
                   Import selected
+                  {selected.size > 0 ? ` (${selected.size})` : ""}
                 </button>
               </div>
             </div>

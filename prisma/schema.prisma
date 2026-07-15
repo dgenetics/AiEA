@@ -50,6 +50,11 @@ model Workspace {
   lastAiBriefTips    String?
   lastAiBriefModel   String?
 
+  /// When true, cron auto-imports open BF Maintenance tasks as PROPOSED
+  bfAutoPullEnabled  Boolean   @default(false)
+  /// Last successful auto-pull from BF Maintenance
+  bfLastAutoPullAt   DateTime?
+
   members     WorkspaceMember[]
   areas       Area[]
   projects    Project[]

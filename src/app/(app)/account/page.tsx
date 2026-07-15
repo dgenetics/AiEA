@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
+import { BfMaintenanceSettings } from "@/components/bf-maintenance-settings";
 import { ChangePasswordForm } from "@/components/change-password-form";
-import { KeyRound, User } from "lucide-react";
+import { KeyRound, Sprout, User } from "lucide-react";
 
 export default async function AccountPage() {
   const user = await getCurrentUser();
@@ -33,6 +34,18 @@ export default async function AccountPage() {
             <dd className="mt-0.5 text-zinc-100">{user.email}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-5">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-white">
+          <Sprout className="h-4 w-4 text-emerald-300" />
+          Farm maintenance
+        </div>
+        <p className="mb-4 text-xs text-zinc-500">
+          Connection status for BF Maintenance and optional auto-import of
+          suggested tasks.
+        </p>
+        <BfMaintenanceSettings />
       </section>
 
       <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-5">

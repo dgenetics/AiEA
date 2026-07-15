@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm install",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/bf-maintenance-pull",
+      "schedule": "0 12 * * *"
+    }
+  ]
 }
