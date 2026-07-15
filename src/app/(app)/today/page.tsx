@@ -6,7 +6,6 @@ import { toTaskRow } from "@/lib/tasks-display";
 import { endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
 import { CheckSquare, Repeat, Sparkles, Sprout } from "lucide-react";
-import { FarmMaintenancePullButton } from "@/components/farm-maintenance-pull";
 
 export default async function TodayPage() {
   const user = await getCurrentUser();
@@ -221,24 +220,6 @@ export default async function TodayPage() {
             <Sparkles className="h-4 w-4" />
             Capture
           </Link>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/10 to-transparent p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <Sprout className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-100">
-                Farm maintenance
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-400">
-                Pull suggestions from BF Maintenance into Inbox, then accept what
-                you want on the board.
-              </p>
-            </div>
-          </div>
-          <FarmMaintenancePullButton className="w-full justify-center sm:w-auto" />
         </div>
       </div>
 

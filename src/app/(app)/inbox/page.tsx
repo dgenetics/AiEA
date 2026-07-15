@@ -36,21 +36,18 @@ export default async function InboxPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-indigo-300/80">
-            Inbox
-          </p>
-          <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight text-white">
-            <InboxIcon className="h-6 w-6 text-amber-300" />
-            Review &amp; accept
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Proposed tasks wait here until you accept them onto Today / Upcoming.
-            Farm maintenance imports land here first.
-          </p>
-        </div>
-        <FarmMaintenancePullButton />
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-indigo-300/80">
+          Inbox
+        </p>
+        <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight text-white">
+          <InboxIcon className="h-6 w-6 text-amber-300" />
+          Review &amp; accept
+        </h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Proposed tasks wait here until you accept them onto Today / Upcoming.
+          Farm maintenance imports land here first.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -67,7 +64,7 @@ export default async function InboxPage() {
               </p>
             </div>
           </div>
-          <FarmMaintenancePullButton label="Pull from BF" className="shrink-0" />
+          <FarmMaintenancePullButton className="shrink-0" />
         </div>
       </div>
 
@@ -82,7 +79,7 @@ export default async function InboxPage() {
         <TaskList
           mode="inbox"
           initialTasks={farmProposed.map((t) => toTaskRow(t))}
-          emptyMessage="No proposed farm tasks. Pull from BF Maintenance to import suggestions."
+          emptyMessage="No proposed farm tasks. Pull farm maintenance above to import suggestions."
         />
       </section>
 
