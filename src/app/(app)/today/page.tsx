@@ -5,7 +5,7 @@ import { TaskList } from "@/components/task-list";
 import { toTaskRow } from "@/lib/tasks-display";
 import { endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
-import { CheckSquare, Repeat, Sparkles } from "lucide-react";
+import { CheckSquare, Repeat, Sparkles, Sprout } from "lucide-react";
 import { FarmMaintenancePullButton } from "@/components/farm-maintenance-pull";
 
 export default async function TodayPage() {
@@ -163,6 +163,24 @@ export default async function TodayPage() {
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
 
+  // All open farm-imported tasks (not only due today) so Pull → Import is visible
+  const farmTasks = await prisma.task.findMany({
+    where: {
+      workspaceId,
+      externalSource: "bf-maintenance",
+      kind: "ONE_TIME",
+      status: { in: ["ACTIVE", "INBOX", "PROPOSED"] },
+    },
+    include: {
+      area: true,
+      person: true,
+      parent: { select: { id: true, title: true, kind: true } },
+    },
+    orderBy: [{ dueAt: "asc" }, { priority: "asc" }],
+    take: 20,
+  });
+  const farmRows = farmTasks.map((t) => toTaskRow(t));
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-start justify-between gap-3 md:gap-4">
@@ -215,6 +233,29 @@ export default async function TodayPage() {
           </div>
         ))}
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Sprout className="h-4 w-4 text-emerald-300" />
+          <h2 className="text-sm font-semibold text-white">Farm maintenance</h2>
+          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
+            {farmRows.length}
+          </span>
+        </div>
+        {farmRows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-zinc-400">
+            No farm tasks imported yet. Use{" "}
+            <span className="text-emerald-200">Pull farm maintenance</span> above,
+            select tasks, then <span className="text-zinc-200">Import selected</span>{" "}
+            — they land in this section and on Upcoming.
+          </p>
+        ) : (
+          <TaskList
+            initialTasks={farmRows}
+            emptyMessage="No open farm maintenance tasks."
+          />
+        )}
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">

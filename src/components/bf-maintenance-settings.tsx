@@ -63,7 +63,7 @@ export function BfMaintenanceSettings() {
       );
       setMessage(
         next
-          ? "Auto-pull enabled — new farm tasks will land in Inbox (Proposed)."
+          ? "Auto-pull enabled — new farm tasks will appear on Today / Upcoming."
           : "Auto-pull disabled.",
       );
     } catch (e) {
@@ -140,7 +140,7 @@ export function BfMaintenanceSettings() {
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
             Once a day (server cron), import new open BF Maintenance tasks into
-            Inbox as Proposed. You still review and accept them.
+            the Farm area as active tasks (Today / Upcoming).
           </p>
           {settings?.bfLastAutoPullAt && (
             <p className="mt-1 text-[11px] text-zinc-600">

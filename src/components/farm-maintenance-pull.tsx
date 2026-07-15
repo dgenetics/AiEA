@@ -158,15 +158,23 @@ export function FarmMaintenancePullButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           suggestions,
-          asStatus: "PROPOSED",
+          // ACTIVE so tasks appear on Today / Upcoming (PROPOSED has no UI surface)
+          asStatus: "ACTIVE",
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
+      const n = data.importedCount as number;
       setSuccess(
-        `Imported ${data.importedCount} task${data.importedCount === 1 ? "" : "s"} to Inbox (Proposed).${
-          data.skippedCount ? ` Skipped ${data.skippedCount}.` : ""
-        }`,
+        n > 0
+          ? `Imported ${n} task${n === 1 ? "" : "s"} to the Farm area — due items show on Today, others on Upcoming.${
+              data.skippedCount ? ` Skipped ${data.skippedCount} already imported.` : ""
+            }`
+          : `Nothing new imported.${
+              data.skippedCount
+                ? ` ${data.skippedCount} already in AiEA.`
+                : ""
+            }`,
       );
       router.refresh();
       const refresh = await fetch("/api/integrations/bf-maintenance/pull");
@@ -174,6 +182,14 @@ export function FarmMaintenancePullButton({
         const next = (await refresh.json()) as PullPayload;
         setPayload(next);
         setSelected(new Set());
+      }
+      // Close after short delay so user sees success, then land on Today
+      if (n > 0) {
+        setTimeout(() => {
+          setOpen(false);
+          router.push("/today");
+          router.refresh();
+        }, 900);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
