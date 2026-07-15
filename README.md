@@ -67,6 +67,7 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 | Var | Purpose |
 |-----|---------|
 | `DATABASE_URL` | SQLite path (`file:./dev.db`) |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Production libSQL (AiEA’s **own** Turso DB only — never share with BF Maintenance) |
 | `XAI_API_KEY` | SpaceXAI / xAI key — [console.x.ai](https://console.x.ai/team/default/api-keys) |
 | `XAI_MODEL` | Optional model override (default `grok-4.5`) |
 | `XAI_BASE_URL` | Optional API base (default `https://api.x.ai/v1`) |
