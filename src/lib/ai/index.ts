@@ -189,6 +189,7 @@ export async function generateDailyBrief(input: {
   tasks: Array<{
     id: string;
     title: string;
+    board?: string | null;
     priority: number | null;
     dueAt: Date | null;
     isFollowUp: boolean;
@@ -198,6 +199,7 @@ export async function generateDailyBrief(input: {
   }>;
   timezone?: string;
 }): Promise<BriefResult> {
+  const { resolveBoard } = await import("@/lib/board");
   const { prisma } = await import("@/lib/db");
   const now = new Date();
   const overdue = input.tasks.filter(
@@ -213,7 +215,15 @@ export async function generateDailyBrief(input: {
   );
   const prioritized = [...input.tasks]
     .filter((t) => t.status === "ACTIVE" || t.status === "INBOX")
-    .sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9))
+    .sort((a, b) => {
+      const laneRank = (t: (typeof input.tasks)[0]) => {
+        const lane = resolveBoard({ board: t.board, priority: t.priority });
+        return lane === "CURRENT" ? 0 : lane === "BACKLOG" ? 1 : 2;
+      };
+      const d = laneRank(a) - laneRank(b);
+      if (d !== 0) return d;
+      return (a.priority ?? 9) - (b.priority ?? 9);
+    })
     .slice(0, 5);
 
   const brief: BriefResult = {
@@ -225,17 +235,21 @@ export async function generateDailyBrief(input: {
       overdue.length,
       recurring.length,
     ),
-    topPriorities: prioritized.map((t) => ({
-      id: t.id,
-      title: t.title,
-      reason:
-        t.priority === 1
-          ? "Highest priority on your plate"
-          : t.dueAt && t.dueAt <= addDays(now, 1)
-            ? "Due soon"
-            : "High leverage for today",
-      priority: t.priority,
-    })),
+    topPriorities: prioritized.map((t) => {
+      const lane = resolveBoard({ board: t.board, priority: t.priority });
+      return {
+        id: t.id,
+        title: t.title,
+        reason:
+          lane === "CURRENT"
+            ? "On the Current board"
+            : t.dueAt && t.dueAt <= addDays(now, 1)
+              ? "Due soon"
+              : "Worth attention today",
+        priority: t.priority,
+        board: lane,
+      };
+    }),
     followUps: followUps.slice(0, 5).map((t) => ({
       id: t.id,
       title: t.title,
@@ -249,7 +263,7 @@ export async function generateDailyBrief(input: {
       dueLabel: t.dueAt ? formatCalendarDate(t.dueAt) : "Past due",
     })),
     tips: [
-      "Knock out one P1 before checking email deeply.",
+      "Knock out one Current-board item before checking email deeply.",
       followUps.length
         ? `You have ${followUps.length} people loop(s) open — batch responses in one focus block.`
         : "No open follow-ups. Protect that clarity.",
@@ -412,7 +426,7 @@ export async function generateDailyBrief(input: {
 
 function buildSummary(p: number, f: number, o: number, r: number) {
   const parts = [
-    `${p} priority item${p === 1 ? "" : "s"}`,
+    `${p} focus item${p === 1 ? "" : "s"}`,
     `${f} follow-up${f === 1 ? "" : "s"}`,
   ];
   if (o) parts.push(`${o} overdue`);

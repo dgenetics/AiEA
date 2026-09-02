@@ -1,6 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
+  boardColor as boardChipClass,
+  boardFromPriority,
+  boardLabel as boardLaneLabel,
+} from "@/lib/board";
+import {
   calendarDayDiff,
   formatCalendarDate,
   toLocalCalendarDay,
@@ -26,38 +31,14 @@ export function formatRelativeDue(date: Date | string | null | undefined): strin
   return formatCalendarDate(d, { month: "short", day: "numeric" });
 }
 
+/** @deprecated Prefer boardLabel / resolveBoard from `@/lib/board`. */
 export function priorityLabel(priority: number | null | undefined): string {
-  switch (priority) {
-    case 1:
-      return "P1 · Critical";
-    case 2:
-      return "P2 · High";
-    case 3:
-      return "P3 · Medium";
-    case 4:
-      return "P4 · Low";
-    case 5:
-      return "P5 · Someday";
-    default:
-      return "Unprioritized";
-  }
+  return boardLaneLabel(boardFromPriority(priority));
 }
 
+/** @deprecated Prefer boardColor / resolveBoard from `@/lib/board`. */
 export function priorityColor(priority: number | null | undefined): string {
-  switch (priority) {
-    case 1:
-      return "text-rose-400 bg-rose-500/10 border-rose-500/30";
-    case 2:
-      return "text-orange-400 bg-orange-500/10 border-orange-500/30";
-    case 3:
-      return "text-amber-400 bg-amber-500/10 border-amber-500/30";
-    case 4:
-      return "text-sky-400 bg-sky-500/10 border-sky-500/30";
-    case 5:
-      return "text-zinc-400 bg-zinc-500/10 border-zinc-500/30";
-    default:
-      return "text-zinc-500 bg-zinc-500/10 border-zinc-500/20";
-  }
+  return boardChipClass(boardFromPriority(priority));
 }
 
 export function areaColor(slug: string): string {

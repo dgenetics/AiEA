@@ -2,6 +2,7 @@ import {
   fetchBfMaintenanceSuggestions,
   type BfSuggestion,
 } from "@/lib/api/maintenance";
+import { boardFromPriority, laneWrite } from "@/lib/board";
 import { prisma } from "@/lib/db";
 import { stringifyRecurrenceRule } from "@/lib/recurrence";
 import type { RecurrenceRule } from "@/lib/types";
@@ -124,7 +125,7 @@ export async function importBfSuggestions(
         notes: buildNotes(s),
         kind: "ONE_TIME",
         status: asStatus,
-        priority: s.priority,
+        ...laneWrite(boardFromPriority(s.priority)),
         dueAt: new Date(s.dueAt),
         areaId: farmArea.id,
         aiRationale: [

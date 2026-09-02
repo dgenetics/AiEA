@@ -7,9 +7,11 @@ import {
   getRecentCorrections,
   recordCorrections,
 } from "@/lib/ai/corrections";
+import { resolveBoard } from "@/lib/board";
 import { prisma } from "@/lib/db";
 import { acceptProposals } from "@/lib/workspace";
 import type { ProposedItem } from "@/lib/types";
+import { BOARD_LANES } from "@/lib/board";
 
 const proposeSchema = z.object({
   text: z.string().min(1).max(8000),
@@ -25,6 +27,8 @@ const proposalEditSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
   areaSlug: z.string().optional(),
+  board: z.enum(BOARD_LANES).optional(),
+  /** @deprecated Prefer board */
   priority: z.number().int().min(1).max(5).optional(),
   dueAt: z.string().nullable().optional(),
   kind: z.enum(["ONE_TIME", "RECURRING_TEMPLATE", "OCCURRENCE"]).optional(),
@@ -111,6 +115,10 @@ export async function POST(req: Request) {
           ...p,
           title: e.title?.trim() || p.title,
           areaSlug: e.areaSlug ?? p.areaSlug,
+          board: resolveBoard({
+            board: e.board ?? p.board,
+            priority: e.priority ?? p.priority,
+          }),
           priority: (e.priority as ProposedItem["priority"]) ?? p.priority,
           dueAt: e.dueAt !== undefined ? e.dueAt : p.dueAt,
           scheduledFor:
@@ -168,13 +176,17 @@ export async function POST(req: Request) {
             afterValue: p.areaSlug,
           });
         }
-        if (p.priority != null && o.priority != null && p.priority !== o.priority) {
-          corrections.push({
-            field: "priority",
-            taskTitle: p.title,
-            beforeValue: String(o.priority),
-            afterValue: String(p.priority),
-          });
+        {
+          const before = resolveBoard({ board: o.board, priority: o.priority });
+          const after = resolveBoard({ board: p.board, priority: p.priority });
+          if (before !== after) {
+            corrections.push({
+              field: "board",
+              taskTitle: p.title,
+              beforeValue: before,
+              afterValue: after,
+            });
+          }
         }
         if (Boolean(p.isFollowUp) !== Boolean(o.isFollowUp)) {
           corrections.push({

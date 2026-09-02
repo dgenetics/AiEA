@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { BoardLanePicker } from "@/components/board-lane-picker";
 import type { ProposedItem, ProposedSubtask, RecurrenceRule } from "@/lib/types";
-import { cn, priorityColor, priorityLabel } from "@/lib/utils";
+import {
+  boardColor,
+  boardLabel,
+  resolveBoard,
+  type BoardLane,
+} from "@/lib/board";
+import { cn } from "@/lib/utils";
 import { toDateInputValue } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
 
@@ -242,7 +249,8 @@ export function CaptureForm() {
     if (!o) return false;
     return (
       i.areaSlug !== o.areaSlug ||
-      i.priority !== o.priority ||
+      resolveBoard({ board: i.board, priority: i.priority }) !==
+        resolveBoard({ board: o.board, priority: o.priority }) ||
       i.title !== o.title ||
       i.dueAt !== o.dueAt ||
       i.kind !== o.kind ||
@@ -462,48 +470,23 @@ export function CaptureForm() {
                             ))}
                           </div>
 
-                          {/* Priority + due */}
+                          {/* Board + due */}
                           <div className="grid gap-2 sm:grid-cols-2">
-                            <label className="block">
+                            <div className="block">
                               <span className="mb-1 block text-[10px] uppercase tracking-wide text-zinc-500">
-                                Priority
+                                Board
                               </span>
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={item.priority ?? 3}
-                                  onChange={(e) =>
-                                    updateItem(item.id, {
-                                      priority: Number(e.target.value) as
-                                        | 1
-                                        | 2
-                                        | 3
-                                        | 4
-                                        | 5,
-                                    })
-                                  }
-                                  className="w-full rounded-md border border-white/10 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-200 focus:border-indigo-500/40 focus:outline-none"
-                                >
-                                  {[1, 2, 3, 4, 5].map((p) => (
-                                    <option key={p} value={p}>
-                                      P{p} ·{" "}
-                                      {
-                                        ["", "Critical", "High", "Medium", "Low", "Someday"][
-                                          p
-                                        ]
-                                      }
-                                    </option>
-                                  ))}
-                                </select>
-                                <span
-                                  className={cn(
-                                    "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px]",
-                                    priorityColor(item.priority),
-                                  )}
-                                >
-                                  {priorityLabel(item.priority)}
-                                </span>
-                              </div>
-                            </label>
+                              <BoardLanePicker
+                                size="sm"
+                                value={resolveBoard({
+                                  board: item.board,
+                                  priority: item.priority,
+                                })}
+                                onChange={(board: BoardLane) =>
+                                  updateItem(item.id, { board })
+                                }
+                              />
+                            </div>
 
                             {!isRecurring && (
                               <label className="block">
@@ -767,10 +750,20 @@ export function CaptureForm() {
                           <span
                             className={cn(
                               "rounded-full border px-1.5 py-0.5 text-[10px]",
-                              priorityColor(item.priority),
+                              boardColor(
+                                resolveBoard({
+                                  board: item.board,
+                                  priority: item.priority,
+                                }),
+                              ),
                             )}
                           >
-                            {priorityLabel(item.priority)}
+                            {boardLabel(
+                              resolveBoard({
+                                board: item.board,
+                                priority: item.priority,
+                              }),
+                            )}
                           </span>
                           <span className="rounded-full border border-white/10 px-1.5 py-0.5">
                             {isRecurring ? "Recurring" : "One-time"}

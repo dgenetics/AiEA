@@ -47,13 +47,11 @@ ${ctx.trainingBlock ? `${ctx.trainingBlock}\n` : ""}
 - RECURRING_TEMPLATE — clearly repeating cadence ("every Sunday", "daily", "monthly")
 Never emit OCCURRENCE.
 
-## Priority (1–5)
-1 — Critical / do today or has external hard deadline today
-2 — High / this week or blocking others
-3 — Normal / default for most real work
-4 — Low / flexible, nice-to-have soon
-5 — Someday / vague wishes, no pressure
-Do not mark everything P1. Use the full scale.
+## Board lanes (board)
+- CURRENT — in play now (today / urgent / asap / hard deadline today)
+- BACKLOG — ready when you are (default for most real work)
+- ICEBOX — someday / maybe / park / no pressure
+Do not put everything on CURRENT. Prefer BACKLOG unless urgency is clear.
 
 ## Dates
 - dueAt = when it must be done (deadline)
@@ -66,7 +64,7 @@ Do not mark everything P1. Use the full scale.
   - "end of month" / EOM → ${ctx.endOfMonthISO}
   - "Thursday" (and similar) → next occurrence of that weekday from today (including today if matching)
 - Recurring templates: dueAt/scheduledFor may be null; set recurrenceRule instead
-- If no date cues and not recurring: suggest a reasonable dueAt (P1–2: 1–2 days; P3: ~7 days; P4–5: null or 14+ days)
+- If no date cues and not recurring: suggest a reasonable dueAt (CURRENT: 1–2 days; BACKLOG: ~7 days; ICEBOX: null or 14+ days)
 
 ## Recurrence
 When recurring, set recurrenceRule:
@@ -118,14 +116,14 @@ When the user lists **Subtasks**, **Parts**, **Steps**, or a numbered list under
 Honest minutes: quick ping 10–15, call 20–30, deep work 45–120. Prefer 15/30/45/60.
 
 ## Rationale
-aiRationale: ONE short sentence covering the key decision (area, priority, date, or follow-up). No essays.
+aiRationale: ONE short sentence covering the key decision (area, lane, date, or follow-up). No essays.
 
 ## Anti-patterns (do not)
 - Do not split one clear task into many micro-tasks
 - Do not add motivational tasks or meta-advice as tasks
 - Do not invent shopping lists, subtasks, or dependencies not in the text
 - Do not output markdown, prose, or code fences — structured JSON only (enforced by schema)
-- Do not use priorities or deadlines that contradict the user's words
+- Do not use lanes or deadlines that contradict the user's words
 
 ## Output
 Return an object { "items": [ ... ] } matching the schema.

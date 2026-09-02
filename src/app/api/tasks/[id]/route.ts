@@ -6,6 +6,11 @@ import {
   completeBfMaintenanceTask,
   parseBfTaskExternalId,
 } from "@/lib/api/maintenance";
+import {
+  BOARD_LANES,
+  laneWrite,
+  resolveBoard,
+} from "@/lib/board";
 import { prisma } from "@/lib/db";
 import {
   advanceFrom,
@@ -53,6 +58,8 @@ const patchSchema = z.object({
     ])
     .optional(),
   title: z.string().min(1).max(300).optional(),
+  board: z.enum(BOARD_LANES).optional(),
+  /** @deprecated Prefer board */
   priority: z.number().int().min(1).max(5).optional().nullable(),
   dueAt: z.string().optional().nullable(),
   status: z.string().optional(),
@@ -292,7 +299,7 @@ export async function PATCH(
       return NextResponse.json({ task: updated });
     }
 
-    // --- update (title / area / priority / etc.) ---
+    // --- update (title / area / board / etc.) ---
     let nextAreaSlug: string | null = null;
     if (body.areaId !== undefined && body.areaId) {
       const area = await prisma.area.findFirst({
@@ -308,12 +315,25 @@ export async function PATCH(
       ? await prisma.area.findUnique({ where: { id: task.areaId } })
       : null;
 
+    const prevBoard = resolveBoard({
+      board: task.board,
+      priority: task.priority,
+    });
+    const nextBoard =
+      body.board !== undefined || body.priority !== undefined
+        ? resolveBoard({
+            board: body.board ?? task.board,
+            priority:
+              body.priority !== undefined ? body.priority : task.priority,
+          })
+        : null;
+
     // Save task first — never block on AI training
     const updated = await prisma.task.update({
       where: { id },
       data: {
         ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.priority !== undefined ? { priority: body.priority } : {}),
+        ...(nextBoard ? laneWrite(nextBoard) : {}),
         ...(body.dueAt !== undefined
           ? { dueAt: body.dueAt ? new Date(body.dueAt) : null }
           : {}),
@@ -347,12 +367,12 @@ export async function PATCH(
             afterValue: nextAreaSlug ?? "life",
           });
         }
-        if (body.priority !== undefined && body.priority !== task.priority) {
+        if (nextBoard && nextBoard !== prevBoard) {
           corrections.push({
-            field: "priority",
+            field: "board",
             taskTitle: (body.title ?? task.title).slice(0, 300),
-            beforeValue: task.priority != null ? String(task.priority) : null,
-            afterValue: body.priority != null ? String(body.priority) : "3",
+            beforeValue: prevBoard,
+            afterValue: nextBoard,
           });
         }
         if (body.isFollowUp !== undefined && body.isFollowUp !== task.isFollowUp) {

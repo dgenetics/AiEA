@@ -12,7 +12,9 @@ export const proposedItemSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   kind: z.enum(["ONE_TIME", "RECURRING_TEMPLATE"]),
   areaSlug: z.enum(["work", "life"]),
-  priority: z.number().int().min(1).max(5),
+  board: z.enum(["ICEBOX", "BACKLOG", "CURRENT"]).optional(),
+  /** @deprecated Prefer board; kept for old model payloads */
+  priority: z.number().int().min(1).max(5).optional(),
   dueAt: z.string().nullable().optional(),
   scheduledFor: z.string().nullable().optional(),
   estimateMinutes: z.number().int().min(1).max(480).nullable().optional(),
@@ -67,7 +69,7 @@ export const CAPTURE_JSON_SCHEMA = {
           "notes",
           "kind",
           "areaSlug",
-          "priority",
+          "board",
           "dueAt",
           "scheduledFor",
           "estimateMinutes",
@@ -119,11 +121,17 @@ export const CAPTURE_JSON_SCHEMA = {
             enum: ["work", "life"],
             description: "Only work or life. Never home.",
           },
+          board: {
+            type: "string",
+            enum: ["ICEBOX", "BACKLOG", "CURRENT"],
+            description:
+              "CURRENT = in play now; BACKLOG = ready when you are (default); ICEBOX = someday/parked.",
+          },
           priority: {
             type: "integer",
             minimum: 1,
             maximum: 5,
-            description: "1=critical today, 3=normal, 5=someday.",
+            description: "Legacy dual-write only; prefer board.",
           },
           dueAt: {
             type: ["string", "null"],

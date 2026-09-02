@@ -2,11 +2,12 @@
 
 import { Check, Clock, Pencil, Sprout, UserRound } from "lucide-react";
 import {
-  cn,
-  formatRelativeDue,
-  priorityColor,
-  priorityLabel,
-} from "@/lib/utils";
+  boardColor,
+  boardLabel,
+  resolveBoard,
+  type BoardLane,
+} from "@/lib/board";
+import { cn, formatRelativeDue } from "@/lib/utils";
 import {
   checkInsProgress,
   formatTimeLabel,
@@ -18,6 +19,8 @@ export type TaskRowData = {
   id: string;
   title: string;
   notes?: string | null;
+  board?: BoardLane | string | null;
+  /** @deprecated Prefer board */
   priority?: number | null;
   dueAt?: string | Date | null;
   status: string;
@@ -66,6 +69,7 @@ export function TaskRow({
   const openChildren = (task.children ?? []).filter((c) => c.status !== "DONE");
   const fromFarm = task.externalSource === "bf-maintenance";
   const inboxMode = mode === "inbox";
+  const lane = resolveBoard({ board: task.board, priority: task.priority });
 
   return (
     <div
@@ -170,16 +174,15 @@ export function TaskRow({
                   {task.area.name}
                 </span>
               )}
-              {task.priority != null && (
-                <span
-                  className={cn(
-                    "rounded-full border px-1.5 py-0.5 font-medium",
-                    priorityColor(task.priority),
-                  )}
-                >
-                  {priorityLabel(task.priority)}
-                </span>
-              )}
+              <span
+                className={cn(
+                  "rounded-full border px-1.5 py-0.5 font-medium",
+                  boardColor(lane),
+                )}
+                title={lane}
+              >
+                {boardLabel(lane)}
+              </span>
               {task.dueAt && !multi && (
                 <span className="inline-flex items-center gap-1 text-zinc-500">
                   <Clock className="h-3 w-3" />

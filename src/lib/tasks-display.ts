@@ -1,9 +1,11 @@
 import type { TaskRowData } from "@/components/task-row";
+import { resolveBoard, type BoardLane } from "@/lib/board";
 
 type RawTask = {
   id: string;
   title: string;
   notes?: string | null;
+  board?: string | null;
   priority?: number | null;
   dueAt?: Date | string | null;
   status: string;
@@ -22,6 +24,7 @@ type RawTask = {
     id: string;
     title: string;
     notes?: string | null;
+    board?: string | null;
     priority?: number | null;
     dueAt?: Date | string | null;
     status: string;
@@ -40,6 +43,10 @@ function iso(d?: Date | string | null) {
   return d.toISOString();
 }
 
+function laneOf(t: { board?: string | null; priority?: number | null }): BoardLane {
+  return resolveBoard({ board: t.board, priority: t.priority });
+}
+
 export function toTaskRow(
   t: RawTask,
   extras?: Partial<TaskRowData>,
@@ -50,6 +57,7 @@ export function toTaskRow(
       id: c.id,
       title: c.title,
       notes: c.notes,
+      board: laneOf(c),
       priority: c.priority,
       dueAt: iso(c.dueAt),
       status: c.status,
@@ -69,6 +77,7 @@ export function toTaskRow(
     id: t.id,
     title: t.title,
     notes: t.notes,
+    board: laneOf(t),
     priority: t.priority,
     dueAt: iso(t.dueAt),
     status: t.status,

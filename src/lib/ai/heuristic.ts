@@ -1,5 +1,7 @@
 import { nanoid } from "nanoid";
 import type { ProposedItem, RecurrenceRule } from "@/lib/types";
+import type { BoardLane } from "@/lib/board";
+import { priorityFromBoard } from "@/lib/board";
 import { enrichRuleWithTimes } from "@/lib/recurrence";
 import { parseSubtaskLines } from "@/lib/subtasks-parse";
 import { localNoonPlusDays, localNoonToday, toStoredDueDate } from "@/lib/calendar";
@@ -23,6 +25,9 @@ export function heuristicPropose(
           : /\btomorrow\b/i.test(full)
             ? dueDays(1)
             : dueDays(3));
+      const board: BoardLane = /\btoday\b|urgent/i.test(full)
+        ? "CURRENT"
+        : "BACKLOG";
       return [
         {
           id: nanoid(10),
@@ -30,7 +35,8 @@ export function heuristicPropose(
           notes: full.slice(0, 500),
           kind: "ONE_TIME",
           areaSlug: /work|client|event|business/i.test(full) ? "work" : "life",
-          priority: /\btoday\b|urgent/i.test(full) ? 1 : 2,
+          board,
+          priority: priorityFromBoard(board) as 1 | 2 | 3 | 4 | 5,
           dueAt,
           scheduledFor: dueAt,
           estimateMinutes: 45,
@@ -92,10 +98,11 @@ export function heuristicPropose(
       personName = nameMatch[1];
     }
 
-    let priority: 1 | 2 | 3 | 4 | 5 = 3;
-    if (/urgent|asap|critical|today|immediately/i.test(lower)) priority = 1;
-    else if (/soon|this week|important|deadline/i.test(lower)) priority = 2;
-    else if (/someday|maybe|nice to have|low priority/i.test(lower)) priority = 5;
+    let board: BoardLane = "BACKLOG";
+    if (/urgent|asap|critical|today|immediately/i.test(lower)) board = "CURRENT";
+    else if (/someday|maybe|nice to have|park|icebox|low priority/i.test(lower)) {
+      board = "ICEBOX";
+    }
 
     let dueAt: string | null = null;
     if (/today/i.test(lower)) dueAt = dueDays(0);
@@ -108,7 +115,7 @@ export function heuristicPropose(
     } else if (isFollowUp) {
       dueAt = dueDays(2);
     } else if (!isRecurring) {
-      dueAt = dueDays(priority <= 2 ? 2 : 7);
+      dueAt = dueDays(board === "CURRENT" ? 2 : board === "ICEBOX" ? 14 : 7);
     }
 
     let recurrenceRule: RecurrenceRule | null = null;
@@ -142,15 +149,17 @@ export function heuristicPropose(
     }
 
     const cleanTitle = line.replace(/[.]+$/, "").trim();
+    const priority = priorityFromBoard(board) as 1 | 2 | 3 | 4 | 5;
     items.push({
       id: nanoid(10),
       title: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1),
       kind: isRecurring ? "RECURRING_TEMPLATE" : "ONE_TIME",
       areaSlug,
+      board,
       priority,
       dueAt,
       scheduledFor: dueAt,
-      estimateMinutes: isRecurring ? 15 : priority <= 2 ? 45 : 30,
+      estimateMinutes: isRecurring ? 15 : board === "CURRENT" ? 45 : 30,
       recurrenceRule,
       isFollowUp,
       personName,
@@ -159,7 +168,7 @@ export function heuristicPropose(
         ? "Detected recurring language; scheduled as a repeating task."
         : isFollowUp
           ? "Detected a people follow-up; attached a response deadline."
-          : `Classified as ${areaSlug}; priority ${priority} from urgency cues.`,
+          : `Classified as ${areaSlug}; lane ${board} from urgency cues.`,
       accepted: false,
       dismissed: false,
     });
@@ -171,10 +180,11 @@ export function heuristicPropose(
       title: rawText.trim().slice(0, 120),
       kind: "ONE_TIME",
       areaSlug: "life",
+      board: "BACKLOG",
       priority: 3,
       dueAt: dueDays(3),
       estimateMinutes: 30,
-      aiRationale: "Single capture item; default life / medium priority with a 3-day target.",
+      aiRationale: "Single capture item; default life / Backlog with a 3-day target.",
       accepted: false,
       dismissed: false,
     });

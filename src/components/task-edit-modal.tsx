@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Plus, Trash2, X } from "lucide-react";
+import { BoardLanePicker } from "@/components/board-lane-picker";
 import type { TaskRowData } from "@/components/task-row";
+import { resolveBoard, type BoardLane } from "@/lib/board";
 import { cn, formatRelativeDue } from "@/lib/utils";
 import { toDateInputValue, toStoredDueDate } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
@@ -35,7 +37,9 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
   const [areaId, setAreaId] = useState(
     areas.find((a) => a.slug === task.area?.slug)?.id ?? areas[0]?.id ?? "",
   );
-  const [priority, setPriority] = useState(task.priority ?? 3);
+  const [board, setBoard] = useState<BoardLane>(
+    resolveBoard({ board: task.board, priority: task.priority }),
+  );
   const [dueAt, setDueAt] = useState(toDateInput(task.dueAt));
   const [notes, setNotes] = useState(task.notes ?? "");
   const [isFollowUp, setIsFollowUp] = useState(Boolean(task.isFollowUp));
@@ -82,7 +86,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
     if (!open) return;
     setTitle(task.title);
     setAreaId(areas.find((a) => a.slug === task.area?.slug)?.id ?? areas[0]?.id ?? "");
-    setPriority(task.priority ?? 3);
+    setBoard(resolveBoard({ board: task.board, priority: task.priority }));
     setDueAt(toDateInput(task.dueAt));
     setNotes(task.notes ?? "");
     setIsFollowUp(Boolean(task.isFollowUp));
@@ -108,7 +112,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
           action: "update",
           title: title.trim(),
           areaId,
-          priority,
+          board,
           dueAt: dueAt ? toStoredDueDate(dueAt) : null,
           notes: notes.trim() || null,
           isFollowUp,
@@ -159,7 +163,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
           parentId: task.id,
           dueAt: newSubDue ? toStoredDueDate(newSubDue) : null,
           areaId: areaId || null,
-          priority,
+          board,
         }),
       });
       const data = await res.json();
@@ -282,20 +286,10 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
               </div>
             </label>
 
-            <label className="block min-w-0">
-              <span className="mb-1 block text-xs text-zinc-400">Priority</span>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(Number(e.target.value))}
-                className={fieldClass}
-              >
-                <option value={1}>P1 · Critical</option>
-                <option value={2}>P2 · High</option>
-                <option value={3}>P3 · Medium</option>
-                <option value={4}>P4 · Low</option>
-                <option value={5}>P5 · Someday</option>
-              </select>
-            </label>
+            <div className="block min-w-0">
+              <span className="mb-1 block text-xs text-zinc-400">Board</span>
+              <BoardLanePicker value={board} onChange={setBoard} />
+            </div>
 
             <label className="block min-w-0">
               <span className="mb-1 block text-xs text-zinc-400">

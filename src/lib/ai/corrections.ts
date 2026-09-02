@@ -36,9 +36,13 @@ export function formatCorrectionsForPrompt(rows: CorrectionRow[]): string {
   if (!rows.length) return "";
 
   const area = rows.filter((r) => r.field === "area").slice(0, 20);
+  const board = rows.filter((r) => r.field === "board").slice(0, 10);
   const priority = rows.filter((r) => r.field === "priority").slice(0, 10);
   const other = rows
-    .filter((r) => r.field !== "area" && r.field !== "priority")
+    .filter(
+      (r) =>
+        r.field !== "area" && r.field !== "board" && r.field !== "priority",
+    )
     .slice(0, 10);
 
   const lines: string[] = [
@@ -59,12 +63,24 @@ export function formatCorrectionsForPrompt(rows: CorrectionRow[]): string {
     lines.push("");
   }
 
+  if (board.length) {
+    lines.push("### Board lane corrections");
+    for (const r of board) {
+      lines.push(
+        `- "${r.taskTitle}" → board **${r.afterValue}**` +
+          (r.beforeValue ? ` (was ${r.beforeValue})` : ""),
+      );
+    }
+    lines.push("");
+  }
+
   if (priority.length) {
-    lines.push("### Priority corrections");
+    lines.push("### Legacy priority corrections (map to lanes)");
     for (const r of priority) {
       lines.push(
         `- "${r.taskTitle}" → priority **${r.afterValue}**` +
-          (r.beforeValue ? ` (was ${r.beforeValue})` : ""),
+          (r.beforeValue ? ` (was ${r.beforeValue})` : "") +
+          " — treat as board lane (≤2 Current, ≥4 Icebox, else Backlog)",
       );
     }
     lines.push("");
@@ -81,7 +97,7 @@ export function formatCorrectionsForPrompt(rows: CorrectionRow[]): string {
   }
 
   lines.push(
-    "When a new task is similar in topic, person, or wording, apply the same area/priority pattern.",
+    "When a new task is similar in topic, person, or wording, apply the same area/board pattern.",
   );
 
   return lines.join("\n");

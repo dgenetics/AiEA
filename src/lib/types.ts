@@ -1,3 +1,5 @@
+import type { BoardLane } from "@/lib/board";
+
 export type TaskKind = "ONE_TIME" | "RECURRING_TEMPLATE" | "OCCURRENCE";
 export type TaskStatus =
   | "INBOX"
@@ -6,6 +8,8 @@ export type TaskStatus =
   | "DONE"
   | "CANCELLED"
   | "SNOOZED";
+
+export type { BoardLane };
 
 export type CaptureStatus =
   | "PENDING"
@@ -40,6 +44,9 @@ export type ProposedItem = {
   notes?: string;
   kind: TaskKind;
   areaSlug?: "work" | "life" | string;
+  /** User-facing lane */
+  board?: BoardLane;
+  /** @deprecated Prefer board; kept for old payloads / dual-write */
   priority?: 1 | 2 | 3 | 4 | 5;
   dueAt?: string | null; // ISO
   scheduledFor?: string | null;
@@ -59,7 +66,14 @@ export type DailyBrief = {
   generatedAt: string;
   greeting: string;
   summary: string;
-  topPriorities: Array<{ id: string; title: string; reason: string; priority: number | null }>;
+  topPriorities: Array<{
+    id: string;
+    title: string;
+    reason: string;
+    /** @deprecated Prefer board */
+    priority: number | null;
+    board?: BoardLane;
+  }>;
   followUps: Array<{ id: string; title: string; personName: string; dueLabel: string }>;
   recurringDue: Array<{ id: string; title: string }>;
   overdue: Array<{ id: string; title: string; dueLabel: string }>;

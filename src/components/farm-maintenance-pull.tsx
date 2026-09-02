@@ -11,6 +11,7 @@ import {
   Sprout,
   X,
 } from "lucide-react";
+import { boardFromPriority, boardLabel } from "@/lib/board";
 import { cn } from "@/lib/utils";
 
 type Suggestion = {
@@ -51,12 +52,7 @@ const statusTone: Record<string, string> = {
   PENDING: "bg-zinc-500/15 text-zinc-300",
 };
 
-function priorityLabel(p: number) {
-  if (p <= 1) return "Urgent";
-  if (p === 2) return "High";
-  if (p === 3) return "Normal";
-  return `P${p}`;
-}
+
 
 export function FarmMaintenancePullButton({
   className,
@@ -342,9 +338,9 @@ export function FarmMaintenancePullButton({
                           </span>
                         </span>
                         <span>
-                          Priority{" "}
+                          Board{" "}
                           <span className="text-zinc-300">
-                            {priorityLabel(s.priority)}
+                            {boardLabel(boardFromPriority(s.priority))}
                           </span>
                         </span>
                         {s.scheduleName ? (

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
+import { BOARD_LANES, laneWrite, resolveBoard } from "@/lib/board";
 import { prisma } from "@/lib/db";
 import { endOfDay, startOfDay } from "date-fns";
 
@@ -31,8 +32,8 @@ export async function GET(req: Request) {
           { dueAt: { lte: end } },
           { scheduledFor: { gte: start, lte: end } },
           { followUpDueAt: { lte: end } },
-          // P1/P2 only if undated — future-dated stay on Upcoming
-          { priority: { lte: 2 }, status: "ACTIVE", dueAt: null },
+          // Current-lane undated — future-dated stay on Upcoming
+          { board: "CURRENT", status: "ACTIVE", dueAt: null },
         ],
       },
       include: baseInclude,
@@ -162,6 +163,8 @@ export async function GET(req: Request) {
 const createSchema = z.object({
   title: z.string().min(1).max(300),
   areaId: z.string().optional().nullable(),
+  board: z.enum(BOARD_LANES).optional(),
+  /** @deprecated Prefer board */
   priority: z.number().int().min(1).max(5).optional().nullable(),
   dueAt: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -180,6 +183,7 @@ export async function POST(req: Request) {
   let parent: {
     id: string;
     areaId: string | null;
+    board: string | null;
     priority: number | null;
     personId: string | null;
   } | null = null;
@@ -191,12 +195,23 @@ export async function POST(req: Request) {
         workspaceId,
         kind: { not: "RECURRING_TEMPLATE" },
       },
-      select: { id: true, areaId: true, priority: true, personId: true },
+      select: {
+        id: true,
+        areaId: true,
+        board: true,
+        priority: true,
+        personId: true,
+      },
     });
     if (!parent) {
       return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
     }
   }
+
+  const lane = resolveBoard({
+    board: body.board ?? parent?.board,
+    priority: body.priority ?? parent?.priority ?? 3,
+  });
 
   const task = await prisma.task.create({
     data: {
@@ -204,7 +219,7 @@ export async function POST(req: Request) {
       parentId: parent?.id ?? null,
       title: body.title,
       areaId: body.areaId ?? parent?.areaId ?? null,
-      priority: body.priority ?? parent?.priority ?? 3,
+      ...laneWrite(lane),
       personId: parent?.personId ?? null,
       dueAt: body.dueAt ? new Date(body.dueAt) : null,
       notes: body.notes || null,

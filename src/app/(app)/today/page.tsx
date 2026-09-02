@@ -5,6 +5,7 @@ import { TaskList } from "@/components/task-list";
 import { toTaskRow } from "@/lib/tasks-display";
 import { addDays, endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
+import { resolveBoard } from "@/lib/board";
 import { CheckSquare, Repeat, Sparkles } from "lucide-react";
 
 export default async function TodayPage() {
@@ -34,10 +35,9 @@ export default async function TodayPage() {
         { scheduledFor: { gte: start, lte: end } },
         // Follow-up due today or overdue
         { followUpDueAt: { lte: end } },
-        // High priority only when there's no future due date
-        // (P1/P2 with due tomorrow+ stay on Upcoming until that day)
+        // Current-lane undated — dated Current stays on Upcoming until due window
         {
-          priority: { lte: 2 },
+          board: "CURRENT",
           status: "ACTIVE",
           dueAt: null,
         },
@@ -214,7 +214,9 @@ export default async function TodayPage() {
         {[
           {
             label: "Focus now",
-            value: matching.filter((t) => (t.priority ?? 9) <= 2).length,
+            value: matching.filter(
+              (t) => resolveBoard({ board: t.board, priority: t.priority }) === "CURRENT",
+            ).length,
           },
           { label: "Follow-ups", value: followUps.length },
           {

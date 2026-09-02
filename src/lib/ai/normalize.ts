@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type { ProposedItem, ProposedSubtask, RecurrenceRule } from "@/lib/types";
 import type { AiProposedItem } from "@/lib/ai/schemas";
+import { priorityFromBoard, resolveBoard } from "@/lib/board";
 import { enrichRuleWithTimes } from "@/lib/recurrence";
 import { attachSubtasksIfMissing } from "@/lib/subtasks-parse";
 import { toStoredDueDate } from "@/lib/calendar";
@@ -93,7 +94,11 @@ export function normalizeProposals(
     const kind = p.kind === "RECURRING_TEMPLATE" ? "RECURRING_TEMPLATE" : "ONE_TIME";
     const rawArea = String(p.areaSlug || "life");
     const areaSlug = rawArea === "work" ? "work" : "life";
-    const priority = clampPriority(p.priority);
+    const board = resolveBoard({
+      board: (p as { board?: string }).board,
+      priority: p.priority != null ? clampPriority(p.priority) : null,
+    });
+    const priority = priorityFromBoard(board) as 1 | 2 | 3 | 4 | 5;
     const isFollowUp = Boolean(p.isFollowUp);
     let dueAt = parseDate(p.dueAt);
     const scheduledFor = parseDate(p.scheduledFor) ?? dueAt;
@@ -146,6 +151,7 @@ export function normalizeProposals(
       notes: displayNotes,
       kind,
       areaSlug,
+      board,
       priority,
       dueAt: kind === "RECURRING_TEMPLATE" ? null : dueAt,
       scheduledFor: kind === "RECURRING_TEMPLATE" ? null : scheduledFor ?? dueAt,
@@ -177,7 +183,8 @@ export function normalizeProposals(
         notes: rawCapture.trim().slice(0, 500),
         kind: "ONE_TIME",
         areaSlug: "life",
-        priority: 2,
+        board: "CURRENT",
+        priority: 1,
         dueAt,
         scheduledFor: dueAt,
         estimateMinutes: 30,

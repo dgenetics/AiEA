@@ -23,7 +23,7 @@ export async function GET() {
         { dueAt: { lte: horizon } },
         { scheduledFor: { lte: horizon } },
         { followUpDueAt: { lte: horizon } },
-        { priority: { lte: 2 } },
+        { board: "CURRENT" },
       ],
     },
     include: { person: true },
@@ -37,6 +37,7 @@ export async function GET() {
     tasks: tasks.map((t) => ({
       id: t.id,
       title: t.title,
+      board: t.board,
       priority: t.priority,
       dueAt: t.dueAt,
       isFollowUp: t.isFollowUp,

@@ -1,3 +1,4 @@
+import { resolveBoard } from "@/lib/board";
 import { formatRelativeDue } from "@/lib/utils";
 import type { TaskRowData } from "@/components/task-row";
 
@@ -6,6 +7,7 @@ export type ArchiveTaskRaw = {
   id: string;
   title: string;
   notes?: string | null;
+  board?: string | null;
   priority?: number | null;
   dueAt?: string | Date | null;
   completedAt?: string | Date | null;
@@ -34,6 +36,7 @@ export function toArchiveRow(t: ArchiveTaskRaw): TaskRowData {
     notes: completedLabel
       ? `${completedLabel}${t.notes ? ` · ${t.notes}` : ""}`
       : t.notes,
+    board: resolveBoard({ board: t.board, priority: t.priority }),
     priority: t.priority,
     dueAt: completedAt ?? (t.dueAt ? String(t.dueAt) : null),
     status: t.status,

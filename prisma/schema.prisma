@@ -168,7 +168,10 @@ model Task {
   /// INBOX | PROPOSED | ACTIVE | DONE | CANCELLED | SNOOZED
   status String @default("ACTIVE")
 
-  /// 1 (highest) … 5 (lowest). Null = unprioritized.
+  /// User-facing kanban lane: ICEBOX | BACKLOG | CURRENT
+  board String @default("BACKLOG")
+
+  /// Legacy dual-write sort field (1=Current … 5=Icebox). Prefer `board` in UI.
   priority Int?
 
   urgencyScore Float?
@@ -217,6 +220,7 @@ model Task {
   @@index([workspaceId, dueAt])
   @@index([workspaceId, scheduledFor])
   @@index([workspaceId, kind])
+  @@index([workspaceId, board])
   @@index([personId])
   @@index([workspaceId, externalSource])
 }
