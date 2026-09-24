@@ -3,12 +3,15 @@ import { prisma } from "@/lib/db";
 import { materializeDueOccurrences } from "@/lib/workspace";
 import { TaskList } from "@/components/task-list";
 import { TodayLaneFilters } from "@/components/today-lane-filters";
+import { TodayStaleReview } from "@/components/today-stale-review";
 import { toTaskRow } from "@/lib/tasks-display";
 import { addDays, endOfDay } from "date-fns";
 import Link from "next/link";
+import { localYmd } from "@/lib/calendar";
 import {
-  matchesCurrentDefault,
+  classifyTodayTask,
   matchesLaneFilter,
+  overdueDays,
   parseTodayLane,
   taskBoard,
   todayWindow,
@@ -33,8 +36,12 @@ export default async function TodayPage({
 
   await materializeDueOccurrences(workspaceId);
 
-  const window = todayWindow();
-  const { start, end } = window;
+  const now = new Date();
+  const { start, end } = todayWindow(now);
+  // Server runs in UTC; pad scheduled/follow-up bounds a day so the app-timezone
+  // classifier (classifyTodayTask) sees every local-today candidate.
+  const padStart = addDays(start, -1);
+  const padEnd = addDays(end, 1);
   // Broader candidate set for All / Backlog / Icebox chips (legacy due-soon window).
   const dueSoonEnd = endOfDay(addDays(new Date(), 14));
 
@@ -45,8 +52,8 @@ export default async function TodayPage({
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
         { dueAt: { lte: dueSoonEnd } },
-        { scheduledFor: { gte: start, lte: end } },
-        { followUpDueAt: { lte: end } },
+        { scheduledFor: { gte: padStart, lte: padEnd } },
+        { followUpDueAt: { lte: padEnd } },
         // Undated Current — reachable via All / Current chip when not on default due scope
         {
           board: "CURRENT",
@@ -63,10 +70,20 @@ export default async function TodayPage({
     orderBy: [{ priority: "asc" }, { dueAt: "asc" }],
   });
 
-  // Chip counts: Current = tight default; other lanes = firehose ∩ lane
-  const currentDefaultSet = matching.filter((t) =>
-    matchesCurrentDefault(t, window),
+  // Chip counts: Current = tight default (excludes stale); other lanes = firehose ∩ lane
+  const currentDefaultSet = matching.filter(
+    (t) => classifyTodayTask(t, now) === "main",
   );
+  // Current, overdue 8+ days — collapsed Stale row (default view only)
+  const staleTasks = matching
+    .filter((t) => classifyTodayTask(t, now) === "stale")
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      board: taskBoard(t),
+      overdueDays: t.dueAt ? overdueDays(t.dueAt, now) : 0,
+    }))
+    .sort((a, b) => a.overdueDays - b.overdueDays);
   const counts: Record<TodayLaneFilter, number> = {
     all: matching.length,
     current: currentDefaultSet.length,
@@ -190,11 +207,9 @@ export default async function TodayPage({
   );
 
   const followUps = visible.filter((t) => t.isFollowUp);
-  const overdueInPlay = currentDefaultSet.filter((t) => {
-    if (!t.dueAt) return false;
-    const d = t.dueAt instanceof Date ? t.dueAt : new Date(t.dueAt);
-    return d < start;
-  }).length;
+  const overdueInPlay = currentDefaultSet.filter(
+    (t) => t.dueAt && overdueDays(t.dueAt, now) > 0,
+  ).length;
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -297,8 +312,8 @@ export default async function TodayPage({
               Nothing in play today
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              Current + due today / overdue is empty. Parked work stays in
-              Backlog or Icebox.
+              Current + due today / overdue (7 days or less) is empty. Parked
+              work stays in Backlog or Icebox.
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <Link
@@ -322,6 +337,9 @@ export default async function TodayPage({
             initialTasks={[...oneTimeDisplay, ...recurringRows]}
             emptyMessage={emptyMessage}
           />
+        )}
+        {lane === "current" && (
+          <TodayStaleReview initialTasks={staleTasks} todayYmd={localYmd(now)} />
         )}
       </section>
     </div>
