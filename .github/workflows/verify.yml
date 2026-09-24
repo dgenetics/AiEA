@@ -59,6 +59,9 @@ jobs:
       - name: Install app deps
         run: npm ci
 
+      - name: Unit assertions (Today 7-day cutoff)
+        run: npm run test:today
+
       - name: Build
         run: npm run build
 
