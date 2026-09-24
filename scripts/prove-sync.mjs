@@ -133,6 +133,7 @@ function startApp(name, dir, port, env) {
     cwd: dir,
     env,
     stdio: ["ignore", "pipe", "pipe"],
+    detached: true, // own process group so cleanup also kills the next-server child of npx
   });
   const push = (d) => {
     for (const line of d.toString().split("\n")) if (line.trim()) appLogs[name].push(line);
@@ -140,6 +141,13 @@ function startApp(name, dir, port, env) {
   p.stdout.on("data", push);
   p.stderr.on("data", push);
   procs.push(p);
+}
+async function assertPortFree(port) {
+  const inUse = await fetch(`http://127.0.0.1:${port}/`, { redirect: "manual" }).then(
+    () => true,
+    () => false,
+  );
+  if (inUse) throw new Error(`port ${port} is already in use (stale server from a previous run?)`);
 }
 async function waitUp(port) {
   for (let i = 0; i < 120; i++) {
@@ -210,6 +218,7 @@ async function main() {
   run("npx", ["prisma", "db", "push"], AIEA_DIR, aieaEnv);
   run("npx", ["prisma", "db", "push"], BF_DIR, bfEnv);
 
+  for (const port of Object.values(PORTS)) await assertPortFree(port);
   const toBf = proxy("AiEA->BF", PORTS.toBf, PORTS.bf, BYPASS.toBf);
   const toAiea = proxy("BF->AiEA", PORTS.toAiea, PORTS.aiea, BYPASS.toAiea);
   startApp("aiea", AIEA_DIR, PORTS.aiea, aieaEnv);
@@ -406,7 +415,13 @@ try {
   log("--- AiEA app log tail ---\n" + appLogs.aiea.slice(-30).join("\n"));
   log("--- BF app log tail ---\n" + appLogs.bf.slice(-30).join("\n"));
 } finally {
-  for (const p of procs) p.kill("SIGTERM");
+  for (const p of procs) {
+    try {
+      process.kill(-p.pid, "SIGTERM");
+    } catch {
+      p.kill("SIGTERM");
+    }
+  }
   await new Promise((r) => outStream.end(r));
   process.exit(ok ? 0 : 1);
 }
