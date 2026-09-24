@@ -180,6 +180,51 @@ export async function completeBfMaintenanceTask(
   return { ok: true, alreadyComplete: Boolean(body.alreadyComplete) };
 }
 
+/**
+ * Notify BF that an imported maintenance task was reopened in AiEA.
+ * Best-effort — failures should not block the AiEA reopen action.
+ * BF reopen does not rewind schedule (v1).
+ */
+export async function reopenBfMaintenanceTask(
+  bfTaskId: string,
+): Promise<{ ok: boolean; alreadyOpen?: boolean; error?: string }> {
+  const base = bfBaseUrl();
+  const secret = bfSecret();
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/integrations/tasks/reopen`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ taskId: bfTaskId }),
+      cache: "no-store",
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body.error) detail = body.error;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error: `${res.status}: ${detail}` };
+  }
+
+  const body = (await res.json()) as { alreadyOpen?: boolean };
+  return { ok: true, alreadyOpen: Boolean(body.alreadyOpen) };
+}
+
 /** Lightweight connectivity probe for settings UI. */
 export async function probeBfMaintenance(): Promise<{
   ok: boolean;

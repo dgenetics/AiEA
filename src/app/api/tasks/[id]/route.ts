@@ -5,6 +5,7 @@ import { recordCorrections } from "@/lib/ai/corrections";
 import {
   completeBfMaintenanceTask,
   parseBfTaskExternalId,
+  reopenBfMaintenanceTask,
 } from "@/lib/api/maintenance";
 import {
   BOARD_LANES,
@@ -41,6 +42,24 @@ async function syncBfComplete(task: {
     }
   } catch (err) {
     console.warn("BF Maintenance complete sync error:", err);
+  }
+}
+
+/** Best-effort: if task came from BF Maintenance, reopen it there too. */
+async function syncBfReopen(task: {
+  externalSource: string | null;
+  externalId: string | null;
+}) {
+  if (task.externalSource !== "bf-maintenance") return;
+  const bfTaskId = parseBfTaskExternalId(task.externalId);
+  if (!bfTaskId) return;
+  try {
+    const result = await reopenBfMaintenanceTask(bfTaskId);
+    if (!result.ok) {
+      console.warn("BF Maintenance reopen sync failed:", result.error);
+    }
+  } catch (err) {
+    console.warn("BF Maintenance reopen sync error:", err);
   }
 }
 
@@ -256,6 +275,7 @@ export async function PATCH(
         data: { status: "ACTIVE", completedAt: null },
         include: { area: true, person: true },
       });
+      await syncBfReopen(task);
       return NextResponse.json({ task: updated });
     }
 

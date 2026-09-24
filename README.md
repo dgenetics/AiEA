@@ -85,7 +85,7 @@ node --env-file=.env.vercel scripts/push-turso-schema.mjs
 | `AUTH_SECRET` | Session hardening (change in prod) |
 | `CRON_SECRET` | Auth for cron jobs including `/api/cron/bf-maintenance-pull` (daily 12:00 UTC) |
 | `BF_MAINTENANCE_URL` | BF Maintenance base URL (server) |
-| `BF_INTEGRATION_SECRET` | Shared secret with BF Maintenance |
+| `BF_INTEGRATION_SECRET` | Shared secret with BF Maintenance (inbound + outbound) |
 | `NEXT_PUBLIC_BF_MAINTENANCE_URL` | Optional public BF URL |
 
 ### Wire SpaceXAI
