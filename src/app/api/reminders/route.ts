@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
-
-  await materializeDueOccurrences(workspaceId);
 
   const now = new Date();
   // Fire any due reminders into SENT so they show in the bell
@@ -27,6 +24,9 @@ export async function GET() {
       workspaceId,
       status: { in: ["SENT", "PENDING"] },
       fireAt: { lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      // Skip reminders for legacy native recurring templates/occurrences
+      // (per-slot "Check-in due" pings). Cadence now lives in BF Maintenance.
+      OR: [{ taskId: null }, { task: { kind: "ONE_TIME" } }],
     },
     include: {
       task: { include: { area: true, person: true } },

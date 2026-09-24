@@ -16,7 +16,7 @@ export default async function InboxPage() {
     where: {
       workspaceId,
       status: { in: ["PROPOSED", "INBOX"] },
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      kind: "ONE_TIME",
     },
     include: {
       area: true,

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { generateDailyBrief } from "@/lib/ai";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 import { addDays, startOfDay } from "date-fns";
 
 export async function GET() {
@@ -11,13 +10,11 @@ export async function GET() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
 
-  await materializeDueOccurrences(workspaceId);
-
   const horizon = addDays(startOfDay(new Date()), 7);
   const tasks = await prisma.task.findMany({
     where: {
       workspaceId,
-      kind: { not: "RECURRING_TEMPLATE" },
+      kind: "ONE_TIME",
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
         { dueAt: { lte: horizon } },

@@ -18,13 +18,7 @@ type SectionState = {
 };
 
 type Props = {
-  initialOneTime: {
-    tasks: TaskRowData[];
-    nextOffset: number | null;
-    hasMore: boolean;
-    total: number;
-  };
-  initialRecurring: {
+  initial: {
     tasks: TaskRowData[];
     nextOffset: number | null;
     hasMore: boolean;
@@ -33,10 +27,7 @@ type Props = {
   grandTotal: number;
 };
 
-async function fetchArchivePage(
-  kind: "one_time" | "occurrence",
-  offset: number,
-): Promise<{
+async function fetchArchivePage(offset: number): Promise<{
   tasks: TaskRowData[];
   nextOffset: number | null;
   hasMore: boolean;
@@ -44,7 +35,7 @@ async function fetchArchivePage(
 }> {
   const params = new URLSearchParams({
     view: "archive",
-    kind,
+    kind: "all",
     limit: String(PAGE_SIZE),
     offset: String(offset),
   });
@@ -61,76 +52,55 @@ async function fetchArchivePage(
   };
 }
 
-export function ArchiveBoard({
-  initialOneTime,
-  initialRecurring,
-  grandTotal,
-}: Props) {
+export function ArchiveBoard({ initial, grandTotal }: Props) {
   const router = useRouter();
-  const [oneTime, setOneTime] = useState<SectionState>({
-    ...initialOneTime,
-    loading: false,
-  });
-  const [recurring, setRecurring] = useState<SectionState>({
-    ...initialRecurring,
+  const [section, setSection] = useState<SectionState>({
+    ...initial,
     loading: false,
   });
 
-  const loadMore = useCallback(
-    async (section: "one_time" | "occurrence") => {
-      const current = section === "one_time" ? oneTime : recurring;
-      const setSection = section === "one_time" ? setOneTime : setRecurring;
-      if (!current.hasMore || current.loading || current.nextOffset == null) return;
+  const loadMore = useCallback(async () => {
+    if (!section.hasMore || section.loading || section.nextOffset == null) return;
 
-      setSection((s) => ({ ...s, loading: true }));
-      try {
-        const page = await fetchArchivePage(section, current.nextOffset!);
-        setSection((s) => {
-          const seen = new Set(s.tasks.map((t) => t.id));
-          const merged = [
-            ...s.tasks,
-            ...page.tasks.filter((t) => !seen.has(t.id)),
-          ];
-          return {
-            tasks: merged,
-            nextOffset: page.nextOffset,
-            hasMore: page.hasMore,
-            total: page.total,
-            loading: false,
-          };
-        });
-      } catch {
-        setSection((s) => ({ ...s, loading: false }));
-      }
-    },
-    [oneTime, recurring],
-  );
+    setSection((s) => ({ ...s, loading: true }));
+    try {
+      const page = await fetchArchivePage(section.nextOffset!);
+      setSection((s) => {
+        const seen = new Set(s.tasks.map((t) => t.id));
+        const merged = [
+          ...s.tasks,
+          ...page.tasks.filter((t) => !seen.has(t.id)),
+        ];
+        return {
+          tasks: merged,
+          nextOffset: page.nextOffset,
+          hasMore: page.hasMore,
+          total: page.total,
+          loading: false,
+        };
+      });
+    } catch {
+      setSection((s) => ({ ...s, loading: false }));
+    }
+  }, [section]);
 
-  function reopenIn(
-    setSection: typeof setOneTime,
-    id: string,
-  ) {
+  function reopen(id: string) {
     setSection((s) => ({
       ...s,
       tasks: s.tasks.filter((t) => t.id !== id),
       total: Math.max(0, s.total - 1),
-      // Keep offset stable; next page may slightly overlap — de-duped on load
     }));
     router.refresh();
   }
 
-  const shownTotal = oneTime.total + recurring.total;
-  const empty =
-    grandTotal === 0 &&
-    oneTime.tasks.length === 0 &&
-    recurring.tasks.length === 0;
+  const empty = grandTotal === 0 && section.tasks.length === 0;
 
   return (
     <div className="space-y-8">
       <p className="text-sm text-zinc-500">
         {empty
           ? "Nothing completed yet."
-          : `${shownTotal} completed task${shownTotal === 1 ? "" : "s"} total · ${PAGE_SIZE} per page · click checkmark to reopen`}
+          : `${section.total} completed task${section.total === 1 ? "" : "s"} total · ${PAGE_SIZE} per page · click checkmark to reopen`}
       </p>
 
       {empty ? (
@@ -140,79 +110,46 @@ export function ArchiveBoard({
           </p>
         </div>
       ) : (
-        <>
-          <ArchiveSection
-            title="One-time"
-            state={oneTime}
-            emptyMessage="No completed one-time tasks."
-            onLoadMore={() => loadMore("one_time")}
-            onReopen={(id) => reopenIn(setOneTime, id)}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Completed</h2>
+            <span className="text-[11px] text-zinc-500">
+              showing {section.tasks.length}
+              {section.total > section.tasks.length ? ` of ${section.total}` : ""}
+            </span>
+          </div>
+
+          <TaskList
+            mode="archive"
+            initialTasks={section.tasks}
+            emptyMessage="No completed tasks."
+            onArchiveReopen={reopen}
           />
-          <ArchiveSection
-            title="Recurring (done occurrences)"
-            state={recurring}
-            emptyMessage="No completed recurring occurrences."
-            onLoadMore={() => loadMore("occurrence")}
-            onReopen={(id) => reopenIn(setRecurring, id)}
-          />
-        </>
+
+          {section.hasMore && (
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={section.loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-900/60 px-4 py-2 text-sm text-zinc-200 transition hover:border-white/20 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                {section.loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  <>
+                    Load more (
+                    {Math.max(0, section.total - section.tasks.length)} remaining)
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </section>
       )}
     </div>
-  );
-}
-
-function ArchiveSection({
-  title,
-  state,
-  emptyMessage,
-  onLoadMore,
-  onReopen,
-}: {
-  title: string;
-  state: SectionState;
-  emptyMessage: string;
-  onLoadMore: () => void;
-  onReopen: (id: string) => void;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">{title}</h2>
-        <span className="text-[11px] text-zinc-500">
-          showing {state.tasks.length}
-          {state.total > state.tasks.length ? ` of ${state.total}` : ""}
-        </span>
-      </div>
-
-      <TaskList
-        mode="archive"
-        initialTasks={state.tasks}
-        emptyMessage={emptyMessage}
-        onArchiveReopen={onReopen}
-      />
-
-      {state.hasMore && (
-        <div className="flex justify-center pt-1">
-          <button
-            type="button"
-            onClick={onLoadMore}
-            disabled={state.loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-900/60 px-4 py-2 text-sm text-zinc-200 transition hover:border-white/20 hover:bg-zinc-900 disabled:opacity-50"
-          >
-            {state.loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading…
-              </>
-            ) : (
-              <>
-                Load more (
-                {Math.max(0, state.total - state.tasks.length)} remaining)
-              </>
-            )}
-          </button>
-        </div>
-      )}
-    </section>
   );
 }

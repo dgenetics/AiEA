@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { BoardLanePicker } from "@/components/board-lane-picker";
-import type { ProposedItem, ProposedSubtask, RecurrenceRule } from "@/lib/types";
+import type { ProposedItem, ProposedSubtask } from "@/lib/types";
 import {
   boardColor,
   boardLabel,
@@ -14,25 +14,6 @@ import {
 import { cn } from "@/lib/utils";
 import { toDateInputValue } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
-
-const AREAS = [
-  { slug: "work", label: "Work" },
-  { slug: "life", label: "Life" },
-] as const;
-
-const WEEKDAYS = [
-  { v: 0, label: "Sun" },
-  { v: 1, label: "Mon" },
-  { v: 2, label: "Tue" },
-  { v: 3, label: "Wed" },
-  { v: 4, label: "Thu" },
-  { v: 5, label: "Fri" },
-  { v: 6, label: "Sat" },
-] as const;
-
-function defaultRule(): RecurrenceRule {
-  return { frequency: "weekly", interval: 1, byWeekday: [0], time: "09:00" };
-}
 
 
 async function readJsonBody(res: Response): Promise<Record<string, unknown>> {
@@ -159,58 +140,6 @@ export function CaptureForm() {
     );
   }
 
-  function setKind(id: string, kind: "ONE_TIME" | "RECURRING_TEMPLATE") {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (i.id !== id) return i;
-        if (kind === "RECURRING_TEMPLATE") {
-          return {
-            ...i,
-            kind,
-            dueAt: null,
-            scheduledFor: null,
-            recurrenceRule: i.recurrenceRule ?? defaultRule(),
-          };
-        }
-        return {
-          ...i,
-          kind,
-          recurrenceRule: null,
-        };
-      }),
-    );
-  }
-
-  function updateRule(id: string, patch: Partial<RecurrenceRule>) {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (i.id !== id) return i;
-        const base = i.recurrenceRule ?? defaultRule();
-        return { ...i, recurrenceRule: { ...base, ...patch } };
-      }),
-    );
-  }
-
-  function toggleWeekday(id: string, day: number) {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (i.id !== id) return i;
-        const base = i.recurrenceRule ?? defaultRule();
-        const set = new Set(base.byWeekday ?? []);
-        if (set.has(day)) set.delete(day);
-        else set.add(day);
-        const byWeekday = [...set].sort((a, b) => a - b);
-        return {
-          ...i,
-          recurrenceRule: {
-            ...base,
-            byWeekday: byWeekday.length ? byWeekday : [day],
-          },
-        };
-      }),
-    );
-  }
-
   async function accept() {
     if (!captureId || selected.size === 0) return;
 
@@ -308,7 +237,7 @@ export function CaptureForm() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={6}
-          placeholder={`Examples:\n• Call plumber about the kitchen leak\n• Follow up with Sarah on the Q3 deck by Thursday\n• Water plants every Sunday\n• Renew car registration before end of month`}
+          placeholder={`Examples:\n• Call plumber about the kitchen leak\n• Follow up with Sarah on the Q3 deck by Thursday\n• Call Alana about the energizer Friday\n• Renew car registration before end of month`}
           className="w-full resize-y rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         />
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
@@ -392,11 +321,7 @@ export function CaptureForm() {
           <div className="space-y-3">
             {items.map((item) => {
               const on = selected.has(item.id);
-              const orig = originalItems.find((x) => x.id === item.id);
-              const areaChanged = orig && item.areaSlug !== orig.areaSlug;
               const isOpen = expanded.has(item.id);
-              const rule = item.recurrenceRule ?? defaultRule();
-              const isRecurring = item.kind === "RECURRING_TEMPLATE";
 
               return (
                 <div
@@ -451,60 +376,6 @@ export function CaptureForm() {
 
                       {isOpen && (
                         <div className="space-y-3 border-t border-white/5 pt-3">
-                          {/* Category */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-                              Category
-                              {areaChanged ? (
-                                <span className="ml-1 text-indigo-300">(fixed)</span>
-                              ) : null}
-                            </span>
-                            {AREAS.map((a) => (
-                              <button
-                                key={a.slug}
-                                type="button"
-                                onClick={() =>
-                                  updateItem(item.id, { areaSlug: a.slug })
-                                }
-                                className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition",
-                                  item.areaSlug === a.slug
-                                    ? "border-indigo-400/50 bg-indigo-500/20 text-indigo-200"
-                                    : "border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-300",
-                                )}
-                              >
-                                {a.label}
-                              </button>
-                            ))}
-                          </div>
-
-                          {/* Kind */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-                              Type
-                            </span>
-                            {(
-                              [
-                                ["ONE_TIME", "One-time"],
-                                ["RECURRING_TEMPLATE", "Recurring"],
-                              ] as const
-                            ).map(([k, label]) => (
-                              <button
-                                key={k}
-                                type="button"
-                                onClick={() => setKind(item.id, k)}
-                                className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition",
-                                  item.kind === k
-                                    ? "border-teal-400/50 bg-teal-500/15 text-teal-200"
-                                    : "border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-300",
-                                )}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-
                           {/* Board + due */}
                           <div className="grid gap-2 sm:grid-cols-2">
                             <div className="block">
@@ -523,134 +394,48 @@ export function CaptureForm() {
                               />
                             </div>
 
-                            {!isRecurring && (
-                              <label className="block">
-                                <span className="mb-1 block text-[10px] uppercase tracking-wide text-zinc-500">
-                                  Due date
-                                </span>
-                                <div className="flex min-w-0 items-center gap-1.5">
-                                  <div className="min-w-0 flex-1">
-                                    <DateField
-                                      muted
-                                      value={toDateInputValue(item.dueAt)}
-                                      onChange={(v) => {
-                                        // Keep YYYY-MM-DD while reviewing — ISO round-trip
-                                        // breaks year spin/edit on date inputs.
-                                        const dueAt = v || null;
-                                        updateItem(item.id, {
-                                          dueAt,
-                                          scheduledFor: dueAt,
-                                          ...(item.isFollowUp
-                                            ? { followUpDueAt: dueAt }
-                                            : {}),
-                                        });
-                                      }}
-                                    />
-                                  </div>
-                                  {item.dueAt && (
-                                    <button
-                                      type="button"
-                                      title="Clear due date"
-                                      onClick={() =>
-                                        updateItem(item.id, {
-                                          dueAt: null,
-                                          scheduledFor: null,
-                                          followUpDueAt: item.isFollowUp
-                                            ? null
-                                            : item.followUpDueAt,
-                                        })
-                                      }
-                                      className="shrink-0 rounded p-1 text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  )}
+                            <label className="block">
+                              <span className="mb-1 block text-[10px] uppercase tracking-wide text-zinc-500">
+                                Due date
+                              </span>
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <div className="min-w-0 flex-1">
+                                  <DateField
+                                    muted
+                                    value={toDateInputValue(item.dueAt)}
+                                    onChange={(v) => {
+                                      const dueAt = v || null;
+                                      updateItem(item.id, {
+                                        dueAt,
+                                        scheduledFor: dueAt,
+                                        ...(item.isFollowUp
+                                          ? { followUpDueAt: dueAt }
+                                          : {}),
+                                      });
+                                    }}
+                                  />
                                 </div>
-                              </label>
-                            )}
-                          </div>
-
-                          {/* Recurrence controls */}
-                          {isRecurring && (
-                            <div className="space-y-2 rounded-lg border border-teal-500/20 bg-teal-500/5 p-2.5">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-300/90">
-                                Schedule
-                              </p>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <label className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-                                  Every
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={12}
-                                    value={rule.interval ?? 1}
-                                    onChange={(e) =>
-                                      updateRule(item.id, {
-                                        interval: Math.max(
-                                          1,
-                                          Number(e.target.value) || 1,
-                                        ),
+                                {item.dueAt && (
+                                  <button
+                                    type="button"
+                                    title="Clear due date"
+                                    onClick={() =>
+                                      updateItem(item.id, {
+                                        dueAt: null,
+                                        scheduledFor: null,
+                                        followUpDueAt: item.isFollowUp
+                                          ? null
+                                          : item.followUpDueAt,
                                       })
                                     }
-                                    className="w-14 rounded border border-white/10 bg-zinc-950 px-1.5 py-0.5 text-xs text-zinc-200"
-                                  />
-                                </label>
-                                <select
-                                  value={rule.frequency}
-                                  onChange={(e) =>
-                                    updateRule(item.id, {
-                                      frequency: e.target
-                                        .value as RecurrenceRule["frequency"],
-                                    })
-                                  }
-                                  className="rounded border border-white/10 bg-zinc-950 px-1.5 py-0.5 text-xs text-zinc-200"
-                                >
-                                  <option value="daily">day(s)</option>
-                                  <option value="weekly">week(s)</option>
-                                  <option value="monthly">month(s)</option>
-                                </select>
-                                <label className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-                                  at
-                                  <input
-                                    type="time"
-                                    value={rule.time ?? "09:00"}
-                                    onChange={(e) =>
-                                      updateRule(item.id, {
-                                        time: e.target.value || "09:00",
-                                      })
-                                    }
-                                    className="rounded border border-white/10 bg-zinc-950 px-1.5 py-0.5 text-xs text-zinc-200"
-                                  />
-                                </label>
+                                    className="shrink-0 rounded p-1 text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               </div>
-                              {rule.frequency === "weekly" && (
-                                <div className="flex flex-wrap gap-1">
-                                  {WEEKDAYS.map((d) => {
-                                    const active = (rule.byWeekday ?? []).includes(
-                                      d.v,
-                                    );
-                                    return (
-                                      <button
-                                        key={d.v}
-                                        type="button"
-                                        onClick={() =>
-                                          toggleWeekday(item.id, d.v)
-                                        }
-                                        className={cn(
-                                          "rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-                                          active
-                                            ? "border-teal-400/50 bg-teal-500/20 text-teal-100"
-                                            : "border-white/10 text-zinc-500 hover:border-white/20",
-                                        )}
-                                      >
-                                        {d.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            </label>
+                          </div>
 
                           {/* Follow-up */}
                           <div className="flex flex-wrap items-center gap-3">
@@ -779,9 +564,6 @@ export function CaptureForm() {
 
                       {!isOpen && (
                         <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
-                          <span className="rounded-full border border-white/10 px-1.5 py-0.5">
-                            {item.areaSlug === "work" ? "Work" : "Life"}
-                          </span>
                           <span
                             className={cn(
                               "rounded-full border px-1.5 py-0.5 text-[10px]",
@@ -799,9 +581,6 @@ export function CaptureForm() {
                                 priority: item.priority,
                               }),
                             )}
-                          </span>
-                          <span className="rounded-full border border-white/10 px-1.5 py-0.5">
-                            {isRecurring ? "Recurring" : "One-time"}
                           </span>
                           {item.dueAt && (
                             <span>

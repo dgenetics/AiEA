@@ -4,14 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
-  Bell,
-  Briefcase,
   CalendarDays,
-  Home,
   Inbox,
   LayoutDashboard,
   LogOut,
-  Repeat,
   Settings,
   Sparkles,
   Sunrise,
@@ -25,10 +21,8 @@ const nav = [
   { href: "/capture", label: "Capture", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/people", label: "People", icon: Users },
-  { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/brief", label: "Daily Brief", icon: Sunrise },
-  { href: "/areas", label: "Areas", icon: Briefcase },
   { href: "/account", label: "Account", icon: Settings },
 ];
 
@@ -112,11 +106,6 @@ export function Sidebar({
           <LogOut className="h-4 w-4" />
           Sign out
         </button>
-        <div className="flex items-center gap-2 rounded-lg bg-zinc-900/80 px-2.5 py-2 text-[11px] text-zinc-500">
-          <Home className="h-3.5 w-3.5" />
-          <span>Work · Life</span>
-          <Bell className="ml-auto h-3.5 w-3.5 text-zinc-600" />
-        </div>
       </div>
     </aside>
   );

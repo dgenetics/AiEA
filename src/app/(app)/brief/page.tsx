@@ -1,7 +1,6 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { generateDailyBrief } from "@/lib/ai";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 import { addDays, startOfDay } from "date-fns";
 import Link from "next/link";
 
@@ -11,13 +10,11 @@ export default async function BriefPage() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
-  await materializeDueOccurrences(workspaceId);
-
   const horizon = addDays(startOfDay(new Date()), 7);
   const tasks = await prisma.task.findMany({
     where: {
       workspaceId,
-      kind: { not: "RECURRING_TEMPLATE" },
+      kind: "ONE_TIME",
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
         { dueAt: { lte: horizon } },
@@ -117,18 +114,6 @@ export default async function BriefPage() {
         </section>
       </div>
 
-      {brief.recurringDue.length > 0 && (
-        <section className="rounded-xl border border-white/5 bg-zinc-900/40 p-4">
-          <h2 className="text-sm font-semibold text-white">Recurring due</h2>
-          <ul className="mt-2 space-y-1">
-            {brief.recurringDue.map((r) => (
-              <li key={r.id} className="text-sm text-zinc-300">
-                {r.title}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <section className="rounded-xl border border-white/5 bg-zinc-900/40 p-4">
         <h2 className="text-sm font-semibold text-white">Coach notes</h2>

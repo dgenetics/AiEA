@@ -121,3 +121,14 @@ Without a key, Capture still works via local heuristics (amber badge / “Local 
 ## License
 
 Private — all rights reserved unless you choose otherwise.
+
+
+## Agent verification (pstack / poteto)
+
+Hong / agents: use **poteto-mode** with the project skill `.cursor/skills/verify-aiea/` (launch → doctor → Playwright drive → evidence). Confirm `~/.cursor/rules/pstack-models.mdc` on the box. One-shot:
+
+```bash
+./.cursor/skills/verify-aiea/scripts/gate.sh --local --feature capture-accept
+```
+
+Live/post-auth needs **`AIEA_SMOKE_EMAIL` + `AIEA_SMOKE_PASSWORD`** (both; smoke user only — never personal / 1Password). When unset, `gate.sh --live-smoke` **clean-skips** (CI stays green). Hong creates the smoke User row; verify does not. Set CI secrets with `gh secret set` (see `.cursor/skills/verify-aiea/SKILL.md`). Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` are demoted — migrate to SMOKE names. No separate `BF_*` pair for smoke login. Parallel to bf-maintenance verify — do not conflate with BF PIN / #20 login threads.

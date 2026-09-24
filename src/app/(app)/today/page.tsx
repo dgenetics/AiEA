@@ -1,41 +1,60 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 import { TaskList } from "@/components/task-list";
+import { TodayLaneFilters } from "@/components/today-lane-filters";
+import { TodayStaleReview } from "@/components/today-stale-review";
 import { toTaskRow } from "@/lib/tasks-display";
-import { addDays, endOfDay, startOfDay } from "date-fns";
+import { addDays, endOfDay } from "date-fns";
 import Link from "next/link";
-import { resolveBoard } from "@/lib/board";
-import { CheckSquare, Repeat, Sparkles } from "lucide-react";
+import { localYmd } from "@/lib/calendar";
+import {
+  classifyTodayTask,
+  matchesLaneFilter,
+  overdueDays,
+  parseTodayLane,
+  taskBoard,
+  todayWindow,
+  type TodayLaneFilter,
+} from "@/lib/today-filters";
+import { CheckSquare, Sparkles } from "lucide-react";
 
-export default async function TodayPage() {
+type SearchParams = { lane?: string | string[] };
+
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams> | SearchParams;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
-  await materializeDueOccurrences(workspaceId);
+  const rawParams = searchParams ? await Promise.resolve(searchParams) : {};
+  const lane = parseTodayLane(rawParams.lane);
 
-  const start = startOfDay(new Date());
-  const end = endOfDay(new Date());
-  // Include due-soon work (next 14 days) so accepted farm tasks and other
-  // scheduled one-time work aren't "invisible" until their exact due date.
+  const now = new Date();
+  const { start, end } = todayWindow(now);
+  // Server runs in UTC; pad scheduled/follow-up bounds a day so the app-timezone
+  // classifier (classifyTodayTask) sees every local-today candidate.
+  const padStart = addDays(start, -1);
+  const padEnd = addDays(end, 1);
+  // Broader candidate set for All / Backlog / Icebox chips (legacy due-soon window).
   const dueSoonEnd = endOfDay(addDays(new Date(), 14));
 
   const matching = await prisma.task.findMany({
     where: {
       workspaceId,
-      // Never list templates themselves — only occurrences + one-time tasks
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      // One-time tasks only. Repeating chores reach AiEA from BF Maintenance
+      // (farm pull / linked-task bridge) as ONE_TIME rows; legacy native
+      // RECURRING_TEMPLATE / OCCURRENCE rows are never rendered.
+      kind: "ONE_TIME",
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
-        // Overdue, due today, or due within the next 14 days
         { dueAt: { lte: dueSoonEnd } },
-        // Explicitly scheduled for today
-        { scheduledFor: { gte: start, lte: end } },
-        // Follow-up due today or overdue
-        { followUpDueAt: { lte: end } },
-        // Current-lane undated — dated Current stays on Upcoming until due window
+        { scheduledFor: { gte: padStart, lte: padEnd } },
+        { followUpDueAt: { lte: padEnd } },
+        // Undated Current — reachable via All / Current chip when not on default due scope
         {
           board: "CURRENT",
           status: "ACTIVE",
@@ -51,20 +70,41 @@ export default async function TodayPage() {
     orderBy: [{ priority: "asc" }, { dueAt: "asc" }],
   });
 
-  // Recurring day-instances (parent is RECURRING_TEMPLATE) — always top-level cards
-  const occurrences = matching.filter((t) => t.kind === "OCCURRENCE");
+  // Chip counts: Current = tight default (excludes stale); other lanes = firehose ∩ lane
+  const currentDefaultSet = matching.filter(
+    (t) => classifyTodayTask(t, now) === "main",
+  );
+  // Current, overdue 8+ days — collapsed Stale row (default view only)
+  const staleTasks = matching
+    .filter((t) => classifyTodayTask(t, now) === "stale")
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      board: taskBoard(t),
+      overdueDays: t.dueAt ? overdueDays(t.dueAt, now) : 0,
+    }))
+    .sort((a, b) => a.overdueDays - b.overdueDays);
+  const counts: Record<TodayLaneFilter, number> = {
+    all: matching.length,
+    current: currentDefaultSet.length,
+    backlog: matching.filter((t) => taskBoard(t) === "BACKLOG").length,
+    icebox: matching.filter((t) => taskBoard(t) === "ICEBOX").length,
+  };
+
+  // Visible set for the active chip
+  const visible =
+    lane === "current"
+      ? currentDefaultSet
+      : matching.filter((t) => matchesLaneFilter(t, lane));
+
+  const hiddenCount = Math.max(0, matching.length - visible.length);
 
   // Real one-time tasks (not subtasks)
-  const topOneTime = matching.filter(
-    (t) => t.kind === "ONE_TIME" && !t.parentId,
-  );
+  const topOneTime = visible.filter((t) => !t.parentId);
 
-  // Subtasks matching today (parent is another ONE_TIME task, not a template)
-  const subtasksDue = matching.filter(
-    (t) =>
-      t.kind === "ONE_TIME" &&
-      Boolean(t.parentId) &&
-      t.parent?.kind !== "RECURRING_TEMPLATE",
+  // Subtasks matching today (parent must be another ONE_TIME task)
+  const subtasksDue = visible.filter(
+    (t) => Boolean(t.parentId) && t.parent?.kind === "ONE_TIME",
   );
 
   // Ensure parent cards exist for due subtasks
@@ -129,51 +169,31 @@ export default async function TodayPage() {
     .filter((t) => !parentIds.includes(t.parentId as string))
     .map((t) => toTaskRow(t));
 
-  // Nest parts under today's recurring occurrences when present
-  const occurrenceIds = occurrences.map((t) => t.id);
-  const occurrenceChildren =
-    occurrenceIds.length > 0
-      ? await prisma.task.findMany({
-          where: {
-            workspaceId,
-            parentId: { in: occurrenceIds },
-            kind: "ONE_TIME",
-            status: { not: "CANCELLED" },
-          },
-          include: { area: true, person: true },
-          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-        })
-      : [];
-  const childrenByOccurrence = new Map<string, typeof occurrenceChildren>();
-  for (const c of occurrenceChildren) {
-    if (!c.parentId) continue;
-    const list = childrenByOccurrence.get(c.parentId) ?? [];
-    list.push(c);
-    childrenByOccurrence.set(c.parentId, list);
-  }
-  const recurringRows = occurrences.map((t) =>
-    toTaskRow({
-      ...t,
-      children: childrenByOccurrence.get(t.id) ?? [],
-    }),
-  );
-
-  const followUps = matching.filter((t) => t.isFollowUp);
+  const followUps = visible.filter((t) => t.isFollowUp);
+  const overdueInPlay = currentDefaultSet.filter(
+    (t) => t.dueAt && overdueDays(t.dueAt, now) > 0,
+  ).length;
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
+  const listCount = oneTimeDisplay.length;
 
-  // Accepted farm tasks flow into oneTimeDisplay / recurringRows like any other
-  // ACTIVE task (kind ONE_TIME → One-time, OCCURRENCE → Recurring).
+  // Accepted farm tasks (BF-linked, kind ONE_TIME) flow into oneTimeDisplay
+  // like any other ACTIVE task.
   const inboxCount = await prisma.task.count({
     where: {
       workspaceId,
       status: { in: ["PROPOSED", "INBOX"] },
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      kind: "ONE_TIME",
     },
   });
+
+  const emptyMessage =
+    lane === "current"
+      ? "Nothing in play today"
+      : "Nothing in this lane for the due window.";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -186,7 +206,8 @@ export default async function TodayPage() {
             {greeting}, {user.name.split(" ")[0]}
           </h1>
           <p className="mt-1 text-xs text-zinc-500 md:text-sm">
-            {oneTimeDisplay.length} one-time · {recurringRows.length} recurring ·{" "}
+            {listCount} task{listCount === 1 ? "" : "s"}
+            {" · "}
             {followUps.length} follow-up{followUps.length === 1 ? "" : "s"}
             {inboxCount > 0 ? ` · ${inboxCount} in inbox` : ""}
           </p>
@@ -213,17 +234,13 @@ export default async function TodayPage() {
       <div className="grid grid-cols-3 gap-2 md:gap-3">
         {[
           {
-            label: "Focus now",
-            value: matching.filter(
-              (t) => resolveBoard({ board: t.board, priority: t.priority }) === "CURRENT",
-            ).length,
+            label: "In play",
+            value: counts.current,
           },
           { label: "Follow-ups", value: followUps.length },
           {
-            label: "Due soon",
-            value: matching.filter(
-              (t) => t.dueAt && t.dueAt <= dueSoonEnd,
-            ).length,
+            label: "Overdue",
+            value: overdueInPlay,
           },
         ].map((s) => (
           <div
@@ -240,33 +257,57 @@ export default async function TodayPage() {
         ))}
       </div>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <CheckSquare className="h-4 w-4 text-indigo-300" />
-          <h2 className="text-sm font-semibold text-white">One-time</h2>
-          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-            {oneTimeDisplay.length}
-          </span>
-        </div>
-        <TaskList
-          initialTasks={oneTimeDisplay}
-          emptyMessage="No one-time tasks for today."
-        />
-      </section>
+      <TodayLaneFilters
+        active={lane}
+        counts={counts}
+        hiddenCount={hiddenCount}
+      />
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <Repeat className="h-4 w-4 text-teal-300" />
-          <h2 className="text-sm font-semibold text-white">Recurring</h2>
+          <CheckSquare className="h-4 w-4 text-indigo-300" />
+          <h2 className="text-sm font-semibold text-white">Tasks</h2>
           <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-            {recurringRows.length}
+            {listCount}
           </span>
         </div>
-        <TaskList
-          initialTasks={recurringRows}
-          emptyMessage="No recurring tasks due today."
-        />
+        {listCount === 0 && lane === "current" ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-zinc-950/40 px-4 py-8 text-center">
+            <p className="text-sm font-medium text-zinc-200">
+              Nothing in play today
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Current + due today / overdue (7 days or less) is empty. Parked
+              work stays in Backlog or Icebox.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Link
+                href="/today?lane=backlog"
+                className="inline-flex items-center rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 hover:bg-sky-500/15"
+              >
+                Backlog
+                {counts.backlog > 0 ? ` · ${counts.backlog}` : ""}
+              </Link>
+              <Link
+                href="/capture"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-xs font-medium text-white"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Capture
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <TaskList
+            initialTasks={oneTimeDisplay}
+            emptyMessage={emptyMessage}
+          />
+        )}
+        {lane === "current" && (
+          <TodayStaleReview initialTasks={staleTasks} todayYmd={localYmd(now)} />
+        )}
       </section>
     </div>
   );
 }
+

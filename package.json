@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test:today": "tsx scripts/check-today-filters.ts",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",

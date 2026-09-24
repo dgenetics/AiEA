@@ -8,12 +8,6 @@ import {
   type BoardLane,
 } from "@/lib/board";
 import { cn, formatRelativeDue } from "@/lib/utils";
-import {
-  checkInsProgress,
-  formatTimeLabel,
-  parseCheckIns,
-  type CheckInsState,
-} from "@/lib/recurrence";
 
 export type TaskRowData = {
   id: string;
@@ -28,7 +22,6 @@ export type TaskRowData = {
   kind?: string;
   estimateMinutes?: number | null;
   aiRationale?: string | null;
-  checkIns?: string | null;
   externalSource?: string | null;
   externalId?: string | null;
   area?: { id?: string; name: string; color: string; slug: string } | null;
@@ -44,7 +37,6 @@ export function TaskRow({
   onComplete,
   onSnooze,
   onEdit,
-  onCheckIn,
   onAccept,
   onDismiss,
   dense,
@@ -55,7 +47,6 @@ export function TaskRow({
   onComplete?: (id: string) => void;
   onSnooze?: (id: string) => void;
   onEdit?: (task: TaskRowData) => void;
-  onCheckIn?: (id: string, slotIndex: number, done: boolean) => void;
   onAccept?: (id: string) => void;
   onDismiss?: (id: string) => void;
   dense?: boolean;
@@ -63,9 +54,6 @@ export function TaskRow({
   mode?: "active" | "archive" | "inbox";
 }) {
   const done = task.status === "DONE";
-  const checkIns = parseCheckIns(task.checkIns);
-  const multi = checkIns && checkIns.slots.length > 1;
-  const progress = checkInsProgress(checkIns);
   const openChildren = (task.children ?? []).filter((c) => c.status !== "DONE");
   const fromFarm = task.externalSource === "bf-maintenance";
   const inboxMode = mode === "inbox";
@@ -90,7 +78,7 @@ export function TaskRow({
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-200 md:h-5 md:w-5 md:text-[9px]">
             ?
           </div>
-        ) : !multi ? (
+        ) : (
           <button
             type="button"
             onClick={() => onComplete?.(task.id)}
@@ -105,10 +93,6 @@ export function TaskRow({
           >
             <Check className="h-4 w-4 md:h-3 md:w-3" />
           </button>
-        ) : (
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-teal-500/30 bg-teal-500/10 text-[10px] font-semibold text-teal-300 md:h-5 md:w-5 md:text-[9px]">
-            {progress.done}/{progress.total}
-          </div>
         )}
 
         <div className="min-w-0 flex-1">
@@ -144,16 +128,6 @@ export function TaskRow({
                   Follow-up
                 </span>
               )}
-              {task.kind === "OCCURRENCE" && (
-                <span className="rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] text-teal-300">
-                  Recurring
-                </span>
-              )}
-              {multi && (
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300">
-                  {progress.done}/{progress.total} today
-                </span>
-              )}
               {task.subtaskProgress && task.subtaskProgress.total > 0 && (
                 <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-300">
                   {task.subtaskProgress.done}/{task.subtaskProgress.total} parts
@@ -162,18 +136,6 @@ export function TaskRow({
             </div>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
-              {task.area && (
-                <span
-                  className="rounded-full px-1.5 py-0.5 font-medium"
-                  style={{
-                    color: task.area.color,
-                    backgroundColor: `${task.area.color}18`,
-                    border: `1px solid ${task.area.color}40`,
-                  }}
-                >
-                  {task.area.name}
-                </span>
-              )}
               <span
                 className={cn(
                   "rounded-full border px-1.5 py-0.5 font-medium",
@@ -183,7 +145,7 @@ export function TaskRow({
               >
                 {boardLabel(lane)}
               </span>
-              {task.dueAt && !multi && (
+              {task.dueAt && (
                 <span className="inline-flex items-center gap-1 text-zinc-500">
                   <Clock className="h-3 w-3" />
                   {formatRelativeDue(task.dueAt)}
@@ -197,40 +159,6 @@ export function TaskRow({
               ) : null}
             </div>
           </button>
-
-          {multi && checkIns && (
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {checkIns.slots.map((slot, i) => (
-                <button
-                  key={`${slot.time}-${i}`}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCheckIn?.(task.id, i, !slot.done);
-                  }}
-                  className={cn(
-                    "inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition md:min-h-0 md:px-2.5 md:py-1.5",
-                    slot.done
-                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                      : "border-white/10 bg-zinc-950/50 text-zinc-300 hover:border-indigo-400/40 hover:text-white",
-                  )}
-                  aria-label={`${slot.done ? "Unmark" : "Mark"} check-in at ${formatTimeLabel(slot.time)}`}
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded border",
-                      slot.done
-                        ? "border-emerald-400/50 bg-emerald-500/30 text-emerald-200"
-                        : "border-zinc-600",
-                    )}
-                  >
-                    {slot.done ? <Check className="h-2.5 w-2.5" /> : null}
-                  </span>
-                  {formatTimeLabel(slot.time)}
-                </button>
-              ))}
-            </div>
-          )}
 
           {task.notes && !dense && (
             <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-zinc-600">
@@ -313,7 +241,6 @@ export function TaskRow({
               dense
               onComplete={onComplete}
               onEdit={onEdit}
-              onCheckIn={onCheckIn}
             />
           ))}
         </div>
@@ -322,4 +249,3 @@ export function TaskRow({
   );
 }
 
-export type { CheckInsState };
