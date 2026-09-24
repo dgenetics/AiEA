@@ -9,8 +9,6 @@ import { cn, formatRelativeDue } from "@/lib/utils";
 import { toDateInputValue, toStoredDueDate } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
 
-export type AreaOption = { id: string; name: string; slug: string; color: string };
-
 type Subtask = {
   id: string;
   title: string;
@@ -20,7 +18,6 @@ type Subtask = {
 
 type Props = {
   task: TaskRowData;
-  areas: AreaOption[];
   open: boolean;
   onClose: () => void;
   onSaved: (task: TaskRowData) => void;
@@ -32,11 +29,8 @@ function toDateInput(value?: string | Date | null): string {
   return toDateInputValue(value);
 }
 
-export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }: Props) {
+export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props) {
   const [title, setTitle] = useState(task.title);
-  const [areaId, setAreaId] = useState(
-    areas.find((a) => a.slug === task.area?.slug)?.id ?? areas[0]?.id ?? "",
-  );
   const [board, setBoard] = useState<BoardLane>(
     resolveBoard({ board: task.board, priority: task.priority }),
   );
@@ -85,7 +79,6 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
   useEffect(() => {
     if (!open) return;
     setTitle(task.title);
-    setAreaId(areas.find((a) => a.slug === task.area?.slug)?.id ?? areas[0]?.id ?? "");
     setBoard(resolveBoard({ board: task.board, priority: task.priority }));
     setDueAt(toDateInput(task.dueAt));
     setNotes(task.notes ?? "");
@@ -94,7 +87,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
     setNewSubTitle("");
     setNewSubDue("");
     void loadSubtasks();
-  }, [open, task, areas, loadSubtasks]);
+  }, [open, task, loadSubtasks]);
 
   if (!open) return null;
 
@@ -102,16 +95,12 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
     setSaving(true);
     setError(null);
     try {
-      if (!areaId) {
-        throw new Error("Pick a category (Work / Life) first");
-      }
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update",
           title: title.trim(),
-          areaId,
           board,
           dueAt: dueAt ? toStoredDueDate(dueAt) : null,
           notes: notes.trim() || null,
@@ -162,7 +151,7 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
           title: newSubTitle.trim(),
           parentId: task.id,
           dueAt: newSubDue ? toStoredDueDate(newSubDue) : null,
-          areaId: areaId || null,
+          areaId: task.area?.id ?? null,
           board,
         }),
       });
@@ -258,32 +247,6 @@ export function TaskEditModal({ task, areas, open, onClose, onSaved, onDeleted }
                 onChange={(e) => setTitle(e.target.value)}
                 className={fieldClass}
               />
-            </label>
-
-            <label className="block min-w-0">
-              <span className="mb-1 block text-xs text-zinc-400">Category (area)</span>
-              <div className="grid min-w-0 grid-cols-2 gap-2">
-                {areas.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => setAreaId(a.id)}
-                    className={cn(
-                      "min-w-0 truncate rounded-lg border px-2 py-2 text-xs font-medium transition",
-                      areaId === a.id
-                        ? "border-white/30 bg-white/10 text-white"
-                        : "border-white/5 bg-zinc-900 text-zinc-400 hover:border-white/15",
-                    )}
-                    style={
-                      areaId === a.id
-                        ? { borderColor: `${a.color}80`, color: a.color }
-                        : undefined
-                    }
-                  >
-                    {a.name}
-                  </button>
-                ))}
-              </div>
             </label>
 
             <div className="block min-w-0">

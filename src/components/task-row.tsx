@@ -144,11 +144,6 @@ export function TaskRow({
                   Follow-up
                 </span>
               )}
-              {task.kind === "OCCURRENCE" && (
-                <span className="rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] text-teal-300">
-                  Recurring
-                </span>
-              )}
               {multi && (
                 <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300">
                   {progress.done}/{progress.total} today
@@ -162,18 +157,6 @@ export function TaskRow({
             </div>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
-              {task.area && (
-                <span
-                  className="rounded-full px-1.5 py-0.5 font-medium"
-                  style={{
-                    color: task.area.color,
-                    backgroundColor: `${task.area.color}18`,
-                    border: `1px solid ${task.area.color}40`,
-                  }}
-                >
-                  {task.area.name}
-                </span>
-              )}
               <span
                 className={cn(
                   "rounded-full border px-1.5 py-0.5 font-medium",

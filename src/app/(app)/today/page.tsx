@@ -6,7 +6,7 @@ import { toTaskRow } from "@/lib/tasks-display";
 import { addDays, endOfDay, startOfDay } from "date-fns";
 import Link from "next/link";
 import { resolveBoard } from "@/lib/board";
-import { CheckSquare, Repeat, Sparkles } from "lucide-react";
+import { CheckSquare, Sparkles } from "lucide-react";
 
 export default async function TodayPage() {
   const user = await getCurrentUser();
@@ -186,7 +186,9 @@ export default async function TodayPage() {
             {greeting}, {user.name.split(" ")[0]}
           </h1>
           <p className="mt-1 text-xs text-zinc-500 md:text-sm">
-            {oneTimeDisplay.length} one-time · {recurringRows.length} recurring ·{" "}
+            {oneTimeDisplay.length + recurringRows.length} task
+            {oneTimeDisplay.length + recurringRows.length === 1 ? "" : "s"}
+            {" · "}
             {followUps.length} follow-up{followUps.length === 1 ? "" : "s"}
             {inboxCount > 0 ? ` · ${inboxCount} in inbox` : ""}
           </p>
@@ -243,28 +245,14 @@ export default async function TodayPage() {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <CheckSquare className="h-4 w-4 text-indigo-300" />
-          <h2 className="text-sm font-semibold text-white">One-time</h2>
+          <h2 className="text-sm font-semibold text-white">Tasks</h2>
           <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-            {oneTimeDisplay.length}
+            {oneTimeDisplay.length + recurringRows.length}
           </span>
         </div>
         <TaskList
-          initialTasks={oneTimeDisplay}
-          emptyMessage="No one-time tasks for today."
-        />
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Repeat className="h-4 w-4 text-teal-300" />
-          <h2 className="text-sm font-semibold text-white">Recurring</h2>
-          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-            {recurringRows.length}
-          </span>
-        </div>
-        <TaskList
-          initialTasks={recurringRows}
-          emptyMessage="No recurring tasks due today."
+          initialTasks={[...oneTimeDisplay, ...recurringRows]}
+          emptyMessage="Nothing due today."
         />
       </section>
     </div>
