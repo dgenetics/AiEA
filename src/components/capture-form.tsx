@@ -34,6 +34,27 @@ function defaultRule(): RecurrenceRule {
   return { frequency: "weekly", interval: 1, byWeekday: [0], time: "09:00" };
 }
 
+
+async function readJsonBody(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text();
+  if (!text) {
+    throw new Error(
+      res.ok
+        ? "Empty response from server"
+        : `Request failed (${res.status})`,
+    );
+  }
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      res.ok
+        ? "Invalid JSON response from server"
+        : `Request failed (${res.status})`,
+    );
+  }
+}
+
 export function CaptureForm() {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -63,16 +84,21 @@ export function CaptureForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "propose", text }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
-      setCaptureId(data.captureId);
-      setItems(data.items);
-      setOriginalItems(data.items);
-      setSelected(new Set(data.items.map((i: ProposedItem) => i.id)));
-      setExpanded(new Set(data.items.map((i: ProposedItem) => i.id)));
-      setSource(data.source);
-      setModel(data.model ?? null);
-      setFallbackReason(data.fallbackReason ?? null);
+      const data = await readJsonBody(res);
+      if (!res.ok || data.ok === false) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Failed to organize",
+        );
+      }
+      const items = data.items as ProposedItem[];
+      setCaptureId(data.captureId as string);
+      setItems(items);
+      setOriginalItems(items);
+      setSelected(new Set(items.map((i) => i.id)));
+      setExpanded(new Set(items.map((i) => i.id)));
+      setSource(data.source as "ai" | "heuristic" | null);
+      setModel((data.model as string | null) ?? null);
+      setFallbackReason((data.fallbackReason as string | null) ?? null);
       setTrainingUsed(Boolean(data.trainingExamplesUsed));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -218,14 +244,23 @@ export function CaptureForm() {
           items: cleaned,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      const data = await readJsonBody(res);
+      if (!res.ok || data.ok === false) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Accept failed",
+        );
+      }
+      // Clear review state on success so a stuck proposal cannot linger
       setText("");
       setItems([]);
       setOriginalItems([]);
       setCaptureId(null);
       setSelected(new Set());
       setExpanded(new Set());
+      setSource(null);
+      setModel(null);
+      setFallbackReason(null);
+      setTrainingUsed(false);
       router.push("/today");
       router.refresh();
     } catch (err) {
