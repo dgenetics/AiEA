@@ -58,7 +58,8 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 |--------|---------|
 | `npm run dev` | Dev server |
 | `npm run build` | Production build |
-| `npm run db:migrate` | Apply migrations |
+| `npm run db:migrate` | Apply migrations (local SQLite) |
+| `npm run db:push:turso` | Apply Prisma migrations to Turso (prod/preview — Vercel build does **not** migrate) |
 | `npm run db:studio` | Prisma Studio |
 | `npm run icons` | Generate PWA icons |
 
@@ -68,6 +69,15 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 |-----|---------|
 | `DATABASE_URL` | SQLite path (`file:./dev.db`) |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Production libSQL (AiEA’s **own** Turso DB only — never share with BF Maintenance) |
+
+After any `prisma/migrations` change, run against production (and preview if it shares the DB):
+
+```bash
+vercel env pull .env.vercel --environment=production --yes
+node --env-file=.env.vercel scripts/push-turso-schema.mjs
+# or: npm run db:push:turso
+```
+
 | `XAI_API_KEY` | SpaceXAI / xAI key — [console.x.ai](https://console.x.ai/team/default/api-keys) |
 | `XAI_MODEL` | Optional model override (default `grok-4.5`) |
 | `XAI_BASE_URL` | Optional API base (default `https://api.x.ai/v1`) |

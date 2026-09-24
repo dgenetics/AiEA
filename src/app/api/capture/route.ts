@@ -53,13 +53,40 @@ const acceptSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  try {
+    return await handleCapture(req);
+  } catch (err) {
+    console.error("POST /api/capture failed:", err);
+    if (err instanceof z.ZodError) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid request", details: err.flatten() },
+        { status: 400 },
+      );
+    }
+    const message =
+      err instanceof Error && err.message
+        ? err.message
+        : "Capture request failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
+
+async function handleCapture(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const workspaceId = await getPrimaryWorkspaceId(user.id);
-  if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+  if (!workspaceId) return NextResponse.json({ ok: false, error: "No workspace" }, { status: 400 });
 
-  const json = await req.json();
+  let json: Record<string, unknown>;
+  try {
+    json = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Request body must be JSON" },
+      { status: 400 },
+    );
+  }
   const action = (json.action as string) || "propose";
 
   if (action === "propose") {
@@ -84,6 +111,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
+      ok: true,
       captureId: capture.id,
       items: result.items,
       source: result.source,
@@ -98,7 +126,7 @@ export async function POST(req: Request) {
     const capture = await prisma.captureBatch.findFirst({
       where: { id: body.captureId, workspaceId },
     });
-    if (!capture) return NextResponse.json({ error: "Capture not found" }, { status: 404 });
+    if (!capture) return NextResponse.json({ ok: false, error: "Capture not found" }, { status: 404 });
 
     const original = JSON.parse(capture.proposals) as ProposedItem[];
     const byId = new Map(original.map((p) => [p.id, p]));
@@ -218,5 +246,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, taskIds, count: taskIds.length });
   }
 
-  return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+  return NextResponse.json({ ok: false, error: "Unknown action" }, { status: 400 });
 }
