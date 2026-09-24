@@ -22,6 +22,7 @@ export function TaskList({
   const [tasks, setTasks] = useState(initialTasks);
   const [areas, setAreas] = useState<AreaOption[]>([]);
   const [editing, setEditing] = useState<TaskRowData | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     setTasks(initialTasks);
@@ -49,26 +50,36 @@ export function TaskList({
     })();
   }, []);
 
+  /** Surface linked BF Maintenance sync failures (local change is kept). */
+  async function noteSync(res: Response) {
+    const data = (await res.json().catch(() => null)) as {
+      bfSyncError?: string | null;
+    } | null;
+    setSyncError(data?.bfSyncError ?? null);
+  }
+
   async function complete(id: string) {
     if (mode === "archive") {
       setTasks((prev) => prev.filter((t) => t.id !== id));
       onArchiveReopen?.(id);
-      await fetch(`/api/tasks/${id}`, {
+      const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reopen" }),
       });
+      await noteSync(res);
       router.refresh();
       return;
     }
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: "DONE" } : t)),
     );
-    await fetch(`/api/tasks/${id}`, {
+    const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "complete" }),
     });
+    await noteSync(res);
     router.refresh();
   }
 
@@ -103,6 +114,7 @@ export function TaskList({
     });
     if (!res.ok) return;
     const data = await res.json();
+    setSyncError(data.bfSyncError ?? null);
     if (data.allDone) {
       setTasks((prev) =>
         prev.map((t) =>
@@ -138,16 +150,29 @@ export function TaskList({
     router.refresh();
   }
 
+  const syncNotice = syncError ? (
+    <p
+      role="alert"
+      className="mb-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300"
+    >
+      {syncError}
+    </p>
+  ) : null;
+
   if (tasks.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-white/10 px-6 py-12 text-center">
-        <p className="text-sm text-zinc-500">{emptyMessage}</p>
-      </div>
+      <>
+        {syncNotice}
+        <div className="rounded-xl border border-dashed border-white/10 px-6 py-12 text-center">
+          <p className="text-sm text-zinc-500">{emptyMessage}</p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      {syncNotice}
       <div className="space-y-2">
         {tasks.map((task) => (
           <TaskRow
