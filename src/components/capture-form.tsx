@@ -237,7 +237,7 @@ export function CaptureForm() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={6}
-          placeholder={`Examples:\n• Call plumber about the kitchen leak\n• Follow up with Sarah on the Q3 deck by Thursday\n• Water plants every Sunday\n• Renew car registration before end of month`}
+          placeholder={`Examples:\n• Call plumber about the kitchen leak\n• Follow up with Sarah on the Q3 deck by Thursday\n• Call Alana about the energizer Friday\n• Renew car registration before end of month`}
           className="w-full resize-y rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         />
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
