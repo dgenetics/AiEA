@@ -6,11 +6,16 @@
 #   VERIFY_BASE_URL=https://aiea-cyan.vercel.app gate.sh --feature capture-accept
 #   gate.sh --local --feature capture-accept
 #   gate.sh --local --feature capture-accept,today-load,board-lanes,bf-sync
+#   gate.sh --live-smoke
+#     → when AIEA_SMOKE_EMAIL+PASSWORD set: doctor+live-smoke on live base
+#     → when absent: clean-skip (exit 0), evidence shows SKIP
 #
-# Env: AIEA_EMAIL / AIEA_PASSWORD (optional locally — doctor registers),
-#      VERIFY_BASE_URL / SMOKE_BASE_URL,
+# Env: AIEA_SMOKE_EMAIL / AIEA_SMOKE_PASSWORD (live/post-auth; preferred),
+#      legacy AIEA_EMAIL / AIEA_PASSWORD demoted — migrate to SMOKE names,
+#      AIEA_BASE_URL / VERIFY_BASE_URL / SMOKE_BASE_URL,
 #      BF_MAINTENANCE_URL / BF_INTEGRATION_SECRET (bf-sync; skip if missing),
 #      VERIFY_FEATURE or VERIFY_FEATURES.
+# No separate BF_* pair for smoke login. Smoke user only — never personal / 1Password.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
@@ -19,6 +24,7 @@ load_env
 
 LOCAL=0
 CLEANUP=0
+LIVE_SMOKE=0
 PORT=3200
 FEATURES_RAW=()
 if [[ -n "${VERIFY_FEATURES:-}" ]]; then
@@ -31,6 +37,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --local) LOCAL=1; CLEANUP=1; shift ;;
     --cleanup) CLEANUP=1; shift ;;
+    --live-smoke) LIVE_SMOKE=1; shift ;;
     --feature)
       if [[ -z "${2:-}" ]]; then
         echo "--feature requires a value" >&2
@@ -44,6 +51,10 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+
+if [[ "$LIVE_SMOKE" == "1" ]]; then
+  FEATURES_RAW=("live-smoke")
+fi
 
 FEATURES=()
 declare -A SEEN=()
@@ -82,7 +93,46 @@ SHA=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
   echo "- features: \`$FEATURES_CSV\`"
 } > "$OUT/SUMMARY.md"
 
+# --- live-smoke path: clean-skip when secrets absent (gate stays green) ---
+if [[ "$LIVE_SMOKE" == "1" ]]; then
+  BASE="$(default_live_base_url)"
+  echo "- mode: live-smoke" >> "$OUT/SUMMARY.md"
+  echo "- base: $BASE" >> "$OUT/SUMMARY.md"
+  if ! has_smoke_creds; then
+    REASON="AIEA_SMOKE_EMAIL and/or AIEA_SMOKE_PASSWORD not set — clean-skip live/post-auth (not a failure)"
+    echo "$REASON" | tee "$OUT/live-smoke-skipped.txt"
+    echo "- smoke_creds: absent" >> "$OUT/SUMMARY.md"
+    echo "- drive (live-smoke) exit: 0" >> "$OUT/SUMMARY.md"
+    echo "- result: **SKIP** live-smoke (secrets unset)" >> "$OUT/SUMMARY.md"
+    echo "- finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT/SUMMARY.md"
+    echo "- evidence: \`$OUT\`" >> "$OUT/SUMMARY.md"
+    # Also write drive-live-smoke.json so evidence is machine-readable
+    python3 - <<PY
+import json
+json.dump({
+  "feature": "live-smoke",
+  "base": "$BASE",
+  "runId": "$RUN_ID",
+  "status": "skipped",
+  "skipReason": """$REASON""",
+  "steps": ["SKIP: $REASON"],
+  "sha": "$SHA"[:12],
+  "finished": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+}, open("$OUT/drive-live-smoke.json", "w"), indent=2)
+print("wrote $OUT/drive-live-smoke.json")
+PY
+    echo "SKIP live-smoke (no AIEA_SMOKE_* secrets) evidence=$OUT"
+    exit 0
+  fi
+  echo "- smoke_creds: present (AIEA_SMOKE_EMAIL set)" >> "$OUT/SUMMARY.md"
+  # Fall through to doctor + drive against live base (no local launch)
+  LOCAL=0
+fi
+
 BASE="${VERIFY_BASE_URL:-${SMOKE_BASE_URL:-}}"
+if [[ "$LIVE_SMOKE" == "1" ]]; then
+  BASE="$(default_live_base_url)"
+fi
 if [[ "$LOCAL" == "1" ]]; then
   set +e
   LAUNCH_OUT=$("$SCRIPT_DIR/launch.sh" "$PORT" "$RUN_ID" 2>"$OUT/launch.txt")
@@ -97,7 +147,9 @@ if [[ "$LOCAL" == "1" ]]; then
   BASE="http://127.0.0.1:${PORT}"
 fi
 BASE="${BASE:-http://127.0.0.1:3200}"
-echo "- base: $BASE" >> "$OUT/SUMMARY.md"
+if [[ "$LIVE_SMOKE" != "1" ]]; then
+  echo "- base: $BASE" >> "$OUT/SUMMARY.md"
+fi
 
 if [[ ! -d "$SCRIPT_DIR/node_modules/playwright-core" ]]; then
   (cd "$SCRIPT_DIR" && npm install --silent)
@@ -115,7 +167,7 @@ if [[ $DOC -ne 0 ]]; then
   exit $DOC
 fi
 
-# Pick up disposable creds doctor may have written
+# Pick up disposable creds doctor may have written (local only)
 if [[ -f "$OUT/verify-user.json" ]]; then
   eval "$(python3 - <<PY
 import json
@@ -131,6 +183,7 @@ FAILED=0
 for FEATURE in "${FEATURES[@]}"; do
   echo "=== drive $FEATURE ===" >> "$OUT/drive.txt"
   set +e
+  AIEA_SMOKE_EMAIL="${AIEA_SMOKE_EMAIL:-}" AIEA_SMOKE_PASSWORD="${AIEA_SMOKE_PASSWORD:-}" \
   AIEA_EMAIL="${AIEA_EMAIL:-}" AIEA_PASSWORD="${AIEA_PASSWORD:-}" \
     node "$SCRIPT_DIR/drive.mjs" --feature "$FEATURE" --base-url "$BASE" --run-id "$RUN_ID" \
     >>"$OUT/drive.txt" 2>&1

@@ -2,8 +2,12 @@
 # Instance health: is this AiEA worth driving?
 # Checks process/port, email/password auth, Today data plane — not merely compile.
 # Usage: doctor.sh [base-url]
-# Env: AIEA_EMAIL + AIEA_PASSWORD (optional on fresh local — auto-registers verify user)
-#      VERIFY_BASE_URL / SMOKE_BASE_URL
+# Auth:
+#   Live / shared DB: AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (preferred).
+#     Legacy AIEA_EMAIL/AIEA_PASSWORD demoted — migrate to SMOKE names.
+#     Verify does NOT create the smoke user (Hong creates the real User row).
+#   Local / CI: disposable register into the run’s SQLite when no login creds.
+# Env: VERIFY_BASE_URL / SMOKE_BASE_URL / AIEA_BASE_URL
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
@@ -40,43 +44,77 @@ bad=$(curl -s -o /tmp/aiea-doctor-bad.json -w '%{http_code}' --max-time 10 \
 echo "POST /api/auth/login wrong creds -> $bad"
 [[ "$bad" == "401" || "$bad" == "400" ]] || { echo "FAIL: expected 401/400 for wrong login"; exit 1; }
 
-# 3) Auth — register or login
-EMAIL="${AIEA_EMAIL:-}"
-PASSWORD="${AIEA_PASSWORD:-}"
+# 3) Auth — local disposable register OR live smoke/legacy login
+# Smoke secrets are live-only: never login with AIEA_SMOKE_* against local SQLite.
 AUTH_MODE=""
+CRED_SOURCE="empty"
+EMAIL=""
+PASSWORD=""
 jar=$(mktemp)
 
-if [[ -n "$EMAIL" && -n "$PASSWORD" ]]; then
+if is_local_base "$BASE"; then
+  if has_smoke_creds; then
+    echo "note: AIEA_SMOKE_* present but ignored on local base (smoke is live-only; using disposable register)"
+  fi
+  # Local may still have disposable AIEA_EMAIL from a prior doctor in-process; prefer register when unset.
+  if [[ -n "${AIEA_EMAIL:-}" && -n "${AIEA_PASSWORD:-}" ]]; then
+    EMAIL="$AIEA_EMAIL"
+    PASSWORD="$AIEA_PASSWORD"
+    CRED_SOURCE="local-env"
+    ok=$(curl -s -c "$jar" -o /tmp/aiea-doctor-ok.json -w '%{http_code}' --max-time 15 \
+      -X POST "$BASE/api/auth/login" \
+      -H 'content-type: application/json' \
+      -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || echo "000")
+    echo "POST /api/auth/login (local-env) -> $ok"
+    if [[ "$ok" != "200" ]]; then
+      echo "FAIL: local login failed: $(cat /tmp/aiea-doctor-ok.json)"
+      rm -f "$jar"
+      exit 1
+    fi
+    AUTH_MODE="login-local-env"
+  else
+    EMAIL="verify+$(date -u +%Y%m%d%H%M%S)@aiea.test"
+    PASSWORD="AiEaVerify1!"
+    ok=$(curl -s -c "$jar" -o /tmp/aiea-doctor-ok.json -w '%{http_code}' --max-time 15 \
+      -X POST "$BASE/api/auth/register" \
+      -H 'content-type: application/json' \
+      -d "{\"name\":\"Verify Bot\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || echo "000")
+    echo "POST /api/auth/register (disposable) -> $ok email=$EMAIL"
+    if [[ "$ok" != "200" ]]; then
+      echo "FAIL: register failed: $(cat /tmp/aiea-doctor-ok.json)"
+      echo "HINT: local register failed; for live targets set AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (smoke user only)."
+      rm -f "$jar"
+      exit 1
+    fi
+    AUTH_MODE="register"
+    CRED_SOURCE="register"
+    export AIEA_EMAIL="$EMAIL"
+    export AIEA_PASSWORD="$PASSWORD"
+  fi
+else
+  CREDS_LINE="$(resolve_login_creds)"
+  EMAIL="${CREDS_LINE%%|*}"
+  REST="${CREDS_LINE#*|}"
+  PASSWORD="${REST%%|*}"
+  CRED_SOURCE="${REST##*|}"
+  if [[ -z "$EMAIL" || -z "$PASSWORD" ]]; then
+    echo "FAIL: live/shared base requires AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (both)."
+    echo "HINT: Hong creates the smoke User row; verify does not register on live. Never use Will's personal login / 1Password."
+    rm -f "$jar"
+    exit 1
+  fi
   ok=$(curl -s -c "$jar" -o /tmp/aiea-doctor-ok.json -w '%{http_code}' --max-time 15 \
     -X POST "$BASE/api/auth/login" \
     -H 'content-type: application/json' \
     -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || echo "000")
-  echo "POST /api/auth/login (AIEA_EMAIL) -> $ok"
+  echo "POST /api/auth/login (source=$CRED_SOURCE) -> $ok"
   if [[ "$ok" != "200" ]]; then
-    echo "FAIL: login with AIEA_EMAIL failed: $(cat /tmp/aiea-doctor-ok.json)"
+    echo "FAIL: login failed (source=$CRED_SOURCE): $(cat /tmp/aiea-doctor-ok.json)"
+    echo "HINT: smoke user must already exist (Hong creates it). Set AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD — never personal login / 1Password."
     rm -f "$jar"
     exit 1
   fi
-  AUTH_MODE="login"
-else
-  # Fresh local / CI: create a disposable verify account (do not invent live creds).
-  EMAIL="verify+$(date -u +%Y%m%d%H%M%S)@aiea.test"
-  PASSWORD="AiEaVerify1!"
-  ok=$(curl -s -c "$jar" -o /tmp/aiea-doctor-ok.json -w '%{http_code}' --max-time 15 \
-    -X POST "$BASE/api/auth/register" \
-    -H 'content-type: application/json' \
-    -d "{\"name\":\"Verify Bot\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || echo "000")
-  echo "POST /api/auth/register (disposable) -> $ok email=$EMAIL"
-  if [[ "$ok" != "200" ]]; then
-    echo "FAIL: register failed: $(cat /tmp/aiea-doctor-ok.json)"
-    echo "HINT: set AIEA_EMAIL + AIEA_PASSWORD for live targets that disallow open register."
-    rm -f "$jar"
-    exit 1
-  fi
-  AUTH_MODE="register"
-  # Export for subsequent drive in same gate process
-  export AIEA_EMAIL="$EMAIL"
-  export AIEA_PASSWORD="$PASSWORD"
+  AUTH_MODE="login-$CRED_SOURCE"
 fi
 
 if ! grep -q aiea_session "$jar"; then
@@ -89,7 +127,12 @@ echo "auth_mode: $AUTH_MODE"
 if [[ -n "$CRED_FILE" ]]; then
   python3 - <<PY
 import json
-json.dump({"email": "$EMAIL", "password": "$PASSWORD", "auth_mode": "$AUTH_MODE"}, open("$CRED_FILE", "w"))
+json.dump({
+  "email": "$EMAIL",
+  "password": "$PASSWORD",
+  "auth_mode": "$AUTH_MODE",
+  "cred_source": "$CRED_SOURCE",
+}, open("$CRED_FILE", "w"))
 print("wrote credentials: $CRED_FILE")
 PY
 fi
@@ -126,4 +169,11 @@ echo "GET /capture -> $cap"
 
 rm -f "$jar"
 echo "doctor ok (instance healthy)"
-echo "AIEA_EMAIL=$EMAIL"
+# Do not echo password. Smoke email is fine for evidence transcripts.
+if [[ "$CRED_SOURCE" == "smoke" ]]; then
+  echo "AIEA_SMOKE_EMAIL=$EMAIL"
+elif [[ "$AUTH_MODE" == "register" ]]; then
+  echo "disposable_email=$EMAIL"
+else
+  echo "login_email=$EMAIL"
+fi

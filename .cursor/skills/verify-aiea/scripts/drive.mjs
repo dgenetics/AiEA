@@ -7,9 +7,16 @@
  *   node drive.mjs --feature today-load ...
  *   node drive.mjs --feature board-lanes ...
  *   node drive.mjs --feature bf-sync ...
+ *   node drive.mjs --feature live-smoke ...
  *
- * Env: VERIFY_BASE_URL / SMOKE_BASE_URL, AIEA_EMAIL, AIEA_PASSWORD, VERIFY_RUN_ID
+ * Env: VERIFY_BASE_URL / SMOKE_BASE_URL / AIEA_BASE_URL,
+ *      AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (live/post-auth; preferred),
+ *      legacy AIEA_EMAIL/AIEA_PASSWORD demoted — migrate to SMOKE names,
+ *      VERIFY_RUN_ID
  * Evidence under ../evidence/<run-id>/
+ *
+ * Feature live-smoke: when smoke secrets absent → clean skip (exit 0 for gate).
+ * When both set → login on live base + post-auth Today path.
  */
 import { createRequire } from "node:module";
 import {
@@ -70,16 +77,43 @@ function runId() {
   );
 }
 
-function loadCreds(out) {
-  const fromEnvEmail = process.env.AIEA_EMAIL;
-  const fromEnvPass = process.env.AIEA_PASSWORD;
-  if (fromEnvEmail && fromEnvPass) {
-    return { email: fromEnvEmail, password: fromEnvPass, source: "env" };
+/** Dedicated smoke login — both required. Never invent; never personal account. */
+function loadSmokeCreds() {
+  const email = (process.env.AIEA_SMOKE_EMAIL || "").trim();
+  const password = (process.env.AIEA_SMOKE_PASSWORD || "").trim();
+  if (email && password) {
+    return { email, password, source: "smoke" };
   }
+  return null;
+}
+
+/**
+ * Credential resolution for drive features:
+ * 1. verify-user.json (local disposable from doctor register)
+ * 2. AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD
+ * 3. legacy AIEA_EMAIL + AIEA_PASSWORD (demoted — migrate to SMOKE)
+ */
+function loadCreds(out) {
   const credPath = join(out, "verify-user.json");
   if (existsSync(credPath)) {
     const d = JSON.parse(readFileSync(credPath, "utf8"));
-    return { email: d.email, password: d.password, source: "verify-user.json" };
+    if (d.email && d.password) {
+      return {
+        email: d.email,
+        password: d.password,
+        source: "verify-user.json",
+      };
+    }
+  }
+  const smoke = loadSmokeCreds();
+  if (smoke) return smoke;
+  const legacyEmail = (process.env.AIEA_EMAIL || "").trim();
+  const legacyPass = (process.env.AIEA_PASSWORD || "").trim();
+  if (legacyEmail && legacyPass) {
+    console.warn(
+      "WARN: AIEA_EMAIL/AIEA_PASSWORD demoted — migrate to AIEA_SMOKE_EMAIL/AIEA_SMOKE_PASSWORD (smoke user only; never personal login)",
+    );
+    return { email: legacyEmail, password: legacyPass, source: "legacy" };
   }
   return null;
 }
@@ -112,7 +146,7 @@ async function ensureSignedIn(page, out) {
   const creds = loadCreds(out);
   if (!creds) {
     throw new Error(
-      "AIEA_EMAIL/AIEA_PASSWORD missing and no verify-user.json — run doctor first or set secrets",
+      "No credentials: need verify-user.json (local doctor register) or AIEA_SMOKE_EMAIL+AIEA_SMOKE_PASSWORD — never invent personal login",
     );
   }
   await signIn(page, creds.email, creds.password);
@@ -321,11 +355,58 @@ async function driveBfSync(page, out) {
   return { steps, status: "pass" };
 }
 
+async function driveLiveSmoke(page, out) {
+  const steps = [];
+  const smoke = loadSmokeCreds();
+  if (!smoke) {
+    const legacy =
+      (process.env.AIEA_EMAIL || "").trim() &&
+      (process.env.AIEA_PASSWORD || "").trim();
+    const reason = legacy
+      ? "AIEA_SMOKE_EMAIL/AIEA_SMOKE_PASSWORD not set (legacy AIEA_EMAIL/PASSWORD present but demoted for live-smoke) — clean-skip live/post-auth"
+      : "AIEA_SMOKE_EMAIL and/or AIEA_SMOKE_PASSWORD not set — clean-skip live/post-auth (not a failure)";
+    steps.push(`SKIP: ${reason}`);
+    writeFileSync(join(out, "live-smoke-skipped.txt"), reason + "\n", "utf8");
+    return { steps, status: "skipped", skipReason: reason };
+  }
+
+  steps.push(`smoke login: using AIEA_SMOKE_EMAIL (source=${smoke.source})`);
+  await signIn(page, smoke.email, smoke.password);
+  steps.push("smoke login: signed in → /today");
+
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await page.getByText("Today", { exact: true }).first().waitFor({
+    timeout: 20000,
+  });
+  const body = await page.locator("body").innerText();
+  if (/Internal Server Error|Application error|HTTP 500/i.test(body)) {
+    throw new Error("live-smoke: Today page shows server error after smoke login");
+  }
+  const tasksHeading = page.getByRole("heading", { name: "Tasks" });
+  if (await tasksHeading.count()) {
+    await tasksHeading.first().waitFor({ timeout: 10000 });
+    steps.push("post-auth: Tasks heading visible on live Today");
+  } else {
+    await page.getByRole("heading", { level: 1 }).first().waitFor({
+      timeout: 10000,
+    });
+    steps.push("post-auth: greeting heading visible on live Today");
+  }
+  await page.getByRole("link", { name: /Capture/i }).first().waitFor({
+    timeout: 10000,
+  });
+  await screenshot(page, join(out, "live-smoke-today.png"));
+  await ariaDump(page, join(out, "live-smoke-today.aria.txt"));
+  steps.push("post-auth: live Today chrome + Capture link (smoke path)");
+  return { steps, status: "pass" };
+}
+
 const FEATURES = {
   "capture-accept": driveCaptureAccept,
   "today-load": driveTodayLoad,
   "board-lanes": driveBoardLanes,
   "bf-sync": driveBfSync,
+  "live-smoke": driveLiveSmoke,
 };
 
 async function main() {
@@ -337,14 +418,40 @@ async function main() {
     );
     process.exit(2);
   }
+  const featureDefaultLive = feature === "live-smoke";
   const base =
     arg("--base-url", null) ||
     process.env.VERIFY_BASE_URL ||
     process.env.SMOKE_BASE_URL ||
-    "http://127.0.0.1:3200";
+    process.env.AIEA_BASE_URL ||
+    (featureDefaultLive
+      ? "https://aiea-cyan.vercel.app"
+      : "http://127.0.0.1:3200");
   const id = runId();
   const out = join(EVIDENCE_ROOT, id);
   mkdirSync(out, { recursive: true });
+
+  // live-smoke without secrets: write skip evidence and exit 0 before Chrome
+  if (feature === "live-smoke" && !loadSmokeCreds()) {
+    const result = await driveLiveSmoke(null, out);
+    const summary = {
+      feature,
+      base,
+      runId: id,
+      status: result.status || "skipped",
+      skipReason: result.skipReason || null,
+      steps: result.steps || [],
+      sha: gitShort(),
+      finished: new Date().toISOString(),
+    };
+    writeFileSync(
+      join(out, `drive-${feature}.json`),
+      JSON.stringify(summary, null, 2),
+    );
+    console.log(JSON.stringify(summary, null, 2));
+    console.log(`evidence: ${out}`);
+    return;
+  }
 
   const launchOpts = {
     headless: true,

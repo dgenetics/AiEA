@@ -25,8 +25,39 @@ load_env() {
   done < "$envfile"
 }
 
+# Live production / preview base. Prefer AIEA_BASE_URL, then VERIFY_BASE_URL / SMOKE_BASE_URL.
+default_live_base_url() {
+  echo "${AIEA_BASE_URL:-${VERIFY_BASE_URL:-${SMOKE_BASE_URL:-https://aiea-cyan.vercel.app}}}"
+}
+
 default_base_url() {
-  echo "${VERIFY_BASE_URL:-${SMOKE_BASE_URL:-http://127.0.0.1:3200}}"
+  echo "${VERIFY_BASE_URL:-${SMOKE_BASE_URL:-${AIEA_BASE_URL:-http://127.0.0.1:3200}}}"
+}
+
+is_local_base() {
+  local base="${1:-}"
+  [[ "$base" =~ ^https?://(127\.0\.0\.1|localhost)(:|/|$) ]]
+}
+
+# Dedicated smoke login (both required). Never Will's personal / 1Password creds.
+has_smoke_creds() {
+  [[ -n "${AIEA_SMOKE_EMAIL:-}" && -n "${AIEA_SMOKE_PASSWORD:-}" ]]
+}
+
+# Prefer AIEA_SMOKE_*; demote legacy AIEA_EMAIL/AIEA_PASSWORD with a one-line warning.
+# Prints: email|password|source  (source = smoke|legacy|empty)
+# Does not invent credentials. Does not create the smoke user.
+resolve_login_creds() {
+  if has_smoke_creds; then
+    printf '%s|%s|smoke\n' "$AIEA_SMOKE_EMAIL" "$AIEA_SMOKE_PASSWORD"
+    return 0
+  fi
+  if [[ -n "${AIEA_EMAIL:-}" && -n "${AIEA_PASSWORD:-}" ]]; then
+    echo "WARN: AIEA_EMAIL/AIEA_PASSWORD are demoted — migrate to AIEA_SMOKE_EMAIL/AIEA_SMOKE_PASSWORD (smoke user only; never personal login)" >&2
+    printf '%s|%s|legacy\n' "$AIEA_EMAIL" "$AIEA_PASSWORD"
+    return 0
+  fi
+  printf '||empty\n'
 }
 
 new_run_id() {
