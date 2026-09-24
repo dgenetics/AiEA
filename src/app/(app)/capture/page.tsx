@@ -11,8 +11,8 @@ export default function CapturePage() {
           Brain dump → organized plan
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Paste messy notes. AiEA splits them into one-time tasks, recurring
-          habits, and people follow-ups — then you confirm.
+          Paste messy notes. AiEA splits them into one-time tasks, deadlines, and
+          people follow-ups — then you confirm.
         </p>
       </div>
       <div className="mt-6 rounded-2xl border border-white/5 bg-zinc-900/30 p-3 md:p-5">

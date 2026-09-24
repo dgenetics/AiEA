@@ -6,14 +6,16 @@ import { Archive } from "lucide-react";
 
 const PAGE_SIZE = 40;
 
-async function loadArchivePage(
-  workspaceId: string,
-  kind: "ONE_TIME" | "OCCURRENCE",
-) {
+export default async function ArchivePage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const workspaceId = await getPrimaryWorkspaceId(user.id);
+  if (!workspaceId) return null;
+
   const where = {
     workspaceId,
     status: "DONE" as const,
-    kind,
+    kind: { not: "RECURRING_TEMPLATE" as const },
   };
 
   const [total, tasks] = await Promise.all([
@@ -30,32 +32,6 @@ async function loadArchivePage(
   const nextOffset = tasks.length;
   const hasMore = nextOffset < total;
 
-  return {
-    tasks: tasks.map(toArchiveRow),
-    nextOffset: hasMore ? nextOffset : null,
-    hasMore,
-    total,
-  };
-}
-
-export default async function ArchivePage() {
-  const user = await getCurrentUser();
-  if (!user) return null;
-  const workspaceId = await getPrimaryWorkspaceId(user.id);
-  if (!workspaceId) return null;
-
-  const [oneTime, recurring, grandTotal] = await Promise.all([
-    loadArchivePage(workspaceId, "ONE_TIME"),
-    loadArchivePage(workspaceId, "OCCURRENCE"),
-    prisma.task.count({
-      where: {
-        workspaceId,
-        status: "DONE",
-        kind: { not: "RECURRING_TEMPLATE" },
-      },
-    }),
-  ]);
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -69,9 +45,13 @@ export default async function ArchivePage() {
       </div>
 
       <ArchiveBoard
-        initialOneTime={oneTime}
-        initialRecurring={recurring}
-        grandTotal={grandTotal}
+        initial={{
+          tasks: tasks.map(toArchiveRow),
+          nextOffset: hasMore ? nextOffset : null,
+          hasMore,
+          total,
+        }}
+        grandTotal={total}
       />
     </div>
   );

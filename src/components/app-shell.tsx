@@ -5,14 +5,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Archive,
-  Briefcase,
   CalendarDays,
   Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
   MoreHorizontal,
-  Repeat,
   Settings,
   Sparkles,
   Sunrise,
@@ -36,10 +34,8 @@ const mobilePrimary = [
 
 const mobileMore = [
   { href: "/people", label: "People", icon: Users },
-  { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/brief", label: "Daily Brief", icon: Sunrise },
-  { href: "/areas", label: "Areas", icon: Briefcase },
   { href: "/account", label: "Account", icon: Settings },
 ] as const;
 

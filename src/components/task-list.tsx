@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TaskRow, type TaskRowData } from "@/components/task-row";
-import { TaskEditModal, type AreaOption } from "@/components/task-edit-modal";
+import { TaskEditModal } from "@/components/task-edit-modal";
 
 export function TaskList({
   initialTasks,
@@ -20,34 +20,11 @@ export function TaskList({
 }) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
-  const [areas, setAreas] = useState<AreaOption[]>([]);
   const [editing, setEditing] = useState<TaskRowData | null>(null);
 
   useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/areas");
-        if (!res.ok) return;
-        const data = await res.json();
-        setAreas(
-          (data.areas ?? []).map(
-            (a: { id: string; name: string; slug: string; color: string }) => ({
-              id: a.id,
-              name: a.name,
-              slug: a.slug,
-              color: a.color,
-            }),
-          ),
-        );
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, []);
 
   async function complete(id: string) {
     if (mode === "archive") {
@@ -167,7 +144,6 @@ export function TaskList({
       {editing && (
         <TaskEditModal
           task={editing}
-          areas={areas}
           open={Boolean(editing)}
           onClose={() => setEditing(null)}
           onSaved={(updated) => {

@@ -117,18 +117,6 @@ export default async function BriefPage() {
         </section>
       </div>
 
-      {brief.recurringDue.length > 0 && (
-        <section className="rounded-xl border border-white/5 bg-zinc-900/40 p-4">
-          <h2 className="text-sm font-semibold text-white">Recurring due</h2>
-          <ul className="mt-2 space-y-1">
-            {brief.recurringDue.map((r) => (
-              <li key={r.id} className="text-sm text-zinc-300">
-                {r.title}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <section className="rounded-xl border border-white/5 bg-zinc-900/40 p-4">
         <h2 className="text-sm font-semibold text-white">Coach notes</h2>
