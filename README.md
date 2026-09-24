@@ -121,3 +121,14 @@ Without a key, Capture still works via local heuristics (amber badge / “Local 
 ## License
 
 Private — all rights reserved unless you choose otherwise.
+
+
+## Agent verification (pstack / poteto)
+
+Hong / agents: use **poteto-mode** with the project skill `.cursor/skills/verify-aiea/` (launch → doctor → Playwright drive → evidence). Confirm `~/.cursor/rules/pstack-models.mdc` on the box. One-shot:
+
+```bash
+./.cursor/skills/verify-aiea/scripts/gate.sh --local --feature capture-accept
+```
+
+Live needs `AIEA_EMAIL` + `AIEA_PASSWORD`. See the skill for feature map + CI secrets. Parallel to bf-maintenance verify — do not conflate with BF PIN / #20 login threads.

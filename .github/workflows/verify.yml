@@ -1,0 +1,83 @@
+# Poteto verify gate for AiEA.
+# Local launch + doctor + core features. Disposable register — no AIEA_EMAIL required for CI.
+# Optional repo secrets: BF_MAINTENANCE_URL, BF_INTEGRATION_SECRET (bf-sync happy path; else skip).
+# Live drive secrets (not required for this workflow): AIEA_EMAIL, AIEA_PASSWORD.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: build + poteto gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Local verify DB only — not Turso
+      DATABASE_URL: file:./dev.db
+      AUTH_SECRET: ci-aiea-verify-secret
+      AIEA_TIMEZONE: America/New_York
+      BF_MAINTENANCE_URL: ${{ secrets.BF_MAINTENANCE_URL }}
+      BF_INTEGRATION_SECRET: ${{ secrets.BF_INTEGRATION_SECRET }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Write .env for local instance
+        run: |
+          printf '%s\n' \
+            "DATABASE_URL=\"file:./dev.db\"" \
+            "AUTH_SECRET=\"${AUTH_SECRET}\"" \
+            "AIEA_TIMEZONE=\"${AIEA_TIMEZONE}\"" \
+            "BF_MAINTENANCE_URL=\"${BF_MAINTENANCE_URL:-}\"" \
+            "BF_INTEGRATION_SECRET=\"${BF_INTEGRATION_SECRET:-}\"" \
+            "XAI_API_KEY=\"${XAI_API_KEY:-}\"" \
+            > .env
+
+      - name: Install app deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Google Chrome (Playwright channel)
+        uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+
+      - name: Install verify harness (playwright-core)
+        run: npm ci --prefix .cursor/skills/verify-aiea/scripts
+
+      - name: Poteto gate (local launch + doctor + core features)
+        env:
+          PLAYWRIGHT_CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          export PATH="$(dirname "${PLAYWRIGHT_CHROME_PATH:-/usr/bin/google-chrome}"):$PATH"
+          chmod +x .cursor/skills/verify-aiea/scripts/*.sh
+          ./.cursor/skills/verify-aiea/scripts/gate.sh --local \
+            --feature capture-accept,today-load,board-lanes,bf-sync
+
+      - name: Upload verify evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-evidence-${{ github.run_id }}
+          path: .cursor/skills/verify-aiea/evidence/
+          if-no-files-found: ignore
+          retention-days: 14
