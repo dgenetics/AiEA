@@ -60,6 +60,12 @@ function bfSecret(): string {
   return s;
 }
 
+/** Vercel Protection Bypass for Automation (preview → protected BF preview). Unset in prod. */
+function bfBypassHeader(): Record<string, string> {
+  const v = process.env.BF_MAINTENANCE_PROTECTION_BYPASS?.trim();
+  return v ? { "x-vercel-protection-bypass": v } : {};
+}
+
 export function getBfMaintenanceConfig(): {
   configured: boolean;
   baseUrl: string | null;
@@ -97,6 +103,7 @@ export async function fetchBfMaintenanceSuggestions(): Promise<BfSuggestionsResp
       headers: {
         Authorization: `Bearer ${secret}`,
         Accept: "application/json",
+        ...bfBypassHeader(),
       },
       cache: "no-store",
     });
@@ -150,6 +157,7 @@ export async function completeBfMaintenanceTask(
       headers: {
         Authorization: `Bearer ${secret}`,
         Accept: "application/json",
+        ...bfBypassHeader(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -169,7 +177,7 @@ export async function completeBfMaintenanceTask(
     let detail = res.statusText;
     try {
       const body = (await res.json()) as { error?: string };
-      if (body.error) detail = body.error;
+      if (body.error) detail = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
     } catch {
       /* ignore */
     }
@@ -198,6 +206,7 @@ export async function reopenBfMaintenanceTask(
       headers: {
         Authorization: `Bearer ${secret}`,
         Accept: "application/json",
+        ...bfBypassHeader(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ taskId: bfTaskId }),
@@ -214,7 +223,7 @@ export async function reopenBfMaintenanceTask(
     let detail = res.statusText;
     try {
       const body = (await res.json()) as { error?: string };
-      if (body.error) detail = body.error;
+      if (body.error) detail = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
     } catch {
       /* ignore */
     }
