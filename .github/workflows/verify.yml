@@ -1,7 +1,10 @@
 # Poteto verify gate for AiEA.
-# Local launch + doctor + core features. Disposable register — no AIEA_EMAIL required for CI.
-# Optional repo secrets: BF_MAINTENANCE_URL, BF_INTEGRATION_SECRET (bf-sync happy path; else skip).
-# Live drive secrets (not required for this workflow): AIEA_EMAIL, AIEA_PASSWORD.
+# Local launch + doctor + core features. Disposable register — no smoke secrets required for CI core.
+# Optional live/post-auth: AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (both). When unset → clean-skip (gate stays green).
+# Optional: BF_MAINTENANCE_URL, BF_INTEGRATION_SECRET (bf-sync happy path; else skip).
+# Optional override: AIEA_BASE_URL (default https://aiea-cyan.vercel.app).
+# Migration: prefer AIEA_SMOKE_* — do not use AIEA_EMAIL/AIEA_PASSWORD or personal/1Password logins.
+# No separate BF_* pair for smoke login.
 name: verify
 
 on:
@@ -26,6 +29,10 @@ jobs:
       BF_MAINTENANCE_URL: ${{ secrets.BF_MAINTENANCE_URL }}
       BF_INTEGRATION_SECRET: ${{ secrets.BF_INTEGRATION_SECRET }}
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      # Live smoke (optional — clean-skip when unset)
+      AIEA_SMOKE_EMAIL: ${{ secrets.AIEA_SMOKE_EMAIL }}
+      AIEA_SMOKE_PASSWORD: ${{ secrets.AIEA_SMOKE_PASSWORD }}
+      AIEA_BASE_URL: ${{ secrets.AIEA_BASE_URL }}
       CI: "true"
 
     steps:
@@ -52,6 +59,9 @@ jobs:
       - name: Install app deps
         run: npm ci
 
+      - name: Unit assertions (Today 7-day cutoff)
+        run: npm run test:today
+
       - name: Build
         run: npm run build
 
@@ -72,6 +82,14 @@ jobs:
           chmod +x .cursor/skills/verify-aiea/scripts/*.sh
           ./.cursor/skills/verify-aiea/scripts/gate.sh --local \
             --feature capture-accept,today-load,board-lanes,bf-sync
+
+      - name: Live smoke (post-auth; skip when AIEA_SMOKE_* unset)
+        env:
+          PLAYWRIGHT_CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          export PATH="$(dirname "${PLAYWRIGHT_CHROME_PATH:-/usr/bin/google-chrome}"):$PATH"
+          # Secrets passed via job env. Absent → gate --live-smoke exits 0 with SKIP evidence.
+          ./.cursor/skills/verify-aiea/scripts/gate.sh --live-smoke
 
       - name: Upload verify evidence
         if: always()

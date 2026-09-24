@@ -131,4 +131,4 @@ Hong / agents: use **poteto-mode** with the project skill `.cursor/skills/verify
 ./.cursor/skills/verify-aiea/scripts/gate.sh --local --feature capture-accept
 ```
 
-Live needs `AIEA_EMAIL` + `AIEA_PASSWORD`. See the skill for feature map + CI secrets. Parallel to bf-maintenance verify — do not conflate with BF PIN / #20 login threads.
+Live/post-auth needs **`AIEA_SMOKE_EMAIL` + `AIEA_SMOKE_PASSWORD`** (both; smoke user only — never personal / 1Password). When unset, `gate.sh --live-smoke` **clean-skips** (CI stays green). Hong creates the smoke User row; verify does not. Set CI secrets with `gh secret set` (see `.cursor/skills/verify-aiea/SKILL.md`). Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` are demoted — migrate to SMOKE names. No separate `BF_*` pair for smoke login. Parallel to bf-maintenance verify — do not conflate with BF PIN / #20 login threads.

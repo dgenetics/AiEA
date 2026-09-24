@@ -23,7 +23,7 @@ fi
 cd "$REPO_ROOT"
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "copied .env.example → .env (set AUTH_SECRET; optional AIEA_EMAIL/AIEA_PASSWORD for live)" >&2
+  echo "copied .env.example → .env (set AUTH_SECRET; optional AIEA_SMOKE_EMAIL/AIEA_SMOKE_PASSWORD for live)" >&2
 fi
 if [[ ! -d node_modules ]]; then
   npm ci
