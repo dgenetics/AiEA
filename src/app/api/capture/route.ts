@@ -138,7 +138,8 @@ async function handleCapture(req: Request) {
       proposals = original.map((p) => {
         const e = editedById.get(p.id);
         if (!e) return p;
-        const kind = (e.kind as ProposedItem["kind"]) ?? p.kind;
+        // Native recurring kinds are retired; edits can only produce ONE_TIME.
+        const kind: ProposedItem["kind"] = "ONE_TIME";
         return {
           ...p,
           title: e.title?.trim() || p.title,
@@ -166,12 +167,7 @@ async function handleCapture(req: Request) {
             e.estimateMinutes !== undefined ? e.estimateMinutes : p.estimateMinutes,
           followUpDueAt:
             e.followUpDueAt !== undefined ? e.followUpDueAt : p.followUpDueAt,
-          recurrenceRule:
-            e.recurrenceRule !== undefined
-              ? e.recurrenceRule
-              : kind === "RECURRING_TEMPLATE"
-                ? p.recurrenceRule
-                : null,
+          recurrenceRule: null,
           subtasks:
             e.subtasks !== undefined
               ? e.subtasks

@@ -1,6 +1,5 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 import { TaskList } from "@/components/task-list";
 import { toTaskRow } from "@/lib/tasks-display";
 import { addDays, endOfDay, startOfDay } from "date-fns";
@@ -14,8 +13,6 @@ export default async function TodayPage() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
-  await materializeDueOccurrences(workspaceId);
-
   const start = startOfDay(new Date());
   const end = endOfDay(new Date());
   // Include due-soon work (next 14 days) so accepted farm tasks and other
@@ -25,8 +22,10 @@ export default async function TodayPage() {
   const matching = await prisma.task.findMany({
     where: {
       workspaceId,
-      // Never list templates themselves — only occurrences + one-time tasks
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      // One-time tasks only. Repeating chores reach AiEA from BF Maintenance
+      // (farm pull / linked-task bridge) as ONE_TIME rows; legacy native
+      // RECURRING_TEMPLATE / OCCURRENCE rows are never rendered.
+      kind: "ONE_TIME",
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
         // Overdue, due today, or due within the next 14 days
@@ -51,20 +50,12 @@ export default async function TodayPage() {
     orderBy: [{ priority: "asc" }, { dueAt: "asc" }],
   });
 
-  // Recurring day-instances (parent is RECURRING_TEMPLATE) — always top-level cards
-  const occurrences = matching.filter((t) => t.kind === "OCCURRENCE");
-
   // Real one-time tasks (not subtasks)
-  const topOneTime = matching.filter(
-    (t) => t.kind === "ONE_TIME" && !t.parentId,
-  );
+  const topOneTime = matching.filter((t) => !t.parentId);
 
-  // Subtasks matching today (parent is another ONE_TIME task, not a template)
+  // Subtasks matching today (parent must be another ONE_TIME task)
   const subtasksDue = matching.filter(
-    (t) =>
-      t.kind === "ONE_TIME" &&
-      Boolean(t.parentId) &&
-      t.parent?.kind !== "RECURRING_TEMPLATE",
+    (t) => Boolean(t.parentId) && t.parent?.kind === "ONE_TIME",
   );
 
   // Ensure parent cards exist for due subtasks
@@ -129,35 +120,6 @@ export default async function TodayPage() {
     .filter((t) => !parentIds.includes(t.parentId as string))
     .map((t) => toTaskRow(t));
 
-  // Nest parts under today's recurring occurrences when present
-  const occurrenceIds = occurrences.map((t) => t.id);
-  const occurrenceChildren =
-    occurrenceIds.length > 0
-      ? await prisma.task.findMany({
-          where: {
-            workspaceId,
-            parentId: { in: occurrenceIds },
-            kind: "ONE_TIME",
-            status: { not: "CANCELLED" },
-          },
-          include: { area: true, person: true },
-          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-        })
-      : [];
-  const childrenByOccurrence = new Map<string, typeof occurrenceChildren>();
-  for (const c of occurrenceChildren) {
-    if (!c.parentId) continue;
-    const list = childrenByOccurrence.get(c.parentId) ?? [];
-    list.push(c);
-    childrenByOccurrence.set(c.parentId, list);
-  }
-  const recurringRows = occurrences.map((t) =>
-    toTaskRow({
-      ...t,
-      children: childrenByOccurrence.get(t.id) ?? [],
-    }),
-  );
-
   const followUps = matching.filter((t) => t.isFollowUp);
   const hour = new Date().getHours();
   const greeting =
@@ -165,13 +127,13 @@ export default async function TodayPage() {
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
 
-  // Accepted farm tasks flow into oneTimeDisplay / recurringRows like any other
-  // ACTIVE task (kind ONE_TIME → One-time, OCCURRENCE → Recurring).
+  // Accepted farm tasks (BF-linked, kind ONE_TIME) flow into oneTimeDisplay
+  // like any other ACTIVE task.
   const inboxCount = await prisma.task.count({
     where: {
       workspaceId,
       status: { in: ["PROPOSED", "INBOX"] },
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      kind: "ONE_TIME",
     },
   });
 
@@ -186,8 +148,8 @@ export default async function TodayPage() {
             {greeting}, {user.name.split(" ")[0]}
           </h1>
           <p className="mt-1 text-xs text-zinc-500 md:text-sm">
-            {oneTimeDisplay.length + recurringRows.length} task
-            {oneTimeDisplay.length + recurringRows.length === 1 ? "" : "s"}
+            {oneTimeDisplay.length} task
+            {oneTimeDisplay.length === 1 ? "" : "s"}
             {" · "}
             {followUps.length} follow-up{followUps.length === 1 ? "" : "s"}
             {inboxCount > 0 ? ` · ${inboxCount} in inbox` : ""}
@@ -247,11 +209,11 @@ export default async function TodayPage() {
           <CheckSquare className="h-4 w-4 text-indigo-300" />
           <h2 className="text-sm font-semibold text-white">Tasks</h2>
           <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
-            {oneTimeDisplay.length + recurringRows.length}
+            {oneTimeDisplay.length}
           </span>
         </div>
         <TaskList
-          initialTasks={[...oneTimeDisplay, ...recurringRows]}
+          initialTasks={oneTimeDisplay}
           emptyMessage="Nothing due today."
         />
       </section>

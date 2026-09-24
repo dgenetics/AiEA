@@ -24,10 +24,7 @@ export type RecurrenceRule = {
   byWeekday?: number[]; // 0=Sun … 6=Sat
   /** Primary / first slot (HH:mm). Prefer `times` when multi-slot. */
   time?: string;
-  /**
-   * Multiple check-in times on each occurrence day.
-   * One task row with N checkboxes, e.g. ["10:00","14:00","18:00"].
-   */
+  /** Legacy multi-slot times (no longer rendered or materialized in AiEA). */
   times?: string[];
 };
 

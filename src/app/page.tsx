@@ -40,7 +40,7 @@ export default async function HomePage() {
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-zinc-400 sm:text-lg">
           Capture the chaos of life, home, and work. AiEA organizes it into clear categories,
-          prioritizes for you, schedules recurring work, tracks people follow-ups, and pings you
+          prioritizes for you, pulls in farm maintenance, tracks people follow-ups, and pings you
           when it matters — you always confirm.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -64,7 +64,7 @@ export default async function HomePage() {
             {
               icon: CheckCircle2,
               title: "Prioritize & schedule",
-              body: "One-time vs recurring, deadlines, and a Today board that tells you what matters.",
+              body: "Board lanes, deadlines, and a Today board that tells you what matters.",
             },
             {
               icon: Users,

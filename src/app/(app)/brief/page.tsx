@@ -1,7 +1,6 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { generateDailyBrief } from "@/lib/ai";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 import { addDays, startOfDay } from "date-fns";
 import Link from "next/link";
 
@@ -11,13 +10,11 @@ export default async function BriefPage() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
-  await materializeDueOccurrences(workspaceId);
-
   const horizon = addDays(startOfDay(new Date()), 7);
   const tasks = await prisma.task.findMany({
     where: {
       workspaceId,
-      kind: { not: "RECURRING_TEMPLATE" },
+      kind: "ONE_TIME",
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
         { dueAt: { lte: horizon } },

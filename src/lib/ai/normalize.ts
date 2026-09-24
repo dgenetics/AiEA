@@ -1,10 +1,12 @@
 import { nanoid } from "nanoid";
-import type { ProposedItem, ProposedSubtask, RecurrenceRule } from "@/lib/types";
+import type { ProposedItem, ProposedSubtask } from "@/lib/types";
 import type { AiProposedItem } from "@/lib/ai/schemas";
 import { priorityFromBoard, resolveBoard } from "@/lib/board";
-import { enrichRuleWithTimes } from "@/lib/recurrence";
 import { attachSubtasksIfMissing } from "@/lib/subtasks-parse";
 import { toStoredDueDate } from "@/lib/calendar";
+
+const RECURRING_NOTE =
+  "Repeating chore: cadence belongs in BF Maintenance (captured once here).";
 
 function clampPriority(n: number | undefined): 1 | 2 | 3 | 4 | 5 {
   if (!n || n < 1) return 3;
@@ -32,27 +34,6 @@ function parseDate(value: string | null | undefined): string | null {
   } catch {
     return null;
   }
-}
-
-function normalizeRecurrence(
-  rule: AiProposedItem["recurrenceRule"],
-  kind: string,
-  title: string,
-  notes?: string | null,
-): RecurrenceRule | null {
-  if (kind !== "RECURRING_TEMPLATE") return null;
-  let base: RecurrenceRule = rule
-    ? {
-        frequency: rule.frequency,
-        interval: rule.interval || 1,
-        byWeekday: rule.byWeekday?.length ? rule.byWeekday : undefined,
-        time: rule.time || "09:00",
-        times: rule.times?.length ? rule.times : undefined,
-      }
-    : { frequency: "weekly", interval: 1, time: "09:00" };
-
-  base = enrichRuleWithTimes(base, notes, title);
-  return base;
 }
 
 function normalizeSubtasks(
@@ -91,7 +72,10 @@ export function normalizeProposals(
     let title = cleanTitle(p.title || "");
     if (!title) continue;
 
-    const kind = p.kind === "RECURRING_TEMPLATE" ? "RECURRING_TEMPLATE" : "ONE_TIME";
+    // AiEA no longer creates native recurring templates; cadence lives in BF
+    // Maintenance. A repeating capture becomes one ONE_TIME task.
+    const wasRecurring = p.kind === "RECURRING_TEMPLATE";
+    const kind = "ONE_TIME" as const;
     const rawArea = String(p.areaSlug || "life");
     const areaSlug = rawArea === "work" ? "work" : "life";
     const board = resolveBoard({
@@ -114,8 +98,7 @@ export function normalizeProposals(
       title = "Work on listed subtasks";
     }
 
-    // Subtasks apply to one-time parents and recurring templates
-    // (parts hang off the first occurrence when accepted)
+    // Subtasks hang under the one-time parent
     const subtasks = normalizeSubtasks(
       p.subtasks,
       dueAt,
@@ -153,19 +136,20 @@ export function normalizeProposals(
       areaSlug,
       board,
       priority,
-      dueAt: kind === "RECURRING_TEMPLATE" ? null : dueAt,
-      scheduledFor: kind === "RECURRING_TEMPLATE" ? null : scheduledFor ?? dueAt,
-      estimateMinutes: p.estimateMinutes ?? (kind === "RECURRING_TEMPLATE" ? 15 : 30),
-      recurrenceRule: normalizeRecurrence(p.recurrenceRule, kind, title, p.notes),
+      dueAt,
+      scheduledFor: scheduledFor ?? dueAt,
+      estimateMinutes: p.estimateMinutes ?? 30,
+      recurrenceRule: null,
       isFollowUp,
       personName,
       followUpDueAt,
       subtasks: subtasks.length ? subtasks : undefined,
       aiRationale: (
-        p.aiRationale ||
-        (subtasks.length
-          ? `Parent with ${subtasks.length} parts`
-          : "AI classification")
+        (wasRecurring ? `${RECURRING_NOTE} ` : "") +
+        (p.aiRationale ||
+          (subtasks.length
+            ? `Parent with ${subtasks.length} parts`
+            : "AI classification"))
       ).slice(0, 500),
       accepted: false,
       dismissed: false,

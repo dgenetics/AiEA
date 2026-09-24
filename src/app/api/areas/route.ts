@@ -20,7 +20,7 @@ export async function GET() {
           tasks: {
             where: {
               status: { in: ["ACTIVE", "INBOX"] },
-              kind: { not: "RECURRING_TEMPLATE" },
+              kind: "ONE_TIME",
             },
           },
         },

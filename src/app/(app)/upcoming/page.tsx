@@ -9,17 +9,15 @@ export default async function UpcomingPage() {
   const workspaceId = await getPrimaryWorkspaceId(user.id);
   if (!workspaceId) return null;
 
-  // Show one-time top-level tasks + recurring occurrences.
-  // OCCURRENCEs always have parentId → template, so we must not require parentId: null.
-  // Subtasks (ONE_TIME with a parent) nest under their parent cards.
+  // Top-level one-time tasks only. Subtasks (ONE_TIME with a parent) nest under
+  // their parent cards. Repeating chores arrive from BF Maintenance as ONE_TIME
+  // rows (farm pull / linked-task bridge); legacy native OCCURRENCE rows are not shown.
   const tasks = await prisma.task.findMany({
     where: {
       workspaceId,
       status: { in: ["ACTIVE", "INBOX"] },
-      OR: [
-        { kind: "ONE_TIME", parentId: null },
-        { kind: "OCCURRENCE" },
-      ],
+      kind: "ONE_TIME",
+      parentId: null,
     },
     include: {
       area: true,
