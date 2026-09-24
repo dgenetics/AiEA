@@ -18,7 +18,7 @@ Capture lets a user paste a messy brain dump, get proposed tasks (AI or local he
 Preconditions:
 
 - `doctor.sh` green for the target base URL.
-- Signed-in session (drive signs in via `/login` using `AIEA_EMAIL`/`AIEA_PASSWORD` or `verify-user.json`).
+- Signed-in session (drive signs in via `/login` using `AIEA_SMOKE_*` (live) or `verify-user.json` (local)).
 
 - **Open capture.** Run `node scripts/drive.mjs --feature capture-accept --base-url <url>`. Heading matching `Brain dump` appears; capture `capture-empty.png`.
 - **Propose.** Fill the first `textarea` with a tagged dump (include a unique marker + concrete chore). Click `Organize with AI`. Heading `Review & edit before accept` appears within ~60s (heuristics or AI). Capture `capture-proposed.png`.
