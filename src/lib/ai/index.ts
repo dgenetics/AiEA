@@ -430,7 +430,7 @@ function buildSummary(p: number, f: number, o: number, r: number) {
     `${f} follow-up${f === 1 ? "" : "s"}`,
   ];
   if (o) parts.push(`${o} overdue`);
-  if (r) parts.push(`${r} recurring due`);
+  if (r) parts.push(`${r} due`);
   return `Today: ${parts.join(" · ")}.`;
 }
 
