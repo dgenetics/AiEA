@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     const tasks = await prisma.task.findMany({
       where: {
         workspaceId,
-        kind: { not: "RECURRING_TEMPLATE" },
+        kind: "ONE_TIME",
         status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
         OR: [
           { dueAt: { lte: end } },
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
     const tasks = await prisma.task.findMany({
       where: {
         workspaceId,
-        kind: { not: "RECURRING_TEMPLATE" },
+        kind: "ONE_TIME",
         status: { in: ["ACTIVE", "INBOX"] },
       },
       include: baseInclude,
@@ -60,6 +60,7 @@ export async function GET(req: Request) {
     const tasks = await prisma.task.findMany({
       where: {
         workspaceId,
+        kind: "ONE_TIME",
         status: { in: ["INBOX", "PROPOSED"] },
       },
       include: baseInclude,
@@ -74,15 +75,6 @@ export async function GET(req: Request) {
       take: 20,
     });
     return NextResponse.json({ tasks, captures });
-  }
-
-  if (view === "recurring") {
-    const tasks = await prisma.task.findMany({
-      where: { workspaceId, kind: "RECURRING_TEMPLATE", status: "ACTIVE" },
-      include: baseInclude,
-      orderBy: { nextOccurrenceAt: "asc" },
-    });
-    return NextResponse.json({ tasks });
   }
 
   if (view === "children") {
@@ -114,17 +106,11 @@ export async function GET(req: Request) {
       100,
     );
     const offset = Math.max(Number(searchParams.get("offset") || 0), 0);
-    const kindFilter = searchParams.get("kind"); // one_time | occurrence | all
-
+    // Native recurring occurrences are no longer surfaced; archive is one-time only.
     const where = {
       workspaceId,
       status: "DONE" as const,
-      kind:
-        kindFilter === "one_time"
-          ? { equals: "ONE_TIME" as const }
-          : kindFilter === "occurrence"
-            ? { equals: "OCCURRENCE" as const }
-            : { not: "RECURRING_TEMPLATE" as const },
+      kind: "ONE_TIME" as const,
     };
 
     const [total, tasks] = await Promise.all([
@@ -152,7 +138,7 @@ export async function GET(req: Request) {
   }
 
   const tasks = await prisma.task.findMany({
-    where: { workspaceId, status: { not: "CANCELLED" } },
+    where: { workspaceId, kind: "ONE_TIME", status: { not: "CANCELLED" } },
     include: baseInclude,
     orderBy: { updatedAt: "desc" },
     take: 100,
@@ -193,7 +179,7 @@ export async function POST(req: Request) {
       where: {
         id: body.parentId,
         workspaceId,
-        kind: { not: "RECURRING_TEMPLATE" },
+        kind: "ONE_TIME",
       },
       select: {
         id: true,

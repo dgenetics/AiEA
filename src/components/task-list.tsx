@@ -69,42 +69,6 @@ export function TaskList({
     router.refresh();
   }
 
-  async function checkIn(id: string, slotIndex: number, done: boolean) {
-    const res = await fetch(`/api/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: done ? "checkIn" : "uncheckIn",
-        slotIndex,
-      }),
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.allDone) {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? { ...t, status: "DONE", checkIns: data.task?.checkIns ?? t.checkIns }
-            : t,
-        ),
-      );
-    } else if (data.task) {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                status: data.task.status,
-                checkIns: data.task.checkIns,
-                dueAt: data.task.dueAt,
-              }
-            : t,
-        ),
-      );
-    }
-    router.refresh();
-  }
-
   async function snooze(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     await fetch(`/api/tasks/${id}`, {
@@ -134,7 +98,6 @@ export function TaskList({
             onComplete={mode === "inbox" ? undefined : complete}
             onSnooze={mode === "archive" || mode === "inbox" ? undefined : snooze}
             onEdit={setEditing}
-            onCheckIn={mode === "archive" || mode === "inbox" ? undefined : checkIn}
             onAccept={mode === "inbox" ? accept : undefined}
             onDismiss={mode === "inbox" ? dismiss : undefined}
           />

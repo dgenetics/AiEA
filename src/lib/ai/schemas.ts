@@ -10,6 +10,7 @@ const proposedSubtaskSchema = z.object({
 export const proposedItemSchema = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(2000).nullable().optional(),
+  /** Legacy RECURRING_TEMPLATE is still parsed but coerced to ONE_TIME in normalize. */
   kind: z.enum(["ONE_TIME", "RECURRING_TEMPLATE"]),
   areaSlug: z.enum(["work", "life"]),
   board: z.enum(["ICEBOX", "BACKLOG", "CURRENT"]).optional(),
@@ -114,7 +115,9 @@ export const CAPTURE_JSON_SCHEMA = {
           },
           kind: {
             type: "string",
-            enum: ["ONE_TIME", "RECURRING_TEMPLATE"],
+            enum: ["ONE_TIME"],
+            description:
+              "Always ONE_TIME. Repeating cadence lives in BF Maintenance, not AiEA.",
           },
           areaSlug: {
             type: "string",

@@ -1,6 +1,5 @@
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { materializeDueOccurrences } from "@/lib/workspace";
 import { TaskList } from "@/components/task-list";
 import { TodayLaneFilters } from "@/components/today-lane-filters";
 import { TodayStaleReview } from "@/components/today-stale-review";
@@ -34,8 +33,6 @@ export default async function TodayPage({
   const rawParams = searchParams ? await Promise.resolve(searchParams) : {};
   const lane = parseTodayLane(rawParams.lane);
 
-  await materializeDueOccurrences(workspaceId);
-
   const now = new Date();
   const { start, end } = todayWindow(now);
   // Server runs in UTC; pad scheduled/follow-up bounds a day so the app-timezone
@@ -48,7 +45,10 @@ export default async function TodayPage({
   const matching = await prisma.task.findMany({
     where: {
       workspaceId,
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      // One-time tasks only. Repeating chores reach AiEA from BF Maintenance
+      // (farm pull / linked-task bridge) as ONE_TIME rows; legacy native
+      // RECURRING_TEMPLATE / OCCURRENCE rows are never rendered.
+      kind: "ONE_TIME",
       status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
       OR: [
         { dueAt: { lte: dueSoonEnd } },
@@ -99,20 +99,12 @@ export default async function TodayPage({
 
   const hiddenCount = Math.max(0, matching.length - visible.length);
 
-  // Recurring day-instances (parent is RECURRING_TEMPLATE) — always top-level cards
-  const occurrences = visible.filter((t) => t.kind === "OCCURRENCE");
-
   // Real one-time tasks (not subtasks)
-  const topOneTime = visible.filter(
-    (t) => t.kind === "ONE_TIME" && !t.parentId,
-  );
+  const topOneTime = visible.filter((t) => !t.parentId);
 
-  // Subtasks matching today (parent is another ONE_TIME task, not a template)
+  // Subtasks matching today (parent must be another ONE_TIME task)
   const subtasksDue = visible.filter(
-    (t) =>
-      t.kind === "ONE_TIME" &&
-      Boolean(t.parentId) &&
-      t.parent?.kind !== "RECURRING_TEMPLATE",
+    (t) => Boolean(t.parentId) && t.parent?.kind === "ONE_TIME",
   );
 
   // Ensure parent cards exist for due subtasks
@@ -177,35 +169,6 @@ export default async function TodayPage({
     .filter((t) => !parentIds.includes(t.parentId as string))
     .map((t) => toTaskRow(t));
 
-  // Nest parts under today's recurring occurrences when present
-  const occurrenceIds = occurrences.map((t) => t.id);
-  const occurrenceChildren =
-    occurrenceIds.length > 0
-      ? await prisma.task.findMany({
-          where: {
-            workspaceId,
-            parentId: { in: occurrenceIds },
-            kind: "ONE_TIME",
-            status: { not: "CANCELLED" },
-          },
-          include: { area: true, person: true },
-          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-        })
-      : [];
-  const childrenByOccurrence = new Map<string, typeof occurrenceChildren>();
-  for (const c of occurrenceChildren) {
-    if (!c.parentId) continue;
-    const list = childrenByOccurrence.get(c.parentId) ?? [];
-    list.push(c);
-    childrenByOccurrence.set(c.parentId, list);
-  }
-  const recurringRows = occurrences.map((t) =>
-    toTaskRow({
-      ...t,
-      children: childrenByOccurrence.get(t.id) ?? [],
-    }),
-  );
-
   const followUps = visible.filter((t) => t.isFollowUp);
   const overdueInPlay = currentDefaultSet.filter(
     (t) => t.dueAt && overdueDays(t.dueAt, now) > 0,
@@ -215,13 +178,15 @@ export default async function TodayPage({
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   const oneTimeDisplay = [...oneTimeRows, ...orphanSubtaskRows];
-  const listCount = oneTimeDisplay.length + recurringRows.length;
+  const listCount = oneTimeDisplay.length;
 
+  // Accepted farm tasks (BF-linked, kind ONE_TIME) flow into oneTimeDisplay
+  // like any other ACTIVE task.
   const inboxCount = await prisma.task.count({
     where: {
       workspaceId,
       status: { in: ["PROPOSED", "INBOX"] },
-      kind: { in: ["ONE_TIME", "OCCURRENCE"] },
+      kind: "ONE_TIME",
     },
   });
 
@@ -334,7 +299,7 @@ export default async function TodayPage({
           </div>
         ) : (
           <TaskList
-            initialTasks={[...oneTimeDisplay, ...recurringRows]}
+            initialTasks={oneTimeDisplay}
             emptyMessage={emptyMessage}
           />
         )}

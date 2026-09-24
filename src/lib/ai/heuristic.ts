@@ -1,8 +1,7 @@
 import { nanoid } from "nanoid";
-import type { ProposedItem, RecurrenceRule } from "@/lib/types";
+import type { ProposedItem } from "@/lib/types";
 import type { BoardLane } from "@/lib/board";
 import { priorityFromBoard } from "@/lib/board";
-import { enrichRuleWithTimes } from "@/lib/recurrence";
 import { parseSubtaskLines } from "@/lib/subtasks-parse";
 import { localNoonPlusDays, localNoonToday, toStoredDueDate } from "@/lib/calendar";
 
@@ -114,38 +113,8 @@ export function heuristicPropose(
       dueAt = toStoredDueDate(eom);
     } else if (isFollowUp) {
       dueAt = dueDays(2);
-    } else if (!isRecurring) {
+    } else {
       dueAt = dueDays(board === "CURRENT" ? 2 : board === "ICEBOX" ? 14 : 7);
-    }
-
-    let recurrenceRule: RecurrenceRule | null = null;
-    if (isRecurring) {
-      if (/daily|every day|each day|times?\s*a\s*day|times?\s*daily/i.test(lower)) {
-        recurrenceRule = { frequency: "daily", interval: 1, time: "09:00" };
-      } else if (/monthly|every month/i.test(lower)) {
-        recurrenceRule = { frequency: "monthly", interval: 1, time: "09:00" };
-      } else {
-        const dayMap: Record<string, number> = {
-          sunday: 0,
-          monday: 1,
-          tuesday: 2,
-          wednesday: 3,
-          thursday: 4,
-          friday: 5,
-          saturday: 6,
-        };
-        let byWeekday: number[] | undefined;
-        for (const [name, n] of Object.entries(dayMap)) {
-          if (lower.includes(name)) byWeekday = [n];
-        }
-        recurrenceRule = {
-          frequency: "weekly",
-          interval: 1,
-          byWeekday,
-          time: "09:00",
-        };
-      }
-      recurrenceRule = enrichRuleWithTimes(recurrenceRule, line);
     }
 
     const cleanTitle = line.replace(/[.]+$/, "").trim();
@@ -153,19 +122,20 @@ export function heuristicPropose(
     items.push({
       id: nanoid(10),
       title: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1),
-      kind: isRecurring ? "RECURRING_TEMPLATE" : "ONE_TIME",
+      // Cadence lives in BF Maintenance — repeating lines become one ONE_TIME task.
+      kind: "ONE_TIME",
       areaSlug,
       board,
       priority,
       dueAt,
       scheduledFor: dueAt,
       estimateMinutes: isRecurring ? 15 : board === "CURRENT" ? 45 : 30,
-      recurrenceRule,
+      recurrenceRule: null,
       isFollowUp,
       personName,
       followUpDueAt: isFollowUp ? dueAt : null,
       aiRationale: isRecurring
-        ? "Detected recurring language; scheduled as a repeating task."
+        ? "Repeating chore: cadence belongs in BF Maintenance (captured once here)."
         : isFollowUp
           ? "Detected a people follow-up; attached a response deadline."
           : `Classified as ${areaSlug}; lane ${board} from urgency cues.`,

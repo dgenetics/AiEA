@@ -15,7 +15,7 @@ export default async function ArchivePage() {
   const where = {
     workspaceId,
     status: "DONE" as const,
-    kind: { not: "RECURRING_TEMPLATE" as const },
+    kind: "ONE_TIME" as const,
   };
 
   const [total, tasks] = await Promise.all([

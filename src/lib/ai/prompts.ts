@@ -43,9 +43,7 @@ Disambiguation rules:
 ${ctx.trainingBlock ? `${ctx.trainingBlock}\n` : ""}
 
 ## Kind
-- ONE_TIME — happens once (default)
-- RECURRING_TEMPLATE — clearly repeating cadence ("every Sunday", "daily", "monthly")
-Never emit OCCURRENCE.
+- Always ONE_TIME. Never emit RECURRING_TEMPLATE or OCCURRENCE.
 
 ## Board lanes (board)
 - CURRENT — in play now (today / urgent / asap / hard deadline today)
@@ -63,26 +61,13 @@ Do not put everything on CURRENT. Prefer BACKLOG unless urgency is clear.
   - "this week" → within 2–4 days, prefer a weekday
   - "end of month" / EOM → ${ctx.endOfMonthISO}
   - "Thursday" (and similar) → next occurrence of that weekday from today (including today if matching)
-- Recurring templates: dueAt/scheduledFor may be null; set recurrenceRule instead
-- If no date cues and not recurring: suggest a reasonable dueAt (CURRENT: 1–2 days; BACKLOG: ~7 days; ICEBOX: null or 14+ days)
+- If no date cues: suggest a reasonable dueAt (CURRENT: 1–2 days; BACKLOG: ~7 days; ICEBOX: null or 14+ days)
 
-## Recurrence
-When recurring, set recurrenceRule:
-- frequency: daily | weekly | monthly
-- interval: usually 1
-- byWeekday: 0=Sun … 6=Sat (empty array if not weekly-by-day)
-- time: "HH:mm" local, default "09:00" (first slot)
-- times: array of HH:mm for MULTIPLE check-ins per day on ONE task
-  - "3 times a day, evenly spread" → times: ["10:00","14:00","18:00"], frequency: daily
-  - "twice a day" → times: ["10:00","18:00"]
-  - Explicit "at 9am, noon, and 9pm" → those times
-  - Morning + night routines in ONE task → two slots, e.g.
-    "Put goats out every morning 8-10am and put to bed every night before dusk"
-    → frequency: daily, times: ["09:00","19:00"] (mid-morning range + ~1h before dusk)
-  - "before dusk/sundown" ≈ local evening ~1 hour before typical sunset that month
-  - Single daily habit → times: [] and time: "09:00" (or preferred hour)
-  - Put multi-slot description in notes too
-  - Do NOT create separate tasks for each daily check-in — use times[] on one recurring template
+## Repeating chores
+AiEA does not own cadence. Repeating chores (daily / weekly / "N times a day") are
+scheduled in BF Maintenance and reach AiEA through the farm pull.
+- Still emit them as ONE_TIME (one actionable instance), recurrenceRule = null
+- Mention in aiRationale that the cadence belongs in BF Maintenance
 
 ## People / follow-ups
 If the user must respond, ping, check in, get back to, call, or follow up with a person:

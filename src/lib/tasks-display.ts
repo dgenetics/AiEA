@@ -13,7 +13,6 @@ type RawTask = {
   kind?: string;
   estimateMinutes?: number | null;
   aiRationale?: string | null;
-  checkIns?: string | null;
   parentId?: string | null;
   externalSource?: string | null;
   externalId?: string | null;
@@ -30,7 +29,6 @@ type RawTask = {
     status: string;
     isFollowUp?: boolean;
     kind?: string;
-    checkIns?: string | null;
     externalSource?: string | null;
     area?: { id?: string; name: string; color: string; slug: string } | null;
     person?: { name: string } | null;
@@ -63,7 +61,6 @@ export function toTaskRow(
       status: c.status,
       isFollowUp: c.isFollowUp,
       kind: c.kind,
-      checkIns: c.checkIns,
       area: c.area,
       person: c.person,
       parentId: t.id,
@@ -85,7 +82,6 @@ export function toTaskRow(
     kind: t.kind,
     estimateMinutes: t.estimateMinutes,
     aiRationale: t.aiRationale,
-    checkIns: t.checkIns,
     externalSource: t.externalSource ?? null,
     externalId: t.externalId ?? null,
     area: t.area,
