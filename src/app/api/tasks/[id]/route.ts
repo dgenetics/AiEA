@@ -5,6 +5,7 @@ import { recordCorrections } from "@/lib/ai/corrections";
 import {
   completeBfMaintenanceTask,
   parseBfTaskExternalId,
+  reopenBfMaintenanceTask,
 } from "@/lib/api/maintenance";
 import {
   BOARD_LANES,
@@ -13,16 +14,21 @@ import {
 } from "@/lib/board";
 import { prisma } from "@/lib/db";
 
-/** Best-effort: if task came from BF Maintenance, mark it complete there too. */
+const BF_SYNC_ERROR = "Couldn't sync to BF Maintenance — try again.";
+
+/**
+ * Best-effort: if task came from BF Maintenance, mark it complete there too.
+ * Returns a user-facing error when a linked sync fails (local change stays).
+ */
 async function syncBfComplete(task: {
   externalSource: string | null;
   externalId: string | null;
   notes: string | null;
   title: string;
-}) {
-  if (task.externalSource !== "bf-maintenance") return;
+}): Promise<string | null> {
+  if (task.externalSource !== "bf-maintenance") return null;
   const bfTaskId = parseBfTaskExternalId(task.externalId);
-  if (!bfTaskId) return;
+  if (!bfTaskId) return null;
   try {
     const result = await completeBfMaintenanceTask(
       bfTaskId,
@@ -30,10 +36,34 @@ async function syncBfComplete(task: {
     );
     if (!result.ok) {
       console.warn("BF Maintenance complete sync failed:", result.error);
+      return BF_SYNC_ERROR;
     }
   } catch (err) {
     console.warn("BF Maintenance complete sync error:", err);
+    return BF_SYNC_ERROR;
   }
+  return null;
+}
+
+/** Best-effort: if task came from BF Maintenance, reopen it there too. */
+async function syncBfReopen(task: {
+  externalSource: string | null;
+  externalId: string | null;
+}): Promise<string | null> {
+  if (task.externalSource !== "bf-maintenance") return null;
+  const bfTaskId = parseBfTaskExternalId(task.externalId);
+  if (!bfTaskId) return null;
+  try {
+    const result = await reopenBfMaintenanceTask(bfTaskId);
+    if (!result.ok) {
+      console.warn("BF Maintenance reopen sync failed:", result.error);
+      return BF_SYNC_ERROR;
+    }
+  } catch (err) {
+    console.warn("BF Maintenance reopen sync error:", err);
+    return BF_SYNC_ERROR;
+  }
+  return null;
 }
 
 const patchSchema = z.object({
@@ -110,8 +140,8 @@ export async function PATCH(
         });
       }
 
-      await syncBfComplete(task);
-      return NextResponse.json({ task: updated });
+      const bfSyncError = await syncBfComplete(task);
+      return NextResponse.json({ task: updated, bfSyncError });
     }
 
     if (action === "reopen") {
@@ -120,7 +150,8 @@ export async function PATCH(
         data: { status: "ACTIVE", completedAt: null },
         include: { area: true, person: true },
       });
-      return NextResponse.json({ task: updated });
+      const bfSyncError = await syncBfReopen(task);
+      return NextResponse.json({ task: updated, bfSyncError });
     }
 
     /** Promote PROPOSED / INBOX task to ACTIVE (Inbox review accept). */

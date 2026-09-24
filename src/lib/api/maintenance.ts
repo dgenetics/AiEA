@@ -60,6 +60,12 @@ function bfSecret(): string {
   return s;
 }
 
+/** Vercel Protection Bypass for Automation (preview → protected BF preview). Unset in prod. */
+function bfBypassHeader(): Record<string, string> {
+  const v = process.env.BF_MAINTENANCE_PROTECTION_BYPASS?.trim();
+  return v ? { "x-vercel-protection-bypass": v } : {};
+}
+
 export function getBfMaintenanceConfig(): {
   configured: boolean;
   baseUrl: string | null;
@@ -75,6 +81,12 @@ export function getBfMaintenanceConfig(): {
     baseUrl: baseUrl ? baseUrl.replace(/\/$/, "") : null,
     hasSecret,
   };
+}
+
+/** "<status>: <body>" for sync failure logs (body truncated; never secrets). */
+async function syncErrorDetail(res: Response): Promise<string> {
+  const text = await res.text().catch(() => "");
+  return `${res.status} ${res.statusText}: ${text.slice(0, 500) || "(empty body)"}`;
 }
 
 /** Parse bf-task:<id> external ids. */
@@ -97,6 +109,7 @@ export async function fetchBfMaintenanceSuggestions(): Promise<BfSuggestionsResp
       headers: {
         Authorization: `Bearer ${secret}`,
         Accept: "application/json",
+        ...bfBypassHeader(),
       },
       cache: "no-store",
     });
@@ -150,6 +163,7 @@ export async function completeBfMaintenanceTask(
       headers: {
         Authorization: `Bearer ${secret}`,
         Accept: "application/json",
+        ...bfBypassHeader(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -166,18 +180,50 @@ export async function completeBfMaintenanceTask(
   }
 
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { error?: string };
-      if (body.error) detail = body.error;
-    } catch {
-      /* ignore */
-    }
-    return { ok: false, error: `${res.status}: ${detail}` };
+    return { ok: false, error: await syncErrorDetail(res) };
   }
 
   const body = (await res.json()) as { alreadyComplete?: boolean };
   return { ok: true, alreadyComplete: Boolean(body.alreadyComplete) };
+}
+
+/**
+ * Notify BF that an imported maintenance task was reopened in AiEA.
+ * Best-effort — failures should not block the AiEA reopen action.
+ * BF reopen does not rewind schedule (v1).
+ */
+export async function reopenBfMaintenanceTask(
+  bfTaskId: string,
+): Promise<{ ok: boolean; alreadyOpen?: boolean; error?: string }> {
+  const base = bfBaseUrl();
+  const secret = bfSecret();
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/integrations/tasks/reopen`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        Accept: "application/json",
+        ...bfBypassHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ taskId: bfTaskId }),
+      cache: "no-store",
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+
+  if (!res.ok) {
+    return { ok: false, error: await syncErrorDetail(res) };
+  }
+
+  const body = (await res.json()) as { alreadyOpen?: boolean };
+  return { ok: true, alreadyOpen: Boolean(body.alreadyOpen) };
 }
 
 /** Lightweight connectivity probe for settings UI. */
