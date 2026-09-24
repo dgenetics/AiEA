@@ -25,5 +25,5 @@ Preconditions:
 
 ## Gotchas
 
-- Empty task list is fine (`Nothing due today.`) — still a pass.
+- Empty task list is fine (`Nothing in play today`) — still a pass.
 - Doctor curl alone is not enough for the mapped UI feature; drive must open the page in Playwright.
