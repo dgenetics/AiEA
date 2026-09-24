@@ -83,6 +83,12 @@ export function getBfMaintenanceConfig(): {
   };
 }
 
+/** "<status>: <body>" for sync failure logs (body truncated; never secrets). */
+async function syncErrorDetail(res: Response): Promise<string> {
+  const text = await res.text().catch(() => "");
+  return `${res.status} ${res.statusText}: ${text.slice(0, 500) || "(empty body)"}`;
+}
+
 /** Parse bf-task:<id> external ids. */
 export function parseBfTaskExternalId(
   externalId: string | null | undefined,
@@ -174,14 +180,7 @@ export async function completeBfMaintenanceTask(
   }
 
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { error?: string };
-      if (body.error) detail = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
-    } catch {
-      /* ignore */
-    }
-    return { ok: false, error: `${res.status}: ${detail}` };
+    return { ok: false, error: await syncErrorDetail(res) };
   }
 
   const body = (await res.json()) as { alreadyComplete?: boolean };
@@ -220,14 +219,7 @@ export async function reopenBfMaintenanceTask(
   }
 
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { error?: string };
-      if (body.error) detail = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
-    } catch {
-      /* ignore */
-    }
-    return { ok: false, error: `${res.status}: ${detail}` };
+    return { ok: false, error: await syncErrorDetail(res) };
   }
 
   const body = (await res.json()) as { alreadyOpen?: boolean };
