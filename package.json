@@ -14,7 +14,10 @@
     "db:generate": "prisma generate",
     "db:push:turso": "node scripts/push-turso-schema.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:slack": "tsx scripts/check-slack.ts",
+    "prove:slack": "node scripts/prove-slack.mjs",
+    "slack:socket": "tsx scripts/slack-socket.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -34,6 +37,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.6.0",
+    "ws": "^8.21.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -43,6 +47,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",

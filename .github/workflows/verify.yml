@@ -62,6 +62,9 @@ jobs:
       - name: Unit assertions (board laneOf)
         run: npm run test:board
 
+      - name: Unit assertions (slack due-today / commands)
+        run: npm run test:slack
+
       - name: Build
         run: npm run build
 
