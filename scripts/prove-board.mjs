@@ -6,9 +6,15 @@
  * the real register/login routes, seeds a mix of tasks through the real task
  * routes (plus direct SQL for states the UI can't create: unknown lane, INBOX /
  * PROPOSED status), then asserts against the rendered /tasks HTML:
- *   - set (and count) of non-done tasks in the DB == set of cards on the board
+ *   - desktop (md+): three side-by-side columns; mobile: one-lane tabs (?lane=)
+ *     — both layouts are in the DOM with responsive classes
+ *   - set (and count) of open tasks in the DB == top-level cards + nested
+ *     subtasks in the desktop columns layout, each task exactly once there
+ *   - a subtask whose own lane differs from its parent's renders INSIDE the
+ *     parent card, in the parent's lane; an orphaned open subtask (parent done)
+ *     is its own card in its own lane, labelled "Part of · parent"
  *   - null / unknown lanes render in Backlog; past-due tasks stay in their lane
- *   - done / cancelled / proposed tasks are not on the board
+ *   - done / cancelled / proposed tasks (and done subtasks) are not on the board
  *   - GET /today, /upcoming (+ subpaths) → server redirect to /tasks
  *   - nav has no Today / Upcoming link
  * Exits non-zero on any mismatch. Kills its own server process group on exit.
@@ -22,8 +28,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AIEA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = process.env.OUT ?? "/workspace/tmp/prove-board-output.txt";
-const TMP = process.env.PROVE_TMP ?? "/workspace/tmp/prove-board-run";
+const OUT = process.env.OUT ?? "/workspace/tmp/prove-board-tabs-output.txt";
+const TMP = process.env.PROVE_TMP ?? "/workspace/tmp/prove-board-tabs-run";
 const PORT = Number(process.env.PROVE_PORT ?? 4401);
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -140,19 +146,87 @@ function w(sql, ...args) {
   }
 }
 
-/** Parse the rendered board: lane → [{ id, html }] (cards in DOM order). */
+/** Slice the inner HTML of the first element matching data-board-layout. */
+function layoutHtml(html, layout) {
+  const openRe = new RegExp(`<div[^>]*data-board-layout="${layout}"[^>]*>`);
+  const m = openRe.exec(html);
+  if (!m) return null;
+  const start = m.index;
+  const openTag = m[0];
+  let depth = 0;
+  const tag = /<div\b[^>]*>|<\/div>/g;
+  tag.lastIndex = 0;
+  const slice = html.slice(start);
+  let t;
+  while ((t = tag.exec(slice))) {
+    if (t[0] === "</div>") {
+      depth--;
+      if (depth === 0) return slice.slice(openTag.length, t.index);
+    } else {
+      depth++;
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse board cards from a layout HTML slice by real <div> nesting.
+ * Returns lane -> top-level cards, plus every task row (top-level or nested)
+ * with nestedIn = the task card it sits inside (null = its own card).
+ */
 function parseBoard(html) {
   const lanes = {};
+  const rows = [];
   const re = /<section[^>]*data-lane="([A-Z]+)"[^>]*>([\s\S]*?)<\/section>/g;
   let m;
   while ((m = re.exec(html))) {
     const [, lane, inner] = m;
-    const parts = inner.split(/(?=<div[^>]*data-task-id=")/);
-    lanes[lane] = parts
-      .map((p) => ({ id: /data-task-id="([^"]+)"/.exec(p)?.[1], html: p }))
-      .filter((c) => c.id);
+    lanes[lane] = [];
+    const laneRows = [];
+    const stack = [];
+    const tag = /<div\b[^>]*>|<\/div>/g;
+    let t;
+    while ((t = tag.exec(inner))) {
+      if (t[0] === "</div>") {
+        const row = stack.pop();
+        if (row) row.end = t.index;
+        continue;
+      }
+      const id = /data-task-id="([^"]+)"/.exec(t[0])?.[1];
+      if (!id) {
+        stack.push(null);
+        continue;
+      }
+      const parent = [...stack].reverse().find(Boolean) ?? null;
+      const row = { id, lane, nestedIn: parent?.id ?? null, subtasks: [], start: t.index, end: inner.length };
+      stack.push(row);
+      laneRows.push(row);
+      if (parent) parent.subtasks.push(row);
+      else lanes[lane].push(row);
+    }
+    laneRows.forEach((r, i) => {
+      r.html = inner.slice(r.start, Math.min(r.end, laneRows[i + 1]?.start ?? r.end));
+    });
+    rows.push(...laneRows);
   }
-  return lanes;
+  return { lanes, rows };
+}
+
+function parseTabs(html) {
+  const tabsRoot = layoutHtml(html, "tabs");
+  if (!tabsRoot) return null;
+  // Full <a ...> tags so aria-selected works regardless of attribute order.
+  const parsed = [...tabsRoot.matchAll(/<a\b[^>]*>/g)]
+    .map((m) => m[0])
+    .filter((t) => /data-lane-tab=/.test(t))
+    .map((tag) => ({
+      lane: /data-lane-tab="([A-Z]+)"/.exec(tag)[1],
+      selected: /aria-selected="true"/.test(tag),
+    }));
+  let selected = parsed.find((t) => t.selected)?.lane;
+  if (!selected) selected = /<section[^>]*data-lane="([A-Z]+)"/.exec(tabsRoot)?.[1];
+  const panels = [...tabsRoot.matchAll(/<section[^>]*data-lane="([A-Z]+)"/g)].map((x) => x[1]);
+  return { tabs: parsed, selected, panels, html: tabsRoot };
 }
 
 const DAY = 86400_000;
@@ -208,7 +282,10 @@ async function main() {
   await create("nullLane", { title: "Null / missing lane", board: "CURRENT" });
   await create("snoozed", { title: "Snoozed (still open)", board: "CURRENT" });
   await create("inboxStatus", { title: "INBOX-status task", board: "ICEBOX" });
-  await create("subtask", { title: "Subtask of the past-due Current task", board: "ICEBOX", parentId: seeded.currentPastDue });
+  await create("subtask", { title: "Subtask of the past-due Current task (own lane Icebox)", board: "ICEBOX", parentId: seeded.currentPastDue });
+  await create("doneSubtask", { title: "Done subtask (must not show)", board: "CURRENT", parentId: seeded.currentFuture });
+  await create("orphanParent", { title: "Done parent of an orphan (must not show)", board: "CURRENT" });
+  await create("orphanSubtask", { title: "Orphaned subtask (parent done, own lane Icebox)", board: "ICEBOX", parentId: seeded.orphanParent });
   await create("done1", { title: "Done #1 (must not show)", board: "CURRENT", dueAt: new Date(now - 2 * DAY).toISOString() });
   await create("done2", { title: "Done #2 (must not show)", board: "BACKLOG" });
   await create("cancelled", { title: "Cancelled (must not show)", board: "BACKLOG" });
@@ -216,6 +293,8 @@ async function main() {
   await act("snoozed", "snooze");
   await act("done1", "complete");
   await act("done2", "complete");
+  await act("doneSubtask", "complete");
+  await act("orphanParent", "complete");
   await act("cancelled", "cancel");
 
   // Legacy / bad data the UI can't produce
@@ -246,26 +325,53 @@ async function main() {
     log(`    ${t.id} status=${t.status} board=${JSON.stringify(t.board)} prio=${t.priority} due=${t.dueAt ? new Date(Number(t.dueAt) || t.dueAt).toISOString().slice(0, 10) : "-"} ${t.parentId ? "(subtask) " : ""}"${t.title}"`);
   }
 
-  log("\n## board page GET /tasks (the UI read path)");
+    log("\n## board page GET /tasks (the UI read path)");
   r = await call("GET", "/tasks");
   check(r.status === 200, `GET /tasks → ${r.status}`);
-  const board = parseBoard(r.text);
-  const cardLane = new Map();
-  let cardCount = 0;
-  for (const [lane, cards] of Object.entries(board)) {
-    log(`  ${lane}: ${cards.length} card(s)`);
-    for (const c of cards) {
-      cardCount++;
-      if (cardLane.has(c.id)) check(false, `task ${c.id} rendered twice`);
-      cardLane.set(c.id, lane);
-      const title = rows.find((t) => t.id === c.id)?.title ?? "?";
-      const due = /(\d+d overdue|Yesterday|Today|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun|[A-Z][a-z]{2} \d{1,2})<\/span>/.exec(c.html)?.[1];
-      log(`    - ${c.id} "${title}"${due ? ` [due: ${due}]` : ""}`);
-    }
+
+  // Dual layout: mobile tabs + desktop columns both in the DOM (responsive classes).
+  const tabsOpen = /data-board-layout="tabs"[^>]*class="([^"]*)"/.exec(r.text)?.[1] ?? "";
+  const colsOpen = /data-board-layout="columns"[^>]*class="([^"]*)"/.exec(r.text)?.[1] ?? "";
+  check(
+    /md:hidden/.test(tabsOpen) && layoutHtml(r.text, "tabs"),
+    `mobile tabs layout present with md:hidden (class="${tabsOpen}")`,
+  );
+  check(
+    /\bhidden\b/.test(colsOpen) && /md:grid/.test(colsOpen) && layoutHtml(r.text, "columns"),
+    `desktop columns layout present with hidden md:grid (class="${colsOpen}")`,
+  );
+  const tabsDefault = parseTabs(r.text);
+  check(
+    tabsDefault &&
+      JSON.stringify(tabsDefault.tabs.map((t) => t.lane)) === JSON.stringify(["CURRENT", "BACKLOG", "ICEBOX"]) &&
+      tabsDefault.selected === "CURRENT" &&
+      tabsDefault.panels.length === 1 &&
+      tabsDefault.panels[0] === "CURRENT",
+    `mobile tabs default to Current (selected=${tabsDefault?.selected}, panels=${tabsDefault?.panels?.join(",")})`,
+  );
+
+  // Nest/orphan + set equality from the desktop columns (all three lanes).
+  const columnsHtml = layoutHtml(r.text, "columns");
+  const { lanes: board, rows: rendered } = parseBoard(columnsHtml);
+
+  const titleOf = (id) => rows.find((t) => t.id === id)?.title ?? "?";
+  function logCard(c, depth) {
+    const due = /(\d+d overdue|Yesterday|Today|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun|[A-Z][a-z]{2} \d{1,2})<\/span>/.exec(c.html)?.[1];
+    log(`${"  ".repeat(depth + 2)}${depth ? "↳ nested" : "-"} ${c.id} "${titleOf(c.id)}"${due ? ` [due: ${due}]` : ""}`);
+    for (const s of c.subtasks) logCard(s, depth + 1);
   }
+  for (const [lane, cards] of Object.entries(board)) {
+    log(`  ${lane}: ${cards.length} card(s), ${rendered.filter((x) => x.lane === lane && x.nestedIn).length} nested subtask(s)`);
+    for (const c of cards) logCard(c, 0);
+  }
+  const shown = new Map(rendered.map((x) => [x.id, x]));
+  const dupes = rendered.filter((x, i) => rendered.findIndex((y) => y.id === x.id) !== i).map((x) => x.id);
+  check(dupes.length === 0, `each task renders exactly once (duplicates: ${dupes.length ? dupes.join(", ") : "none"})`);
+  const topCount = rendered.filter((x) => !x.nestedIn).length;
+  const nestedCount = rendered.length - topCount;
   check(
     JSON.stringify(Object.keys(board)) === JSON.stringify(["CURRENT", "BACKLOG", "ICEBOX"]),
-    `columns in order Current | Backlog | Icebox (got ${Object.keys(board).join(", ")})`,
+    `desktop columns in order Current | Backlog | Icebox (got ${Object.keys(board).join(", ")})`,
   );
 
   const allNotDone = q(`SELECT id, status, kind FROM "Task" WHERE workspaceId = ? AND status <> 'DONE'`, workspaceId);
@@ -280,34 +386,87 @@ async function main() {
       .map(([k, v]) => `${k}=${v}`)
       .join(", ")}); open tasks (ACTIVE/INBOX/SNOOZED, one-time) = ${openDb.length}`,
   );
-  check(openDb.length === cardCount, `count: DB open tasks ${openDb.length} == board cards ${cardCount}`);
-  const missing = openDb.filter((id) => !cardLane.has(id));
-  const extra = [...cardLane.keys()].filter((id) => !openDb.includes(id));
-  check(missing.length === 0 && extra.length === 0, `set: every open DB task is a card and vice versa (missing=${missing.length}, extra=${extra.length})`);
+  check(
+    openDb.length === rendered.length,
+    `count: DB open tasks ${openDb.length} == top-level cards ${topCount} + nested subtasks ${nestedCount}`,
+  );
+  const missing = openDb.filter((id) => !shown.has(id));
+  const extra = [...shown.keys()].filter((id) => !openDb.includes(id));
+  check(missing.length === 0 && extra.length === 0, `set: open DB tasks == top-level cards ∪ nested subtasks (missing=${missing.length}, extra=${extra.length})`);
 
-  const expectLane = {
-    currentFuture: "CURRENT",
-    currentPastDue: "CURRENT",
-    backlogUndated: "BACKLOG",
-    iceboxPastDue: "ICEBOX",
-    unknownLane: "BACKLOG",
-    nullLane: "BACKLOG",
-    snoozed: "CURRENT",
-    inboxStatus: "ICEBOX",
-    subtask: "ICEBOX",
+  // [lane, nested inside which card (null = its own top-level card)]
+  const expectPlace = {
+    currentFuture: ["CURRENT", null],
+    currentPastDue: ["CURRENT", null],
+    backlogUndated: ["BACKLOG", null],
+    iceboxPastDue: ["ICEBOX", null],
+    unknownLane: ["BACKLOG", null],
+    nullLane: ["BACKLOG", null],
+    snoozed: ["CURRENT", null],
+    inboxStatus: ["ICEBOX", null],
+    subtask: ["CURRENT", "currentPastDue"],
+    orphanSubtask: ["ICEBOX", null],
   };
-  for (const [key, lane] of Object.entries(expectLane)) {
-    check(cardLane.get(seeded[key]) === lane, `${key} renders in ${lane} (got ${cardLane.get(seeded[key]) ?? "not rendered"})`);
+  for (const [key, [lane, parentKey]] of Object.entries(expectPlace)) {
+    const x = shown.get(seeded[key]);
+    const where = x ? `${x.lane}${x.nestedIn ? ` inside ${x.nestedIn}` : " as own card"}` : "not rendered";
+    check(
+      x?.lane === lane && x?.nestedIn === (parentKey ? seeded[parentKey] : null),
+      `${key} renders ${parentKey ? `inside the ${parentKey} card` : "as its own card"} in ${lane} (got ${where})`,
+    );
   }
-  for (const key of ["done1", "done2", "cancelled", "proposed"]) {
-    check(!cardLane.has(seeded[key]), `${key} is NOT on the board`);
+  for (const key of ["done1", "done2", "cancelled", "proposed", "doneSubtask", "orphanParent"]) {
+    check(!shown.has(seeded[key]), `${key} is NOT on the board`);
   }
-  const cardHtml = (key) => Object.values(board).flat().find((c) => c.id === seeded[key])?.html ?? "";
-  check(/\d+d overdue/.test(cardHtml("currentPastDue")), "past-due Current card shows its due date (\"Nd overdue\") and stays in Current");
-  check(/\d+d overdue/.test(cardHtml("iceboxPastDue")), "past-due Icebox card shows its due date and stays in Icebox");
-  check(/Part of · /.test(cardHtml("subtask")), "subtask card is labelled \"Part of · <parent>\"");
+  const dbBoard = (key) => rows.find((t) => t.id === seeded[key])?.board;
+  check(
+    dbBoard("subtask") === "ICEBOX" && dbBoard("currentPastDue") === "CURRENT" && shown.get(seeded.subtask)?.lane === "CURRENT",
+    `nested subtask's own lane (${dbBoard("subtask")}) differs from its parent's (${dbBoard("currentPastDue")}); it follows the parent into ${shown.get(seeded.subtask)?.lane}`,
+  );
+  check(
+    rows.find((t) => t.id === seeded.orphanParent)?.status === "DONE" && dbBoard("orphanSubtask") === shown.get(seeded.orphanSubtask)?.lane,
+    `orphaned subtask (parent DONE) is its own card in its own lane (${dbBoard("orphanSubtask")})`,
+  );
+  const rowHtml = (key) => shown.get(seeded[key])?.html ?? "";
+  check(/\d+d overdue/.test(rowHtml("currentPastDue")), "past-due Current card shows its due date (\"Nd overdue\") and stays in Current");
+  check(/\d+d overdue/.test(rowHtml("iceboxPastDue")), "past-due Icebox card shows its due date and stays in Icebox");
+  check(/Part of · /.test(rowHtml("orphanSubtask")), "orphaned subtask card is labelled \"Part of · <parent>\"");
+  check(!/Part of · /.test(rowHtml("subtask")), "nested subtask has no \"Part of\" label (it is inside the parent card)");
 
-  log("\n## other read paths");
+  
+  log("\n## mobile tabs via ?lane=");
+  for (const [param, expect] of [
+    ["backlog", "BACKLOG"],
+    ["icebox", "ICEBOX"],
+    ["current", "CURRENT"],
+    ["SOMEDAY", "CURRENT"],
+  ]) {
+    const path = `/tasks?lane=${param}`;
+    const resp = await call("GET", path);
+    check(resp.status === 200, `GET ${path} → ${resp.status}`);
+    const t = parseTabs(resp.text);
+    check(
+      t?.selected === expect && t.panels.length === 1 && t.panels[0] === expect,
+      `?lane=${param} → mobile tab ${expect} only (selected=${t?.selected}, panels=${t?.panels?.join(",")})`,
+    );
+    const cols = parseBoard(layoutHtml(resp.text, "columns"));
+    check(
+      JSON.stringify(Object.keys(cols.lanes)) === JSON.stringify(["CURRENT", "BACKLOG", "ICEBOX"]),
+      `?lane=${param}: desktop columns still show all three lanes`,
+    );
+  }
+  {
+    const redir = await call("GET", "/today?lane=backlog");
+    check(
+      [307, 308].includes(redir.status) && String(redir.location || "").includes("lane=backlog"),
+      `GET /today?lane=backlog → ${redir.status} Location preserves lane=backlog (${redir.location})`,
+    );
+    const followed = await call("GET", "/tasks?lane=backlog");
+    const t = parseTabs(followed.text);
+    check(t?.selected === "BACKLOG", "after /today?lane=backlog equivalent, Backlog tab is selected");
+  }
+
+log("\n## other read paths");
   r = await call("GET", "/api/tasks?view=board");
   const apiIds = (r.json?.tasks ?? []).map((t) => t.id);
   check(r.status === 200 && apiIds.length === openDb.length && openDb.every((id) => apiIds.includes(id)), `GET /api/tasks?view=board → ${r.status}, ${apiIds.length} tasks == DB open set`);

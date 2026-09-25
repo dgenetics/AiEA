@@ -92,8 +92,57 @@ export function laneOf(task: { board?: string | null }): BoardLane {
   return isBoardLane(task.board) ? task.board : "BACKLOG";
 }
 
-/** Board column order, left → right. */
+/** Board column / tab order: Current → Backlog → Icebox. */
 export const BOARD_COLUMNS: readonly BoardLane[] = ["CURRENT", "BACKLOG", "ICEBOX"];
+
+/**
+ * URL ?lane= param (current|backlog|icebox). Invalid / missing → Current
+ * (mobile tab default). Distinct from laneOf (stored task → Backlog fallback).
+ */
+export function laneFromParam(value: string | null | undefined): BoardLane {
+  if (typeof value !== "string") return "CURRENT";
+  const key = value.trim().toUpperCase();
+  return isBoardLane(key) ? key : "CURRENT";
+}
+
+export function laneToParam(lane: BoardLane): string {
+  return lane.toLowerCase();
+}
+
+export type BoardCard<T> = { task: T; subtasks: BoardCard<T>[] };
+
+/**
+ * Group tasks into board cards — the single place subtask placement is decided.
+ * Only open tasks (BOARD_STATUSES) are on the board. An open subtask whose
+ * parent is on the board nests inside the parent's card and follows the
+ * parent's lane (its own lane is ignored for placement). An open subtask whose
+ * parent is NOT on the board (done / cancelled / proposed / missing) is its own
+ * card in its own laneOf(), so nothing vanishes. Every open task appears once.
+ */
+export function buildBoard<
+  T extends { id: string; status: string; board?: string | null; parentId?: string | null },
+>(tasks: readonly T[]): Map<BoardLane, BoardCard<T>[]> {
+  const open = tasks.filter((t) => (BOARD_STATUSES as readonly string[]).includes(t.status));
+  const byId = new Map(open.map((t) => [t.id, t]));
+  const cards = new Map(open.map((t) => [t.id, { task: t, subtasks: [] } as BoardCard<T>]));
+  const parentOf = (t: T) => (t.parentId ? byId.get(t.parentId) : undefined);
+  // Nest only when the parent chain ends at a top-level card (bad-data cycles stay top-level).
+  const nestsUnder = (t: T): T | undefined => {
+    const seen = new Set([t.id]);
+    for (let p = parentOf(t); p; p = parentOf(p)) {
+      if (seen.has(p.id)) return undefined;
+      seen.add(p.id);
+    }
+    return parentOf(t);
+  };
+  const board = new Map(BOARD_COLUMNS.map((lane) => [lane, [] as BoardCard<T>[]]));
+  for (const t of open) {
+    const parent = nestsUnder(t);
+    if (parent) cards.get(parent.id)!.subtasks.push(cards.get(t.id)!);
+    else board.get(laneOf(t))!.push(cards.get(t.id)!);
+  }
+  return board;
+}
 
 /**
  * Every non-done task lives on the board. PROPOSED rows are un-accepted
