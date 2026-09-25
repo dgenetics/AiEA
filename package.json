@@ -14,7 +14,8 @@
     "db:generate": "prisma generate",
     "db:push:turso": "node scripts/push-turso-schema.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:safe-area": "tsx scripts/check-safe-area.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

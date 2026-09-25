@@ -20,7 +20,6 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/sidebar";
 import { ReminderBell } from "@/components/reminder-bell";
-import { AiStatusBadge } from "@/components/ai-status-badge";
 import { SignOutButton } from "@/components/sign-out-button";
 
 /** Primary destinations on the mobile bottom bar */
@@ -88,7 +87,7 @@ export function AppShell({
 
         <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
           {/* Mobile top bar only */}
-          <header className="sticky top-0 z-40 flex h-12 items-center gap-2 border-b border-white/5 bg-[#07070b]/95 px-3 backdrop-blur-md md:hidden safe-top">
+          <header className="sticky top-0 z-40 flex min-h-12 items-center gap-2 border-b border-white/5 bg-[#07070b]/95 px-3 backdrop-blur-md md:hidden safe-top">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -101,13 +100,11 @@ export function AppShell({
               <p className="truncate text-sm font-semibold text-white">AiEA</p>
               <p className="truncate text-[10px] text-zinc-500">{userName}</p>
             </div>
-            <AiStatusBadge compact />
             <ReminderBell />
           </header>
 
           {/* Desktop header — original */}
           <header className="hidden h-14 items-center justify-end gap-3 border-b border-white/5 px-6 md:flex">
-            <AiStatusBadge />
             <ReminderBell />
             <SignOutButton />
           </header>
