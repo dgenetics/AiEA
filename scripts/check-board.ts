@@ -4,7 +4,7 @@
  * buildBoard groups open tasks into cards (subtasks nest under an on-board parent).
  */
 import assert from "node:assert/strict";
-import { buildBoard, laneOf, type BoardCard } from "../src/lib/board";
+import { buildBoard, laneFromParam, laneOf, laneToParam, type BoardCard } from "../src/lib/board";
 
 assert.equal(laneOf({ board: "CURRENT" }), "CURRENT");
 assert.equal(laneOf({ board: "BACKLOG" }), "BACKLOG");
@@ -66,4 +66,14 @@ for (const cards of board.values()) walk(cards);
 const openIds = tasks.filter((x) => ["ACTIVE", "INBOX", "SNOOZED"].includes(x.status)).map((x) => x.id);
 assert.deepEqual([...ids].sort(), [...openIds].sort());
 
-console.log("board: laneOf + buildBoard assertions passed");
+// ?lane= URL param: invalid/missing → Current (mobile tab default)
+assert.equal(laneFromParam(undefined), "CURRENT");
+assert.equal(laneFromParam(null), "CURRENT");
+assert.equal(laneFromParam(""), "CURRENT");
+assert.equal(laneFromParam("backlog"), "BACKLOG");
+assert.equal(laneFromParam("ICEBOX"), "ICEBOX");
+assert.equal(laneFromParam("current"), "CURRENT");
+assert.equal(laneFromParam("SOMEDAY"), "CURRENT");
+assert.equal(laneToParam("BACKLOG"), "backlog");
+
+console.log("board: laneOf + buildBoard + laneFromParam assertions passed");

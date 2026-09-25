@@ -6,8 +6,10 @@
  * the real register/login routes, seeds a mix of tasks through the real task
  * routes (plus direct SQL for states the UI can't create: unknown lane, INBOX /
  * PROPOSED status), then asserts against the rendered /tasks HTML:
+ *   - desktop (md+): three side-by-side columns; mobile: one-lane tabs (?lane=)
+ *     — both layouts are in the DOM with responsive classes
  *   - set (and count) of open tasks in the DB == top-level cards + nested
- *     subtasks, each task exactly once
+ *     subtasks in the desktop columns layout, each task exactly once there
  *   - a subtask whose own lane differs from its parent's renders INSIDE the
  *     parent card, in the parent's lane; an orphaned open subtask (parent done)
  *     is its own card in its own lane, labelled "Part of · parent"
@@ -26,8 +28,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AIEA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = process.env.OUT ?? "/workspace/tmp/prove-board-output.txt";
-const TMP = process.env.PROVE_TMP ?? "/workspace/tmp/prove-board-run";
+const OUT = process.env.OUT ?? "/workspace/tmp/prove-board-tabs-output.txt";
+const TMP = process.env.PROVE_TMP ?? "/workspace/tmp/prove-board-tabs-run";
 const PORT = Number(process.env.PROVE_PORT ?? 4401);
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -144,11 +146,33 @@ function w(sql, ...args) {
   }
 }
 
+/** Slice the inner HTML of the first element matching data-board-layout. */
+function layoutHtml(html, layout) {
+  const openRe = new RegExp(`<div[^>]*data-board-layout="${layout}"[^>]*>`);
+  const m = openRe.exec(html);
+  if (!m) return null;
+  const start = m.index;
+  const openTag = m[0];
+  let depth = 0;
+  const tag = /<div\b[^>]*>|<\/div>/g;
+  tag.lastIndex = 0;
+  const slice = html.slice(start);
+  let t;
+  while ((t = tag.exec(slice))) {
+    if (t[0] === "</div>") {
+      depth--;
+      if (depth === 0) return slice.slice(openTag.length, t.index);
+    } else {
+      depth++;
+    }
+  }
+  return null;
+}
+
 /**
- * Parse the rendered board by real <div> nesting. Returns lane → top-level
- * cards, plus every task row (top-level or nested) with `nestedIn` = the task
- * card it sits inside (null = its own card). `html` is the row's own head, up
- * to its first nested row, so a parent's text never includes its subtasks'.
+ * Parse board cards from a layout HTML slice by real <div> nesting.
+ * Returns lane -> top-level cards, plus every task row (top-level or nested)
+ * with nestedIn = the task card it sits inside (null = its own card).
  */
 function parseBoard(html) {
   const lanes = {};
@@ -159,7 +183,7 @@ function parseBoard(html) {
     const [, lane, inner] = m;
     lanes[lane] = [];
     const laneRows = [];
-    const stack = []; // open <div>s: task row object, or null for plain divs
+    const stack = [];
     const tag = /<div\b[^>]*>|<\/div>/g;
     let t;
     while ((t = tag.exec(inner))) {
@@ -186,6 +210,23 @@ function parseBoard(html) {
     rows.push(...laneRows);
   }
   return { lanes, rows };
+}
+
+function parseTabs(html) {
+  const tabsRoot = layoutHtml(html, "tabs");
+  if (!tabsRoot) return null;
+  // Full <a ...> tags so aria-selected works regardless of attribute order.
+  const parsed = [...tabsRoot.matchAll(/<a\b[^>]*>/g)]
+    .map((m) => m[0])
+    .filter((t) => /data-lane-tab=/.test(t))
+    .map((tag) => ({
+      lane: /data-lane-tab="([A-Z]+)"/.exec(tag)[1],
+      selected: /aria-selected="true"/.test(tag),
+    }));
+  let selected = parsed.find((t) => t.selected)?.lane;
+  if (!selected) selected = /<section[^>]*data-lane="([A-Z]+)"/.exec(tabsRoot)?.[1];
+  const panels = [...tabsRoot.matchAll(/<section[^>]*data-lane="([A-Z]+)"/g)].map((x) => x[1]);
+  return { tabs: parsed, selected, panels, html: tabsRoot };
 }
 
 const DAY = 86400_000;
@@ -284,10 +325,35 @@ async function main() {
     log(`    ${t.id} status=${t.status} board=${JSON.stringify(t.board)} prio=${t.priority} due=${t.dueAt ? new Date(Number(t.dueAt) || t.dueAt).toISOString().slice(0, 10) : "-"} ${t.parentId ? "(subtask) " : ""}"${t.title}"`);
   }
 
-  log("\n## board page GET /tasks (the UI read path)");
+    log("\n## board page GET /tasks (the UI read path)");
   r = await call("GET", "/tasks");
   check(r.status === 200, `GET /tasks → ${r.status}`);
-  const { lanes: board, rows: rendered } = parseBoard(r.text);
+
+  // Dual layout: mobile tabs + desktop columns both in the DOM (responsive classes).
+  const tabsOpen = /data-board-layout="tabs"[^>]*class="([^"]*)"/.exec(r.text)?.[1] ?? "";
+  const colsOpen = /data-board-layout="columns"[^>]*class="([^"]*)"/.exec(r.text)?.[1] ?? "";
+  check(
+    /md:hidden/.test(tabsOpen) && layoutHtml(r.text, "tabs"),
+    `mobile tabs layout present with md:hidden (class="${tabsOpen}")`,
+  );
+  check(
+    /\bhidden\b/.test(colsOpen) && /md:grid/.test(colsOpen) && layoutHtml(r.text, "columns"),
+    `desktop columns layout present with hidden md:grid (class="${colsOpen}")`,
+  );
+  const tabsDefault = parseTabs(r.text);
+  check(
+    tabsDefault &&
+      JSON.stringify(tabsDefault.tabs.map((t) => t.lane)) === JSON.stringify(["CURRENT", "BACKLOG", "ICEBOX"]) &&
+      tabsDefault.selected === "CURRENT" &&
+      tabsDefault.panels.length === 1 &&
+      tabsDefault.panels[0] === "CURRENT",
+    `mobile tabs default to Current (selected=${tabsDefault?.selected}, panels=${tabsDefault?.panels?.join(",")})`,
+  );
+
+  // Nest/orphan + set equality from the desktop columns (all three lanes).
+  const columnsHtml = layoutHtml(r.text, "columns");
+  const { lanes: board, rows: rendered } = parseBoard(columnsHtml);
+
   const titleOf = (id) => rows.find((t) => t.id === id)?.title ?? "?";
   function logCard(c, depth) {
     const due = /(\d+d overdue|Yesterday|Today|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun|[A-Z][a-z]{2} \d{1,2})<\/span>/.exec(c.html)?.[1];
@@ -305,7 +371,7 @@ async function main() {
   const nestedCount = rendered.length - topCount;
   check(
     JSON.stringify(Object.keys(board)) === JSON.stringify(["CURRENT", "BACKLOG", "ICEBOX"]),
-    `columns in order Current | Backlog | Icebox (got ${Object.keys(board).join(", ")})`,
+    `desktop columns in order Current | Backlog | Icebox (got ${Object.keys(board).join(", ")})`,
   );
 
   const allNotDone = q(`SELECT id, status, kind FROM "Task" WHERE workspaceId = ? AND status <> 'DONE'`, workspaceId);
@@ -367,7 +433,40 @@ async function main() {
   check(/Part of · /.test(rowHtml("orphanSubtask")), "orphaned subtask card is labelled \"Part of · <parent>\"");
   check(!/Part of · /.test(rowHtml("subtask")), "nested subtask has no \"Part of\" label (it is inside the parent card)");
 
-  log("\n## other read paths");
+  
+  log("\n## mobile tabs via ?lane=");
+  for (const [param, expect] of [
+    ["backlog", "BACKLOG"],
+    ["icebox", "ICEBOX"],
+    ["current", "CURRENT"],
+    ["SOMEDAY", "CURRENT"],
+  ]) {
+    const path = `/tasks?lane=${param}`;
+    const resp = await call("GET", path);
+    check(resp.status === 200, `GET ${path} → ${resp.status}`);
+    const t = parseTabs(resp.text);
+    check(
+      t?.selected === expect && t.panels.length === 1 && t.panels[0] === expect,
+      `?lane=${param} → mobile tab ${expect} only (selected=${t?.selected}, panels=${t?.panels?.join(",")})`,
+    );
+    const cols = parseBoard(layoutHtml(resp.text, "columns"));
+    check(
+      JSON.stringify(Object.keys(cols.lanes)) === JSON.stringify(["CURRENT", "BACKLOG", "ICEBOX"]),
+      `?lane=${param}: desktop columns still show all three lanes`,
+    );
+  }
+  {
+    const redir = await call("GET", "/today?lane=backlog");
+    check(
+      [307, 308].includes(redir.status) && String(redir.location || "").includes("lane=backlog"),
+      `GET /today?lane=backlog → ${redir.status} Location preserves lane=backlog (${redir.location})`,
+    );
+    const followed = await call("GET", "/tasks?lane=backlog");
+    const t = parseTabs(followed.text);
+    check(t?.selected === "BACKLOG", "after /today?lane=backlog equivalent, Backlog tab is selected");
+  }
+
+log("\n## other read paths");
   r = await call("GET", "/api/tasks?view=board");
   const apiIds = (r.json?.tasks ?? []).map((t) => t.id);
   check(r.status === 200 && apiIds.length === openDb.length && openDb.every((id) => apiIds.includes(id)), `GET /api/tasks?view=board → ${r.status}, ${apiIds.length} tasks == DB open set`);

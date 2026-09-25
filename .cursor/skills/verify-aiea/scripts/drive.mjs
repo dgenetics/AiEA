@@ -216,12 +216,16 @@ async function driveTasksBoard(page, out) {
   if (/Internal Server Error|Application error|HTTP 500/i.test(body)) {
     throw new Error("Tasks board shows server error");
   }
+  // Desktop columns (md+) expose the three lane headings; mobile tabs are also in the DOM.
   for (const name of LANES) {
     await page.getByRole("heading", { name, level: 2, exact: true }).waitFor({
       timeout: 10000,
     });
   }
-  steps.push("board: Tasks heading + Current | Backlog | Icebox columns");
+  await page.locator('[data-board-layout="columns"]').waitFor({ state: "attached", timeout: 5000 });
+  // Mobile tabs are md:hidden on the default desktop viewport — assert presence, not visibility.
+  await page.locator("[data-board-tabs]").waitFor({ state: "attached", timeout: 5000 });
+  steps.push("board: Tasks heading + desktop columns + mobile tabs (Current | Backlog | Icebox)");
   for (const name of ["Today", "Upcoming"]) {
     if (await page.getByRole("link", { name, exact: true }).count()) {
       throw new Error(`nav still has a ${name} link`);
@@ -269,8 +273,8 @@ async function driveBoardLanes(page, out) {
   steps.push("selected Current lane on proposal");
   await page.getByRole("button", { name: /Accept \d+ item/i }).first().click();
   await page.waitForURL(/\/tasks(\?|$)/, { timeout: 30000 });
-  // Accepted card renders in the Current column
-  const current = page.locator('section[data-lane="CURRENT"]');
+  // Accepted card renders in the Current column (desktop layout)
+  const current = page.locator('[data-board-layout="columns"] section[data-lane="CURRENT"]');
   await current.waitFor({ timeout: 10000 });
   if (await current.getByText(/mulch|garden/i).count()) {
     steps.push("board: accepted task renders in the Current column");

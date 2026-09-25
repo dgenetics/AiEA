@@ -92,8 +92,22 @@ export function laneOf(task: { board?: string | null }): BoardLane {
   return isBoardLane(task.board) ? task.board : "BACKLOG";
 }
 
-/** Board column order, left → right. */
+/** Board column / tab order: Current → Backlog → Icebox. */
 export const BOARD_COLUMNS: readonly BoardLane[] = ["CURRENT", "BACKLOG", "ICEBOX"];
+
+/**
+ * URL ?lane= param (current|backlog|icebox). Invalid / missing → Current
+ * (mobile tab default). Distinct from laneOf (stored task → Backlog fallback).
+ */
+export function laneFromParam(value: string | null | undefined): BoardLane {
+  if (typeof value !== "string") return "CURRENT";
+  const key = value.trim().toUpperCase();
+  return isBoardLane(key) ? key : "CURRENT";
+}
+
+export function laneToParam(lane: BoardLane): string {
+  return lane.toLowerCase();
+}
 
 export type BoardCard<T> = { task: T; subtasks: BoardCard<T>[] };
 
