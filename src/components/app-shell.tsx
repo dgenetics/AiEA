@@ -20,7 +20,6 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/sidebar";
 import { ReminderBell } from "@/components/reminder-bell";
-import { AiStatusBadge } from "@/components/ai-status-badge";
 import { SignOutButton } from "@/components/sign-out-button";
 
 /** Primary destinations on the mobile bottom bar */
@@ -101,13 +100,11 @@ export function AppShell({
               <p className="truncate text-sm font-semibold text-white">AiEA</p>
               <p className="truncate text-[10px] text-zinc-500">{userName}</p>
             </div>
-            <AiStatusBadge compact />
             <ReminderBell />
           </header>
 
           {/* Desktop header — original */}
           <header className="hidden h-14 items-center justify-end gap-3 border-b border-white/5 px-6 md:flex">
-            <AiStatusBadge />
             <ReminderBell />
             <SignOutButton />
           </header>
