@@ -8,13 +8,15 @@ import {
   BOARD_COLUMNS,
   BOARD_META,
   BOARD_STATUSES,
-  laneOf,
+  buildBoard,
+  type BoardCard,
   type BoardLane,
 } from "@/lib/board";
 import type { TaskRowData } from "@/components/task-row";
 
 /**
- * The Tasks board: every non-done task, one card each, in its lane.
+ * The Tasks board: every non-done task, in its lane. Open subtasks nest inside
+ * their parent's card (parent's lane); orphaned ones are their own card.
  * No due-date windows, no auto-curation — due dates are shown, never used to
  * pick or move cards. Done tasks live in /archive.
  */
@@ -51,16 +53,19 @@ export default async function TasksBoardPage() {
     return ad - bd;
   };
 
+  // Placement is buildBoard's; here we only render. "Part of · parent" stays
+  // on orphaned subtask cards only; nested subtasks are inside their parent.
+  const toRow = (c: BoardCard<(typeof tasks)[number]>, nested: boolean): TaskRowData => ({
+    ...toTaskRow(c.task),
+    ...(nested ? { parentTitle: null } : {}),
+    children: c.subtasks.map((s) => toRow(s, true)).sort(byDue),
+  });
   const columns = new Map<BoardLane, TaskRowData[]>(
-    BOARD_COLUMNS.map((lane) => [lane, []]),
+    [...buildBoard(tasks)].map(([lane, cards]) => [
+      lane,
+      cards.map((c) => toRow(c, false)).sort(byDue),
+    ]),
   );
-  for (const t of tasks) {
-    // Each task is its own card (subtasks show "Part of · parent"); keep the
-    // parts badge on parents but don't nest, so no task renders twice.
-    const row = { ...toTaskRow(t), children: [] };
-    columns.get(laneOf(t))!.push(row);
-  }
-  for (const list of columns.values()) list.sort(byDue);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
