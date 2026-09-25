@@ -81,3 +81,23 @@ export function boardLabel(board: BoardLane): string {
 export function boardColor(board: BoardLane): string {
   return BOARD_META[board].chipClass;
 }
+
+/**
+ * Read-time lane for a STORED task — the single place the Tasks board decides
+ * which column a task renders in. Null / missing / unknown values render in
+ * Backlog so nothing vanishes (no data backfill needed). Due dates never
+ * affect the lane.
+ */
+export function laneOf(task: { board?: string | null }): BoardLane {
+  return isBoardLane(task.board) ? task.board : "BACKLOG";
+}
+
+/** Board column order, left → right. */
+export const BOARD_COLUMNS: readonly BoardLane[] = ["CURRENT", "BACKLOG", "ICEBOX"];
+
+/**
+ * Every non-done task lives on the board. PROPOSED rows are un-accepted
+ * capture/AI proposals owned by Inbox triage; CANCELLED = dismissed/deleted;
+ * DONE → Archive.
+ */
+export const BOARD_STATUSES = ["ACTIVE", "INBOX", "SNOOZED"] as const;

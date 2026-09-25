@@ -4,7 +4,7 @@ import { Check, Clock, Pencil, Sprout, UserRound } from "lucide-react";
 import {
   boardColor,
   boardLabel,
-  resolveBoard,
+  laneOf,
   type BoardLane,
 } from "@/lib/board";
 import { cn, formatRelativeDue } from "@/lib/utils";
@@ -57,10 +57,11 @@ export function TaskRow({
   const openChildren = (task.children ?? []).filter((c) => c.status !== "DONE");
   const fromFarm = task.externalSource === "bf-maintenance";
   const inboxMode = mode === "inbox";
-  const lane = resolveBoard({ board: task.board, priority: task.priority });
+  const lane = laneOf(task);
 
   return (
     <div
+      data-task-id={task.id}
       className={cn(
         "rounded-xl border border-white/5 bg-zinc-900/40 transition hover:border-white/10 hover:bg-zinc-900/70",
         nested && "border-l-2 border-l-indigo-500/30 bg-zinc-950/40",

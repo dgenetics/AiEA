@@ -277,9 +277,9 @@ async function main() {
 
   async function snapshot(label) {
     const aRow = q(AIEA_DB, "select id, status, completedAt from Task where id = ?", aieaTaskId)[0];
-    const upcoming = await aiea("GET", "/api/tasks?view=upcoming");
+    const boardApi = await aiea("GET", "/api/tasks?view=board");
     const archive = await aiea("GET", "/api/tasks?view=archive");
-    const upcomingPage = await aiea("GET", "/upcoming");
+    const boardPage = await aiea("GET", "/tasks");
     const bRows = q(
       BF_DB,
       "select id, status, dueDate, completedAt, createdAt, updatedAt from MaintenanceTask where scheduleId = ? order by createdAt",
@@ -291,9 +291,9 @@ async function main() {
     const s = {
       aieaDb: aRow,
       aieaUi: {
-        inUpcomingApi: (upcoming.json?.tasks ?? []).some((t) => t.id === aieaTaskId),
+        inBoardApi: (boardApi.json?.tasks ?? []).some((t) => t.id === aieaTaskId),
         inArchiveApi: (archive.json?.tasks ?? []).some((t) => t.id === aieaTaskId),
-        inUpcomingPageHtml: upcomingPage.text.includes(aieaTaskId),
+        inBoardPageHtml: boardPage.text.includes(aieaTaskId),
       },
       bfDb: bRows,
       bfSchedule: sched,
@@ -326,7 +326,7 @@ async function main() {
   let s = await snapshot("after");
   check(r.status === 200 && r.json?.bfSyncError == null, "AiEA complete 200, no sync error");
   check(c.some((x) => x.path === "/api/integrations/tasks/complete" && x.status === 200 && x.bypassHeader === "present"), "AiEA→BF /api/integrations/tasks/complete 200 with x-vercel-protection-bypass");
-  check(s.aieaDb.status === "DONE" && !s.aieaUi.inUpcomingApi && s.aieaUi.inArchiveApi && !s.aieaUi.inUpcomingPageHtml, "AiEA DONE in DB and UI read paths");
+  check(s.aieaDb.status === "DONE" && !s.aieaUi.inBoardApi && s.aieaUi.inArchiveApi && !s.aieaUi.inBoardPageHtml, "AiEA DONE in DB and UI read paths");
   const orig = s.bfDb.find((t) => t.id === bfTaskId);
   const spawned = s.bfDb.filter((t) => t.id !== bfTaskId && isOpen(t.status));
   check(orig?.status === "COMPLETED", "BF linked task COMPLETED (DB)");
@@ -342,7 +342,7 @@ async function main() {
   s = await snapshot("after");
   check(r.status === 200 && r.json?.bfSyncError == null, "AiEA reopen 200, no sync error");
   check(c.some((x) => x.path === "/api/integrations/tasks/reopen" && x.status === 200 && x.bypassHeader === "present"), "AiEA→BF /api/integrations/tasks/reopen 200 with bypass header");
-  check(s.aieaDb.status === "ACTIVE" && s.aieaUi.inUpcomingApi && s.aieaUi.inUpcomingPageHtml, "AiEA ACTIVE in DB and UI read paths");
+  check(s.aieaDb.status === "ACTIVE" && s.aieaUi.inBoardApi && s.aieaUi.inBoardPageHtml, "AiEA ACTIVE in DB and UI read paths");
   check(s.bfDb.length === 1 && s.bfDb[0].id === bfTaskId && isOpen(s.bfDb[0].status), "BF linked task open, spawned next deleted (DB)");
   check(s.bfUi.open.length === 1 && s.bfUi.open[0].startsWith(bfTaskId) && s.bfUi.completed.length === 0, "BF UI lists: linked open, nothing completed");
 
@@ -355,7 +355,7 @@ async function main() {
   s = await snapshot("after");
   check(r.status === 200 && r.json?.aieaSyncError == null, "BF complete 200, no sync error");
   check(c.some((x) => x.path === "/api/integrations/bf-maintenance/complete" && x.status === 200 && x.bypassHeader === "present"), "BF→AiEA /api/integrations/bf-maintenance/complete 200 with bypass header");
-  check(s.aieaDb.status === "DONE" && !s.aieaUi.inUpcomingApi && s.aieaUi.inArchiveApi && !s.aieaUi.inUpcomingPageHtml, "AiEA DONE in DB and UI read paths");
+  check(s.aieaDb.status === "DONE" && !s.aieaUi.inBoardApi && s.aieaUi.inArchiveApi && !s.aieaUi.inBoardPageHtml, "AiEA DONE in DB and UI read paths");
   check(s.bfDb.find((t) => t.id === bfTaskId)?.status === "COMPLETED" && s.bfUi.open.length === 1, "BF linked COMPLETED + next spawned");
 
   // d) Reopen in BF
@@ -367,7 +367,7 @@ async function main() {
   s = await snapshot("after");
   check(r.status === 200 && r.json?.aieaSyncError == null, "BF reopen 200, no sync error");
   check(c.some((x) => x.path === "/api/integrations/bf-maintenance/reopen" && x.status === 200 && x.bypassHeader === "present"), "BF→AiEA /api/integrations/bf-maintenance/reopen 200 with bypass header");
-  check(s.aieaDb.status === "ACTIVE" && s.aieaUi.inUpcomingApi && s.aieaUi.inUpcomingPageHtml, "AiEA ACTIVE in DB and UI read paths");
+  check(s.aieaDb.status === "ACTIVE" && s.aieaUi.inBoardApi && s.aieaUi.inBoardPageHtml, "AiEA ACTIVE in DB and UI read paths");
   check(s.bfDb.length === 1 && isOpen(s.bfDb[0].status), "BF linked open, spawned next deleted");
 
   // e) Failure: wrong secret on each direction

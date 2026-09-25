@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Archive,
-  CalendarDays,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -26,10 +25,9 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 /** Primary destinations on the mobile bottom bar */
 const mobilePrimary = [
-  { href: "/today", label: "Today", icon: LayoutDashboard },
+  { href: "/tasks", label: "Tasks", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/capture", label: "Capture", icon: Sparkles },
-  { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
 ] as const;
 
 const mobileMore = [

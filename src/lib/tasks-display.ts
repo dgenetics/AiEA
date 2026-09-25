@@ -1,5 +1,5 @@
 import type { TaskRowData } from "@/components/task-row";
-import { resolveBoard, type BoardLane } from "@/lib/board";
+import { laneOf } from "@/lib/board";
 
 type RawTask = {
   id: string;
@@ -39,10 +39,6 @@ function iso(d?: Date | string | null) {
   if (!d) return null;
   if (typeof d === "string") return d;
   return d.toISOString();
-}
-
-function laneOf(t: { board?: string | null; priority?: number | null }): BoardLane {
-  return resolveBoard({ board: t.board, priority: t.priority });
 }
 
 export function toTaskRow(

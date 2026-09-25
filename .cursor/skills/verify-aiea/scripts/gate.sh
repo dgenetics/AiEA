@@ -5,7 +5,7 @@
 # Usage:
 #   VERIFY_BASE_URL=https://aiea-cyan.vercel.app gate.sh --feature capture-accept
 #   gate.sh --local --feature capture-accept
-#   gate.sh --local --feature capture-accept,today-load,board-lanes,bf-sync
+#   gate.sh --local --feature capture-accept,tasks-board,board-lanes,bf-sync
 #   gate.sh --live-smoke
 #     → when AIEA_SMOKE_EMAIL+PASSWORD set: doctor+live-smoke on live base
 #     → when absent: clean-skip (exit 0), evidence shows SKIP

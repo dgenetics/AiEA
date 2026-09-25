@@ -25,7 +25,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
-      router.push("/today");
+      router.push("/tasks");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");

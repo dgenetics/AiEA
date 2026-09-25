@@ -5,7 +5,7 @@ import { CheckCircle2, Sparkles, Users, Bell } from "lucide-react";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  if (user) redirect("/today");
+  if (user) redirect("/tasks");
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#07070b] text-zinc-100">

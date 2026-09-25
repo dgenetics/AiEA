@@ -59,8 +59,8 @@ jobs:
       - name: Install app deps
         run: npm ci
 
-      - name: Unit assertions (Today 7-day cutoff)
-        run: npm run test:today
+      - name: Unit assertions (board laneOf)
+        run: npm run test:board
 
       - name: Build
         run: npm run build
@@ -81,7 +81,7 @@ jobs:
           export PATH="$(dirname "${PLAYWRIGHT_CHROME_PATH:-/usr/bin/google-chrome}"):$PATH"
           chmod +x .cursor/skills/verify-aiea/scripts/*.sh
           ./.cursor/skills/verify-aiea/scripts/gate.sh --local \
-            --feature capture-accept,today-load,board-lanes,bf-sync
+            --feature capture-accept,tasks-board,board-lanes,bf-sync
 
       - name: Live smoke (post-auth; skip when AIEA_SMOKE_* unset)
         env:

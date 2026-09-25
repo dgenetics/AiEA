@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
-  CalendarDays,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -16,10 +15,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/today", label: "Today", icon: LayoutDashboard },
+  { href: "/tasks", label: "Tasks", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/capture", label: "Capture", icon: Sparkles },
-  { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/people", label: "People", icon: Users },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/brief", label: "Daily Brief", icon: Sunrise },
@@ -73,7 +71,7 @@ export function Sidebar({
             >
               <Icon className={cn("h-4 w-4", active ? "text-indigo-300" : "text-zinc-500")} />
               <span className="flex-1">{item.label}</span>
-              {item.href === "/today" && pendingReminders > 0 && (
+              {item.href === "/tasks" && pendingReminders > 0 && (
                 <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-medium text-rose-300">
                   {pendingReminders}
                 </span>

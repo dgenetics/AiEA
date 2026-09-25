@@ -1,16 +1,16 @@
 # Capture → accept
 
-Capture lets a user paste a messy brain dump, get proposed tasks (AI or local heuristics), edit them, and accept selected items onto the board — landing on Today.
+Capture lets a user paste a messy brain dump, get proposed tasks (AI or local heuristics), edit them, and accept selected items onto the board — landing on the Tasks board (`/tasks`).
 
 ## Sub-features
 
 - `capture-open` shows Brain dump → organized plan with the dump textarea.
 - `capture-propose` runs Organize with AI and shows Review & edit before accept.
-- `capture-accept` accepts selected items and navigates to Today with work present.
+- `capture-accept` accepts selected items and navigates to the Tasks board with work present.
 
 ## How to get to it (user POV)
 
-- Nav / Today CTA → **Capture** (`/capture`).
+- Nav / Tasks board CTA → **Capture** (`/capture`).
 - After login, deep-link `/capture`.
 
 ## Driving it with Playwright
@@ -22,8 +22,8 @@ Preconditions:
 
 - **Open capture.** Run `node scripts/drive.mjs --feature capture-accept --base-url <url>`. Heading matching `Brain dump` appears; capture `capture-empty.png`.
 - **Propose.** Fill the first `textarea` with a tagged dump (include a unique marker + concrete chore). Click `Organize with AI`. Heading `Review & edit before accept` appears within ~60s (heuristics or AI). Capture `capture-proposed.png`.
-- **Accept.** Click button matching `/Accept \d+ item/`. URL becomes `/today`. Capture `capture-accepted-today.png` + aria.
-- **Proof.** Artifacts show empty → proposed → Today. Marker or chore keywords ideally visible; at minimum Today `Tasks` heading after accept.
+- **Accept.** Click button matching `/Accept \d+ item/`. URL becomes `/tasks`. Capture `capture-accepted-board.png` + aria.
+- **Proof.** Artifacts show empty → proposed → Tasks board. Marker or chore keywords ideally visible; at minimum the `Tasks` heading after accept.
 
 ## Gotchas
 

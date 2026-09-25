@@ -137,13 +137,19 @@ print("wrote credentials: $CRED_FILE")
 PY
 fi
 
-# 4) Today must not 500
-today=$(curl -s -b "$jar" -o /tmp/aiea-doctor-today.html -w '%{http_code}' --max-time 20 \
-  "$BASE/today" || echo "000")
-echo "GET /today -> $today"
-[[ "$today" == "200" ]] || { echo "FAIL: /today must be 200 (got $today)"; rm -f "$jar"; exit 1; }
-if ! grep -qiE 'Today|Capture|Tasks|Good (morning|afternoon|evening)' /tmp/aiea-doctor-today.html; then
-  echo "WARN: /today HTML missing expected Today chrome"
+# 4) Tasks board must not 500 (a pre-board live deploy still serves /today)
+home_path=/tasks
+home=$(curl -s -b "$jar" -o /tmp/aiea-doctor-home.html -w '%{http_code}' --max-time 20 \
+  "$BASE/tasks" || echo "000")
+if [[ "$home" == "404" ]]; then
+  home_path=/today
+  home=$(curl -s -b "$jar" -o /tmp/aiea-doctor-home.html -w '%{http_code}' --max-time 20 \
+    "$BASE/today" || echo "000")
+fi
+echo "GET $home_path -> $home"
+[[ "$home" == "200" ]] || { echo "FAIL: $home_path must be 200 (got $home)"; rm -f "$jar"; exit 1; }
+if ! grep -qiE 'Capture|Tasks' /tmp/aiea-doctor-home.html; then
+  echo "WARN: $home_path HTML missing expected Tasks chrome"
 fi
 
 # 5) Authenticated API — tasks

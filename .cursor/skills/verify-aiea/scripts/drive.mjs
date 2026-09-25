@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node drive.mjs --feature capture-accept [--base-url URL] [--run-id ID]
- *   node drive.mjs --feature today-load ...
+ *   node drive.mjs --feature tasks-board ...
  *   node drive.mjs --feature board-lanes ...
  *   node drive.mjs --feature bf-sync ...
  *   node drive.mjs --feature live-smoke ...
@@ -16,7 +16,7 @@
  * Evidence under ../evidence/<run-id>/
  *
  * Feature live-smoke: when smoke secrets absent → clean skip (exit 0 for gate).
- * When both set → login on live base + post-auth Today path.
+ * When both set → login on live base + post-auth home (Tasks board) path.
  */
 import { createRequire } from "node:module";
 import {
@@ -136,11 +136,15 @@ async function signIn(page, email, password) {
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/\/today/, { timeout: 20000 });
-  await page.getByText("Today", { exact: true }).first().waitFor({
+  // Home is the Tasks board (/tasks). A pre-board live deploy lands on /today.
+  await page.waitForURL(HOME_URL, { timeout: 20000 });
+  await page.getByRole("heading", { name: "Tasks" }).first().waitFor({
     timeout: 20000,
   });
 }
+
+const HOME_URL = /\/(tasks|today)(\?|$)/;
+const LANES = ["Current", "Backlog", "Icebox"];
 
 async function ensureSignedIn(page, out) {
   const creds = loadCreds(out);
@@ -179,7 +183,7 @@ async function driveCaptureAccept(page, out) {
   const acceptBtn = page.getByRole("button", { name: /Accept \d+ item/i }).first();
   await acceptBtn.waitFor({ timeout: 10000 });
   await acceptBtn.click();
-  await page.waitForURL(/\/today/, { timeout: 30000 });
+  await page.waitForURL(/\/tasks(\?|$)/, { timeout: 30000 });
   // Task title may be AI-rewritten; marker string or plumber keyword should appear.
   const todayBody = page.locator("body");
   await todayBody.waitFor({ timeout: 10000 });
@@ -189,50 +193,53 @@ async function driveCaptureAccept(page, out) {
     /plumber/i.test(text) ||
     /kitchen leak/i.test(text);
   if (!seen) {
-    await page.getByText("Today", { exact: true }).first().waitFor({ timeout: 10000 });
+    await page.getByRole("heading", { name: "Tasks" }).first().waitFor({ timeout: 10000 });
     steps.push(
-      "accept: landed on Today (task title rewritten; Today chrome present)",
+      "accept: landed on Tasks board (task title rewritten; board chrome present)",
     );
   } else {
-    steps.push("accept: landed on Today with capture content visible");
+    steps.push("accept: landed on Tasks board with capture content visible");
   }
-  await screenshot(page, join(out, "capture-accepted-today.png"));
-  await ariaDump(page, join(out, "capture-accepted-today.aria.txt"));
+  await screenshot(page, join(out, "capture-accepted-board.png"));
+  await ariaDump(page, join(out, "capture-accepted-board.aria.txt"));
   return { steps, status: "pass" };
 }
 
-async function driveTodayLoad(page, out) {
+async function driveTasksBoard(page, out) {
   const steps = [];
   await ensureSignedIn(page, out);
-  await page.goto("/today", { waitUntil: "networkidle" });
-  await page.getByText("Today", { exact: true }).first().waitFor({
+  await page.goto("/tasks", { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Tasks", level: 1 }).waitFor({
     timeout: 20000,
   });
-  // Must not be an error page
   const body = await page.locator("body").innerText();
   if (/Internal Server Error|Application error|HTTP 500/i.test(body)) {
-    throw new Error("Today page shows server error");
+    throw new Error("Tasks board shows server error");
   }
-  // Current source uses heading "Tasks"; older builds used "One-time"/"Recurring".
-  const tasksHeading = page.getByRole("heading", { name: "Tasks" });
-  const oneTime = page.getByRole("heading", { name: "One-time" });
-  const greeting = page.getByRole("heading", { level: 1 });
-  if (await tasksHeading.count()) {
-    await tasksHeading.first().waitFor({ timeout: 10000 });
-    steps.push("today: Tasks heading visible");
-  } else if (await oneTime.count()) {
-    await oneTime.first().waitFor({ timeout: 10000 });
-    steps.push("today: One-time heading visible (legacy section layout)");
-  } else {
-    await greeting.first().waitFor({ timeout: 10000 });
-    steps.push("today: greeting heading visible (no Tasks/One-time yet)");
+  for (const name of LANES) {
+    await page.getByRole("heading", { name, level: 2, exact: true }).waitFor({
+      timeout: 10000,
+    });
   }
+  steps.push("board: Tasks heading + Current | Backlog | Icebox columns");
+  for (const name of ["Today", "Upcoming"]) {
+    if (await page.getByRole("link", { name, exact: true }).count()) {
+      throw new Error(`nav still has a ${name} link`);
+    }
+  }
+  steps.push("nav: no Today / Upcoming links");
+  for (const old of ["/today", "/upcoming"]) {
+    await page.goto(old, { waitUntil: "networkidle" });
+    if (!/\/tasks(\?|$)/.test(new URL(page.url()).pathname + new URL(page.url()).search)) {
+      throw new Error(`${old} did not redirect to /tasks (at ${page.url()})`);
+    }
+  }
+  steps.push("redirect: /today and /upcoming land on /tasks");
   await page.getByRole("link", { name: /Capture/i }).first().waitFor({
     timeout: 10000,
   });
-  await screenshot(page, join(out, "today-load.png"));
-  await ariaDump(page, join(out, "today-load.aria.txt"));
-  steps.push("today: Today chrome + Capture link, no 500");
+  await screenshot(page, join(out, "tasks-board.png"));
+  await ariaDump(page, join(out, "tasks-board.aria.txt"));
   return { steps, status: "pass" };
 }
 
@@ -261,20 +268,19 @@ async function driveBoardLanes(page, out) {
   await laneGroup.getByRole("button", { name: "Current", exact: true }).click();
   steps.push("selected Current lane on proposal");
   await page.getByRole("button", { name: /Accept \d+ item/i }).first().click();
-  await page.waitForURL(/\/today/, { timeout: 30000 });
-  // Current chip may appear on task row
-  const chip = page.getByText("Current", { exact: true }).first();
-  try {
-    await chip.waitFor({ timeout: 10000 });
-    steps.push("today: Current lane chip visible after accept");
-  } catch {
-    await page.getByText("Today", { exact: true }).first().waitFor({ timeout: 10000 });
-    steps.push(
-      "today: Today chrome after accept (Current chip not strictly required)",
-    );
+  await page.waitForURL(/\/tasks(\?|$)/, { timeout: 30000 });
+  // Accepted card renders in the Current column
+  const current = page.locator('section[data-lane="CURRENT"]');
+  await current.waitFor({ timeout: 10000 });
+  if (await current.getByText(/mulch|garden/i).count()) {
+    steps.push("board: accepted task renders in the Current column");
+  } else {
+    // Title may be AI-rewritten; the Current column must still hold a card.
+    await current.locator("[data-task-id]").first().waitFor({ timeout: 10000 });
+    steps.push("board: Current column has the accepted card (title rewritten)");
   }
-  await screenshot(page, join(out, "board-lanes-today.png"));
-  await ariaDump(page, join(out, "board-lanes-today.aria.txt"));
+  await screenshot(page, join(out, "board-lanes-board.png"));
+  await ariaDump(page, join(out, "board-lanes-board.aria.txt"));
   return { steps, status: "pass" };
 }
 
@@ -372,38 +378,29 @@ async function driveLiveSmoke(page, out) {
 
   steps.push(`smoke login: using AIEA_SMOKE_EMAIL (source=${smoke.source})`);
   await signIn(page, smoke.email, smoke.password);
-  steps.push("smoke login: signed in → /today");
+  steps.push(`smoke login: signed in → ${new URL(page.url()).pathname}`);
 
-  await page.goto("/today", { waitUntil: "networkidle" });
-  await page.getByText("Today", { exact: true }).first().waitFor({
-    timeout: 20000,
-  });
+  // Home: /tasks (board); a pre-board live deploy serves /today.
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.waitForURL(HOME_URL, { timeout: 20000 });
   const body = await page.locator("body").innerText();
   if (/Internal Server Error|Application error|HTTP 500/i.test(body)) {
-    throw new Error("live-smoke: Today page shows server error after smoke login");
+    throw new Error("live-smoke: home page shows server error after smoke login");
   }
-  const tasksHeading = page.getByRole("heading", { name: "Tasks" });
-  if (await tasksHeading.count()) {
-    await tasksHeading.first().waitFor({ timeout: 10000 });
-    steps.push("post-auth: Tasks heading visible on live Today");
-  } else {
-    await page.getByRole("heading", { level: 1 }).first().waitFor({
-      timeout: 10000,
-    });
-    steps.push("post-auth: greeting heading visible on live Today");
-  }
+  await page.getByRole("heading", { name: "Tasks" }).first().waitFor({ timeout: 10000 });
+  steps.push(`post-auth: Tasks heading visible on live ${new URL(page.url()).pathname}`);
   await page.getByRole("link", { name: /Capture/i }).first().waitFor({
     timeout: 10000,
   });
-  await screenshot(page, join(out, "live-smoke-today.png"));
-  await ariaDump(page, join(out, "live-smoke-today.aria.txt"));
-  steps.push("post-auth: live Today chrome + Capture link (smoke path)");
+  await screenshot(page, join(out, "live-smoke-home.png"));
+  await ariaDump(page, join(out, "live-smoke-home.aria.txt"));
+  steps.push("post-auth: live home chrome + Capture link (smoke path)");
   return { steps, status: "pass" };
 }
 
 const FEATURES = {
   "capture-accept": driveCaptureAccept,
-  "today-load": driveTodayLoad,
+  "tasks-board": driveTasksBoard,
   "board-lanes": driveBoardLanes,
   "bf-sync": driveBfSync,
   "live-smoke": driveLiveSmoke,
