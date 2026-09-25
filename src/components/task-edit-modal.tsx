@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Plus, Trash2, X } from "lucide-react";
 import { BoardLanePicker } from "@/components/board-lane-picker";
 import type { TaskRowData } from "@/components/task-row";
-import { resolveBoard, type BoardLane } from "@/lib/board";
+import { laneOf, type BoardLane } from "@/lib/board";
 import { cn, formatRelativeDue } from "@/lib/utils";
 import { toDateInputValue, toStoredDueDate } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
@@ -32,7 +32,7 @@ function toDateInput(value?: string | Date | null): string {
 export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props) {
   const [title, setTitle] = useState(task.title);
   const [board, setBoard] = useState<BoardLane>(
-    resolveBoard({ board: task.board, priority: task.priority }),
+    laneOf(task),
   );
   const [dueAt, setDueAt] = useState(toDateInput(task.dueAt));
   const [notes, setNotes] = useState(task.notes ?? "");
@@ -79,7 +79,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
   useEffect(() => {
     if (!open) return;
     setTitle(task.title);
-    setBoard(resolveBoard({ board: task.board, priority: task.priority }));
+    setBoard(laneOf(task));
     setDueAt(toDateInput(task.dueAt));
     setNotes(task.notes ?? "");
     setIsFollowUp(Boolean(task.isFollowUp));

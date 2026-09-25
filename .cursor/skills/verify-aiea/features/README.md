@@ -1,6 +1,6 @@
 # AiEA feature map
 
-Maintained verification source for AiEA (capture, Today, board lanes, BF pull, live smoke). Read this index, then the feature file. Drive the real UI with Playwright (`scripts/drive.mjs`); curl alone is not enough for a mapped UI feature.
+Maintained verification source for AiEA (capture, Tasks board, board lanes, BF pull, live smoke). Read this index, then the feature file. Drive the real UI with Playwright (`scripts/drive.mjs`); curl alone is not enough for a mapped UI feature.
 
 ## Baseline preconditions
 
@@ -36,8 +36,8 @@ Each feature file: H1 + one paragraph, then exactly four H2s — `Sub-features`,
 
 ## Features
 
-- [Capture → accept](./capture-accept.md) — brain dump → organize → accept onto Today.
-- [Today load](./today-load.md) — Today must render (no 500).
+- [Capture → accept](./capture-accept.md) — brain dump → organize → accept onto the Tasks board.
+- [Tasks board](./tasks-board.md) — every open task in its lane; /today + /upcoming redirect (no 500).
 - [Board lanes](./board-lanes.md) — Icebox / Backlog / Current picker on capture.
 - [BF sync](./bf-sync.md) — Pull farm maintenance into Inbox (skip if env missing).
-- [Live smoke](./live-smoke.md) — smoke login + post-auth Today on live (skip if secrets unset).
+- [Live smoke](./live-smoke.md) — smoke login + post-auth home on live (skip if secrets unset).

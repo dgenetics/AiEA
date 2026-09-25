@@ -11,12 +11,15 @@ export function TaskList({
   /** Archive: completed tasks; checkmark reopens instead of completing */
   mode = "active",
   onArchiveReopen,
+  allowSnooze = true,
 }: {
   initialTasks: TaskRowData[];
   emptyMessage?: string;
   mode?: "active" | "archive" | "inbox";
   /** Called after a completed task is reopened (archive mode) */
   onArchiveReopen?: (id: string) => void;
+  /** Board shows every open task, so Snooze (hide for a day) has no meaning there */
+  allowSnooze?: boolean;
 }) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
@@ -120,7 +123,7 @@ export function TaskList({
             task={task}
             mode={mode}
             onComplete={mode === "inbox" ? undefined : complete}
-            onSnooze={mode === "archive" || mode === "inbox" ? undefined : snooze}
+            onSnooze={mode === "archive" || mode === "inbox" || !allowSnooze ? undefined : snooze}
             onEdit={setEditing}
             onAccept={mode === "inbox" ? accept : undefined}
             onDismiss={mode === "inbox" ? dismiss : undefined}

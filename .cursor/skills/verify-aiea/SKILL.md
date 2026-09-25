@@ -1,15 +1,15 @@
 ---
 name: verify-aiea
 description: >-
-  Drive AiEA (AI Executive Assistant kanban / capture / Today web app) like a
+  Drive AiEA (AI Executive Assistant kanban / capture / Tasks board web app) like a
   user: launch, doctor instance health, Playwright paths for capture→accept /
-  Today load / board lanes / BF sync / live-smoke. Use before merge/ship or when
+  Tasks board / board lanes / BF sync / live-smoke. Use before merge/ship or when
   asked to verify this repo. Not bf-maintenance farm chores.
 ---
 
 # verify-aiea
 
-AiEA — personal OS for life/home/work: **capture → confirm → Today board**, board lanes Icebox / Backlog / Current, optional BF Maintenance pull into Inbox. Web UI + Next API. **Not** bf-maintenance date/schedule chores.
+AiEA — personal OS for life/home/work: **capture → confirm → Tasks board**, board lanes Icebox / Backlog / Current, optional BF Maintenance pull into Inbox. Web UI + Next API. **Not** bf-maintenance date/schedule chores.
 
 **Agents / Hong:** use **poteto-mode** + this verify skill. Account-wide pstack plugin is installed; box rule `~/.cursor/rules/pstack-models.mdc` must exist (confirm before long runs).
 
@@ -63,7 +63,7 @@ Teardown: `./.cursor/skills/verify-aiea/scripts/cleanup.sh [run-id]` — kills o
 
 ## Doctor
 
-Instance health (port, auth, Today) — **not** a compile-only gate:
+Instance health (port, auth, Tasks board) — **not** a compile-only gate:
 
 ```bash
 VERIFY_BASE_URL=… \
@@ -75,7 +75,7 @@ Must pass:
 1. `GET /` → 200
 2. Wrong login → `401`/`400` on `POST /api/auth/login`
 3. Auth: **local** disposable register **or** live login via `AIEA_SMOKE_*` (legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted) → 200 + `aiea_session` cookie
-4. `GET /today` → **200** (must not 500)
+4. `GET /tasks` → **200** (must not 500; falls back to `/today` only on a pre-board live deploy)
 5. `GET /api/tasks` → 200 JSON
 6. `GET /capture` → 200
 
@@ -94,7 +94,7 @@ node .cursor/skills/verify-aiea/scripts/drive.mjs \
   --run-id "$VERIFY_RUN_ID"
 ```
 
-Features: `capture-accept` | `today-load` | `board-lanes` | `bf-sync` | `live-smoke`.
+Features: `capture-accept` | `tasks-board` | `board-lanes` | `bf-sync` | `live-smoke`.
 
 Stable handles: heading `Welcome back` / `Brain dump → organized plan` / `Tasks` / `Review & edit before accept`; buttons `Sign in`, `Organize with AI`, `/Accept \d+ item/`, `Pull farm maintenance`; `getByRole('group', { name: 'Board lane' })` with `Icebox` | `Backlog` | `Current`. Login inputs lack `htmlFor` — use `input[type=email|password]`.
 
@@ -141,7 +141,7 @@ All under `.cursor/skills/verify-aiea/scripts/`:
 ```bash
 # local agent instance (auto-register; core features — no smoke secrets needed)
 ./.cursor/skills/verify-aiea/scripts/gate.sh --local \
-  --feature capture-accept,today-load,board-lanes,bf-sync
+  --feature capture-accept,tasks-board,board-lanes,bf-sync
 
 # live/post-auth (needs AIEA_SMOKE_* both; clean-skips when unset)
 AIEA_SMOKE_EMAIL=… AIEA_SMOKE_PASSWORD=… \

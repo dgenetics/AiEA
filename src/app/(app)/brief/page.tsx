@@ -124,8 +124,8 @@ export default async function BriefPage() {
         </ul>
       </section>
 
-      <Link href="/today" className="inline-block text-sm text-indigo-300 hover:text-indigo-200">
-        Open Today board →
+      <Link href="/tasks" className="inline-block text-sm text-indigo-300 hover:text-indigo-200">
+        Open Tasks board →
       </Link>
     </div>
   );

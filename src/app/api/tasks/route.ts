@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
-import { BOARD_LANES, laneWrite, resolveBoard } from "@/lib/board";
+import { BOARD_LANES, BOARD_STATUSES, laneWrite, resolveBoard } from "@/lib/board";
 import { prisma } from "@/lib/db";
-import { endOfDay, startOfDay } from "date-fns";
 
 export async function GET(req: Request) {
   const user = await getCurrentUser();
@@ -13,45 +12,24 @@ export async function GET(req: Request) {
   if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
 
   const { searchParams } = new URL(req.url);
-  const view = searchParams.get("view") || "today";
+  const view = searchParams.get("view") || "board";
 
   const baseInclude = {
     area: true,
     person: true,
   } as const;
 
-  if (view === "today") {
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
+  // Tasks board: every non-done task, no due-date window. Legacy
+  // view=today / view=upcoming (removed) resolve to the same list.
+  if (view === "board" || view === "today" || view === "upcoming") {
     const tasks = await prisma.task.findMany({
       where: {
         workspaceId,
         kind: "ONE_TIME",
-        status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
-        OR: [
-          { dueAt: { lte: end } },
-          { scheduledFor: { gte: start, lte: end } },
-          { followUpDueAt: { lte: end } },
-          // Current-lane undated — future-dated stay on Upcoming
-          { board: "CURRENT", status: "ACTIVE", dueAt: null },
-        ],
+        status: { in: [...BOARD_STATUSES] },
       },
       include: baseInclude,
-      orderBy: [{ priority: "asc" }, { dueAt: "asc" }],
-    });
-    return NextResponse.json({ tasks });
-  }
-
-  if (view === "upcoming") {
-    const tasks = await prisma.task.findMany({
-      where: {
-        workspaceId,
-        kind: "ONE_TIME",
-        status: { in: ["ACTIVE", "INBOX"] },
-      },
-      include: baseInclude,
-      orderBy: [{ dueAt: "asc" }, { priority: "asc" }],
-      take: 100,
+      orderBy: [{ createdAt: "asc" }],
     });
     return NextResponse.json({ tasks });
   }

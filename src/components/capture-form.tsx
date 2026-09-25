@@ -190,7 +190,7 @@ export function CaptureForm() {
       setModel(null);
       setFallbackReason(null);
       setTrainingUsed(false);
-      router.push("/today");
+      router.push("/tasks");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Accept failed");

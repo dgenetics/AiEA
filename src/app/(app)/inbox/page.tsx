@@ -102,15 +102,11 @@ export default async function InboxPage() {
 
       {proposed.length === 0 && (
         <p className="text-center text-xs text-zinc-600">
-          After you accept, tasks show on{" "}
-          <Link href="/today" className="text-indigo-300 hover:underline">
-            Today
+          After you accept, tasks show on the{" "}
+          <Link href="/tasks" className="text-indigo-300 hover:underline">
+            Tasks
           </Link>{" "}
-          and{" "}
-          <Link href="/upcoming" className="text-indigo-300 hover:underline">
-            Upcoming
-          </Link>
-          .
+          board.
         </p>
       )}
     </div>
