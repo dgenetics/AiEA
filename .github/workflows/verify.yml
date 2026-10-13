@@ -71,6 +71,9 @@ jobs:
       - name: Unit assertions (capture has no microphone)
         run: npm run test:capture-mic
 
+      - name: Unit assertions (capture review list)
+        run: npm run test:capture-review
+
       - name: Unit assertions (system cards)
         run: npm run test:systems
 

@@ -12,8 +12,7 @@ import type { ProposedItem } from "@/lib/types";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(8000).optional(),
-  action: z.enum(["parse", "raw", "undo"]).optional(),
-  captureId: z.string().optional(),
+  action: z.enum(["parse", "raw"]).optional(),
 });
 
 function counts(items: Array<{ board: BoardLane }>) {
@@ -39,37 +38,6 @@ export async function POST(req: Request) {
     }
     const body = bodySchema.parse(json);
     const action = body.action ?? "parse";
-
-    if (action === "undo") {
-      if (!body.captureId) {
-        return NextResponse.json(
-          { ok: false, error: "captureId is required" },
-          { status: 400 },
-        );
-      }
-      const capture = await prisma.captureBatch.findFirst({
-        where: { id: body.captureId, workspaceId },
-      });
-      if (!capture) {
-        return NextResponse.json({ ok: false, error: "Capture not found" }, { status: 404 });
-      }
-      const undone = await prisma.$transaction(async (tx) => {
-        const cancelled = await tx.task.updateMany({
-          where: {
-            sourceCaptureId: capture.id,
-            workspaceId,
-            status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
-          },
-          data: { status: "CANCELLED" },
-        });
-        await tx.captureBatch.update({
-          where: { id: capture.id },
-          data: { status: "UNDONE" },
-        });
-        return cancelled.count;
-      });
-      return NextResponse.json({ ok: true, undone });
-    }
 
     const text = body.text?.trim() ?? "";
     if (!text) {

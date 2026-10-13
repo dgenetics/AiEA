@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Plus, Trash2, X } from "lucide-react";
 import { BoardLanePicker } from "@/components/board-lane-picker";
 import type { TaskRowData } from "@/components/task-row";
-import { laneOf, type BoardLane } from "@/lib/board";
+import { boardLabel, laneOf, type BoardLane } from "@/lib/board";
 import { cn, formatRelativeDue } from "@/lib/utils";
 import { toDateInputValue, toStoredDueDate } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
@@ -23,13 +23,15 @@ type Props = {
   onSaved: (task: TaskRowData) => void;
   /** Called after the task is permanently deleted */
   onDeleted?: (id: string) => void;
+  /** Lane the capture model chose. Shows the teaching hint under the due date. */
+  aiBoard?: BoardLane;
 };
 
 function toDateInput(value?: string | Date | null): string {
   return toDateInputValue(value);
 }
 
-export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props) {
+export function TaskEditModal({ task, open, onClose, onSaved, onDeleted, aiBoard }: Props) {
   const [title, setTitle] = useState(task.title);
   const [board, setBoard] = useState<BoardLane>(
     laneOf(task),
@@ -256,7 +258,12 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
               <DateField value={dueAt} onChange={setDueAt} />
             </label>
 
-            {task.boardReason ? (
+            {aiBoard ? (
+              <p className="text-[11px] text-forest-700">
+                ✦ AI picked {boardLabel(aiBoard)}. Your change teaches it.
+              </p>
+            ) : null}
+            {task.boardReason && !aiBoard ? (
               <p className="text-[11px] text-muted" title={task.boardReason}>
                 AI: {task.boardReason}
               </p>

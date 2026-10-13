@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CaptureComposer } from "@/components/capture-composer";
 
-/** Capture sits above the board and refreshes it when tasks land or are undone. */
+/** Capture sits above the board and refreshes it when tasks land or are edited. */
 export function TasksRefresh() {
   const router = useRouter();
   const [flash, setFlash] = useState<string[]>([]);

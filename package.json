@@ -19,6 +19,7 @@
     "test:safe-next": "tsx scripts/check-safe-next.ts",
     "test:schedules": "tsx scripts/check-schedules.ts",
     "test:capture-mic": "tsx scripts/check-capture-mic.ts",
+    "test:capture-review": "tsx scripts/check-capture-review.ts",
     "test:systems": "tsx scripts/check-systems.ts",
     "test:tasks-archive": "tsx scripts/check-tasks-archive.ts",
     "test:tasks-cream": "tsx scripts/check-tasks-cream.ts",

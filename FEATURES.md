@@ -30,7 +30,7 @@ The text is split into tasks with dates (America/New_York) and a lane:
 - “this week”, “next week”, or a date a bit further out → Backlog
 - “someday”, “think about”, or no timing → Icebox
 
-Unclear text defaults to Icebox. Tasks are created active immediately, with one undo for the batch. If the model is down, you can retry or save the whole note as one task. Gibberish still becomes one task so nothing you typed is dropped.
+Unclear text defaults to Icebox. Tasks are created active immediately and listed under the field: “Added N · check the buckets”, with Accept all. Each row shows the title, the bucket, and the due date when there is one. Accept removes that row. The list disappears when it is empty. Edit opens the task sheet and says which bucket the AI picked. Changing the title or the bucket within seven days teaches the next capture. There is no undo. If the model is down, you can retry or save the whole note as one task. Gibberish still becomes one task so nothing you typed is dropped.
 
 Moving an AI-created task to another lane within seven days records that correction so later captures can learn the preference.
 

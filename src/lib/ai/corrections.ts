@@ -38,10 +38,14 @@ export function formatCorrectionsForPrompt(rows: CorrectionRow[]): string {
   const area = rows.filter((r) => r.field === "area").slice(0, 20);
   const board = rows.filter((r) => r.field === "board").slice(0, 10);
   const priority = rows.filter((r) => r.field === "priority").slice(0, 10);
+  const title = rows.filter((r) => r.field === "title").slice(0, 10);
   const other = rows
     .filter(
       (r) =>
-        r.field !== "area" && r.field !== "board" && r.field !== "priority",
+        r.field !== "area" &&
+        r.field !== "board" &&
+        r.field !== "priority" &&
+        r.field !== "title",
     )
     .slice(0, 10);
 
@@ -86,6 +90,17 @@ export function formatCorrectionsForPrompt(rows: CorrectionRow[]): string {
     lines.push("");
   }
 
+  if (title.length) {
+    lines.push("### Title rewrites");
+    for (const r of title) {
+      lines.push(
+        `- "${r.taskTitle}" → **${r.afterValue}**` +
+          (r.beforeValue ? ` (was "${r.beforeValue}")` : ""),
+      );
+    }
+    lines.push("");
+  }
+
   if (other.length) {
     lines.push("### Other corrections");
     for (const r of other) {
@@ -101,6 +116,53 @@ export function formatCorrectionsForPrompt(rows: CorrectionRow[]): string {
   );
 
   return lines.join("\n");
+}
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type CaptureEditCorrection = {
+  field: "board" | "title";
+  taskTitle: string;
+  beforeValue: string;
+  afterValue: string;
+};
+
+/**
+ * Title and board edits on a capture-created task, within 7 days, teach the
+ * next capture. Anything else writes nothing.
+ */
+export function correctionsForCaptureEdit(input: {
+  sourceCaptureId: string | null;
+  createdAt: Date;
+  now?: number;
+  prevTitle: string;
+  nextTitle?: string;
+  prevBoard: string;
+  nextBoard: string | null;
+}): CaptureEditCorrection[] {
+  if (!input.sourceCaptureId) return [];
+  const now = input.now ?? Date.now();
+  if (now - input.createdAt.getTime() > SEVEN_DAYS_MS) return [];
+
+  const items: CaptureEditCorrection[] = [];
+  const nextTitle = input.nextTitle?.slice(0, 300);
+  if (input.nextBoard && input.nextBoard !== input.prevBoard) {
+    items.push({
+      field: "board",
+      taskTitle: (nextTitle ?? input.prevTitle).slice(0, 300),
+      beforeValue: input.prevBoard,
+      afterValue: input.nextBoard,
+    });
+  }
+  if (nextTitle !== undefined && nextTitle !== input.prevTitle) {
+    items.push({
+      field: "title",
+      taskTitle: nextTitle,
+      beforeValue: input.prevTitle,
+      afterValue: nextTitle,
+    });
+  }
+  return items;
 }
 
 export async function recordCorrections(

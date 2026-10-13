@@ -1,24 +1,56 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
+import { TaskEditModal } from "@/components/task-edit-modal";
+import type { TaskRowData } from "@/components/task-row";
+import { boardLabel, isBoardLane, type BoardLane } from "@/lib/board";
+import { cn, formatRelativeDue } from "@/lib/utils";
 
-type Created = {
+type ReviewTask = {
   id: string;
   title: string;
-  board: "CURRENT" | "BACKLOG" | "ICEBOX";
+  board: BoardLane;
+  dueAt: string | null;
+  boardReason: string | null;
+  /** Lane chosen when the task was captured. Stays put if the row is edited. */
+  aiBoard: BoardLane;
 };
 
 type CaptureResponse = {
   ok?: boolean;
   error?: string;
   captureId?: string;
-  tasks?: Created[];
-  counts?: { CURRENT: number; BACKLOG: number; ICEBOX: number };
+  tasks?: Array<{
+    id: string;
+    title: string;
+    board: string;
+    dueAt?: string | null;
+    boardReason?: string | null;
+  }>;
   rawFallback?: boolean;
 };
 
-const LANE_LABEL = { CURRENT: "Current", BACKLOG: "Backlog", ICEBOX: "Icebox" } as const;
+const CHIP: Record<BoardLane, string> = {
+  CURRENT: "bg-forest-100 text-forest-900",
+  BACKLOG: "bg-[#f3ead3] text-[#7a5b16]",
+  ICEBOX: "bg-[#e6edf2] text-[#3d5a6e]",
+};
+
+function asLane(value: string): BoardLane {
+  return isBoardLane(value) ? value : "ICEBOX";
+}
+
+function toEditTask(task: ReviewTask): TaskRowData {
+  return {
+    id: task.id,
+    title: task.title,
+    board: task.board,
+    dueAt: task.dueAt,
+    status: "ACTIVE",
+    boardReason: task.boardReason,
+  };
+}
 
 export function CaptureComposer({
   onCreated,
@@ -28,13 +60,18 @@ export function CaptureComposer({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    captureId: string;
-    tasks: Created[];
-    counts: { CURRENT: number; BACKLOG: number; ICEBOX: number };
-    rawFallback: boolean;
-  } | null>(null);
+  const [review, setReview] = useState<ReviewTask[] | null>(null);
+  const [rawFallback, setRawFallback] = useState(false);
+  const [leaving, setLeaving] = useState<Set<string>>(() => new Set());
+  const [editing, setEditing] = useState<ReviewTask | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  const timers = useRef<number[]>([]);
+
+  useEffect(() => {
+    return () => {
+      for (const id of timers.current) window.clearTimeout(id);
+    };
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -74,14 +111,22 @@ export function CaptureComposer({
       if (!res.ok || !data.ok || !data.captureId || !data.tasks) {
         throw new Error(data.error || "Could not make tasks");
       }
-      setText("");
-      setToast({
-        captureId: data.captureId,
-        tasks: data.tasks,
-        counts: data.counts ?? { CURRENT: 0, BACKLOG: 0, ICEBOX: data.tasks.length },
-        rawFallback: Boolean(data.rawFallback),
+      const rows = data.tasks.map((task) => {
+        const board = asLane(task.board);
+        return {
+          id: task.id,
+          title: task.title,
+          board,
+          dueAt: task.dueAt ?? null,
+          boardReason: task.boardReason ?? null,
+          aiBoard: board,
+        };
       });
-      onCreated(data.tasks.map((t) => t.id));
+      setText("");
+      setLeaving(new Set());
+      setRawFallback(Boolean(data.rawFallback));
+      setReview(rows.length ? rows : null);
+      onCreated(rows.map((task) => task.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not make tasks");
     } finally {
@@ -89,22 +134,29 @@ export function CaptureComposer({
     }
   }
 
-  async function undo() {
-    if (!toast) return;
-    const id = toast.captureId;
-    setToast(null);
-    await fetch("/api/capture", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "undo", captureId: id }),
-    });
-    onCreated([]);
+  function accept(id: string) {
+    setLeaving((current) => new Set(current).add(id));
+    const timer = window.setTimeout(() => {
+      setReview((rows) => {
+        if (!rows) return null;
+        const next = rows.filter((task) => task.id !== id);
+        return next.length ? next : null;
+      });
+      setLeaving((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setEditing((current) => (current?.id === id ? null : current));
+    }, 150);
+    timers.current.push(timer);
   }
 
-  const counts = toast?.counts;
-  const summary = counts
-    ? `Added ${toast.tasks.length} · ${counts.CURRENT} Current · ${counts.BACKLOG} Backlog · ${counts.ICEBOX} Icebox`
-    : "";
+  function acceptAll() {
+    setReview(null);
+    setLeaving(new Set());
+    setEditing(null);
+  }
 
   return (
     <div className="space-y-2">
@@ -158,37 +210,99 @@ export function CaptureComposer({
         </div>
       )}
 
-      {toast && (
-        <div className="rounded-xl border border-cream-200 bg-cream-50 px-3 py-2 text-sm text-ink">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>
-              {toast.rawFallback ? `${summary} · saved the raw text` : summary}
-            </span>
-            <button type="button" className="text-forest-800 underline" onClick={() => void undo()}>
-              Undo
+      {review && (
+        <div className="overflow-hidden rounded-[14px] border border-cream-200 bg-cream-50">
+          <div className="flex items-center justify-between gap-3 border-b border-cream-200 px-3 py-[9px] text-xs">
+            <p className="min-w-0">
+              <span className="font-semibold text-ink">Added {review.length}</span>
+              <span className="text-muted">
+                {" "}
+                · check the buckets
+                {rawFallback ? " · saved as one task" : ""}
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={acceptAll}
+              className="shrink-0 font-semibold text-forest-900 underline underline-offset-2"
+            >
+              Accept all
             </button>
           </div>
-          <ul className="mt-1 space-y-0.5 text-xs text-stone-600">
-            {toast.tasks.map((task) => (
-              <li key={task.id}>
+          {review.map((task, index) => {
+            const gone = leaving.has(task.id);
+            return (
+              <div
+                key={task.id}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2.5 transition-all duration-150",
+                  index > 0 && !gone && "border-t border-cream-200",
+                  gone && "max-h-0 overflow-hidden border-t-0 py-0 opacity-0",
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-ink">{task.title}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted">
+                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", CHIP[task.board])}>
+                      {boardLabel(task.board)}
+                    </span>
+                    {task.dueAt ? <span>Due {formatRelativeDue(task.dueAt)}</span> : null}
+                  </p>
+                </div>
                 <button
                   type="button"
-                  className="underline"
-                  onClick={() => {
-                    document.querySelector(`[data-task-id="${task.id}"] button`)?.dispatchEvent(
-                      new MouseEvent("click", { bubbles: true }),
-                    );
-                  }}
+                  onClick={() => setEditing(task)}
+                  className="shrink-0 rounded-[9px] border border-cream-300 bg-cream-50 px-2.5 py-1.5 text-[13px] text-forest-900"
                 >
-                  {task.title}
+                  Edit
                 </button>
-                {" · "}
-                {LANE_LABEL[task.board]}
-              </li>
-            ))}
-          </ul>
+                <button
+                  type="button"
+                  aria-label={`Accept ${task.title}`}
+                  onClick={() => accept(task.id)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest-900 text-white"
+                >
+                  <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {editing ? (
+        <TaskEditModal
+          task={toEditTask(editing)}
+          open
+          aiBoard={editing.aiBoard}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) => {
+            const board = asLane(String(saved.board ?? editing.aiBoard));
+            const due =
+              saved.dueAt == null
+                ? null
+                : saved.dueAt instanceof Date
+                  ? saved.dueAt.toISOString()
+                  : String(saved.dueAt);
+            setReview((rows) =>
+              rows?.map((task) =>
+                task.id === saved.id
+                  ? { ...task, title: saved.title, board, dueAt: due }
+                  : task,
+              ) ?? null,
+            );
+            onCreated([]);
+          }}
+          onDeleted={(id) => {
+            setReview((rows) => {
+              const next = (rows ?? []).filter((task) => task.id !== id);
+              return next.length ? next : null;
+            });
+            setEditing(null);
+            onCreated([]);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
