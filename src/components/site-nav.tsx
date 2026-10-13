@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 
 /**
  * Shared switcher for the two apps on one domain.
  * Plain <a> tags: Next <Link> would prefetch /maintenance inside AiEA,
  * and in bf-maintenance it would prefix basePath.
- * Copy into bf-maintenance and pass zone="maintenance". usePathname()
- * there omits basePath, so it cannot detect the zone on its own.
+ * Copy this file into bf-maintenance and pass zone="maintenance".
+ * usePathname() there omits basePath, so the zone prop is how that
+ * copy knows which tab is current. The return path uses
+ * window.location so /login?next= keeps the /maintenance prefix.
  *
- * Sessions are not shared. The Sign in / Account spot is AiEA-only.
- * In the maintenance zone it is omitted; bf-maintenance has its own gate.
+ * One suite session: aiea_session (Path=/). Both zones show Sign in
+ * or Account. Sign in returns here via /login?next=. Account is /account.
+ * The probe is GET /api/auth/me on this host (not under /maintenance).
  */
 export function SiteNav({
   zone = "tasks",
@@ -24,9 +27,13 @@ export function SiteNav({
     pathname === "/maintenance" ||
     pathname.startsWith("/maintenance/");
   const [signedIn, setSignedIn] = useState(false);
+  const returnTo = useSyncExternalStore(
+    subscribeToLocation,
+    currentReturnPath,
+    serverReturnPath,
+  );
 
   useEffect(() => {
-    if (zone === "maintenance") return;
     let cancelled = false;
     void fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { signedIn: false }))
@@ -39,9 +46,9 @@ export function SiteNav({
     return () => {
       cancelled = true;
     };
-  }, [zone, pathname]);
+  }, [pathname]);
 
-  const accountHref = signedIn ? "/account" : "/login";
+  const accountHref = signedIn ? "/account" : `/login?next=${encodeURIComponent(returnTo)}`;
   const accountLabel = signedIn ? "Account" : "Sign in";
 
   return (
@@ -69,18 +76,46 @@ export function SiteNav({
         >
           Maintenance
         </a>
-        {zone !== "maintenance" && (
-          <a
-            href={accountHref}
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 px-2 text-[13px] text-zinc-400 hover:text-white"
-          >
-            <span aria-hidden="true">•</span>
-            {accountLabel}
-          </a>
-        )}
+        <a
+          href={accountHref}
+          className="ml-auto inline-flex shrink-0 items-center gap-1.5 px-2 text-[13px] text-zinc-400 hover:text-white"
+        >
+          <span aria-hidden="true">•</span>
+          {accountLabel}
+        </a>
       </nav>
     </header>
   );
+}
+
+function subscribeToLocation(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function serverReturnPath() {
+  return "/tasks";
+}
+
+/** Full browser path + query. usePathname() drops bf-maintenance's basePath. */
+function currentReturnPath(): string {
+  const path = window.location.pathname || "/";
+  const search = window.location.search || "";
+  if (path === "/login" || path === "/register") {
+    const existing = new URLSearchParams(search).get("next");
+    if (
+      existing &&
+      existing.startsWith("/") &&
+      !existing.startsWith("//") &&
+      !existing.includes("\\")
+    ) {
+      const only = existing.split(/[?#]/)[0] ?? existing;
+      const bare = only.length > 1 && only.endsWith("/") ? only.slice(0, -1) : only;
+      if (bare !== "/login" && bare !== "/register") return existing;
+    }
+    return "/tasks";
+  }
+  return `${path}${search}` || "/tasks";
 }
 
 function tabClass(active: boolean) {

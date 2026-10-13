@@ -65,6 +65,9 @@ jobs:
       - name: Unit assertions (PWA safe-area header)
         run: npm run test:safe-area
 
+      - name: Unit assertions (login next guard + shared bar)
+        run: npm run test:safe-next
+
       - name: Build
         run: npm run build
 

@@ -122,7 +122,45 @@ if ! grep -q aiea_session "$jar"; then
   rm -f "$jar"
   exit 1
 fi
+# Netscape jar: domain, flag, path, secure, expiry, name, value
+cookie_path=$(awk -F '\t' '$6 == "aiea_session" { print $3; exit }' "$jar")
+echo "aiea_session path: ${cookie_path:-missing}"
+if [[ "$cookie_path" != "/" ]]; then
+  echo "FAIL: aiea_session must be Path=/ so /maintenance receives it (got '${cookie_path:-missing}')"
+  rm -f "$jar"
+  exit 1
+fi
 echo "auth_mode: $AUTH_MODE"
+
+# Suite verifier. Local gate only: live smoke targets the deployed host, which
+# does not have this route until the revision is released.
+if is_local_base "$BASE"; then
+  anon=$(curl -s -o /tmp/aiea-doctor-session-anon.json -w '%{http_code}' --max-time 10 \
+    "$BASE/api/session" || echo "000")
+  echo "GET /api/session (no cookie) -> $anon"
+  if [[ "$anon" != "401" ]]; then
+    echo "FAIL: /api/session without a cookie must be 401 JSON"
+    rm -f "$jar"
+    exit 1
+  fi
+  python3 - <<'PY'
+import json
+data = json.load(open("/tmp/aiea-doctor-session-anon.json"))
+assert isinstance(data, dict) and data.get("error"), data
+print("session_anon: 401 json")
+PY
+  secret=$(curl -s -o /tmp/aiea-doctor-session-secret.json -w '%{http_code}' --max-time 10 \
+    -H 'Authorization: Bearer not-a-session' \
+    "$BASE/api/session" || echo "000")
+  echo "GET /api/session (integration-style bearer, no cookie) -> $secret"
+  if [[ "$secret" != "401" ]]; then
+    echo "FAIL: /api/session must ignore BF_INTEGRATION_SECRET and require aiea_session"
+    rm -f "$jar"
+    exit 1
+  fi
+else
+  echo "note: GET /api/session checks run on the local gate (live host may not be this revision yet)"
+fi
 
 if [[ -n "$CRED_FILE" ]]; then
   python3 - <<PY
@@ -172,6 +210,52 @@ cap=$(curl -s -b "$jar" -o /tmp/aiea-doctor-capture.html -w '%{http_code}' --max
   "$BASE/capture" || echo "000")
 echo "GET /capture -> $cap"
 [[ "$cap" == "200" ]] || { echo "FAIL: /capture"; rm -f "$jar"; exit 1; }
+
+# 7) Local: GET /api/session returns this user, then logout deletes that one row.
+if is_local_base "$BASE"; then
+  session=$(curl -s -b "$jar" -D /tmp/aiea-doctor-session.hdr -o /tmp/aiea-doctor-session.json -w '%{http_code}' --max-time 10 \
+    "$BASE/api/session" || echo "000")
+  echo "GET /api/session -> $session"
+  if [[ "$session" != "200" ]]; then
+    echo "FAIL: /api/session with aiea_session: $(cat /tmp/aiea-doctor-session.json)"
+    rm -f "$jar"
+    exit 1
+  fi
+  if ! grep -qi 'cache-control:.*no-store' /tmp/aiea-doctor-session.hdr; then
+    echo "FAIL: /api/session must send Cache-Control: no-store"
+    rm -f "$jar"
+    exit 1
+  fi
+  python3 - <<PY
+import json
+data = json.load(open("/tmp/aiea-doctor-session.json"))
+user = data.get("user") or {}
+assert user.get("id"), data
+assert user.get("email") == "$EMAIL", user
+assert "name" in user, user
+assert "passwordHash" not in user and "password" not in data, data
+assert isinstance(data.get("expiresAt"), str) and "T" in data["expiresAt"], data
+print("session_user:", user["id"], user["email"])
+PY
+  token=$(awk -F '\t' '$6 == "aiea_session" { print $7; exit }' "$jar")
+  logout=$(curl -s -b "$jar" -c "$jar" -o /tmp/aiea-doctor-logout.json -w '%{http_code}' --max-time 10 \
+    -X POST "$BASE/api/auth/logout" || echo "000")
+  echo "POST /api/auth/logout -> $logout"
+  if [[ "$logout" != "200" ]]; then
+    echo "FAIL: logout: $(cat /tmp/aiea-doctor-logout.json)"
+    rm -f "$jar"
+    exit 1
+  fi
+  gone=$(curl -s -o /tmp/aiea-doctor-session-gone.json -w '%{http_code}' --max-time 10 \
+    -H "Cookie: aiea_session=$token" \
+    "$BASE/api/session" || echo "000")
+  echo "GET /api/session (after logout, old cookie) -> $gone"
+  if [[ "$gone" != "401" ]]; then
+    echo "FAIL: sign-out must delete the session row (got $gone)"
+    rm -f "$jar"
+    exit 1
+  fi
+fi
 
 rm -f "$jar"
 echo "doctor ok (instance healthy)"
