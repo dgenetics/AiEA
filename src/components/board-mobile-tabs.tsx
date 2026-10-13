@@ -44,7 +44,7 @@ export function BoardMobileTabs({
         data-board-tabs
         role="tablist"
         aria-label="Board lanes"
-        className="flex gap-1 rounded-xl border border-white/10 bg-zinc-950/50 p-1"
+        className="flex gap-1 rounded-xl border border-cream-200 bg-[#efe8da] p-1"
       >
         {BOARD_COLUMNS.map((lane) => {
           const active = lane === selected;
@@ -60,8 +60,8 @@ export function BoardMobileTabs({
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium",
                 active
-                  ? "bg-zinc-800 text-white shadow-sm"
-                  : "text-zinc-500 active:text-zinc-300",
+                  ? "bg-cream-50 text-ink shadow-sm"
+                  : "text-muted active:text-ink",
               )}
             >
               {BOARD_META[lane].label}
@@ -69,8 +69,8 @@ export function BoardMobileTabs({
                 className={cn(
                   "rounded-full px-1.5 py-0.5 text-[10px]",
                   active
-                    ? "bg-white/10 text-zinc-300"
-                    : "bg-white/5 text-zinc-600",
+                    ? "bg-forest-100 text-forest-900"
+                    : "bg-[#e3dac8] text-stone-600",
                 )}
               >
                 {count}
@@ -85,7 +85,7 @@ export function BoardMobileTabs({
         aria-label={BOARD_META[selected].label}
         className="min-w-0 space-y-3"
       >
-        <p className="text-[11px] text-zinc-600">{BOARD_META[selected].hint}</p>
+        <p className="text-[11px] text-muted">{BOARD_META[selected].hint}</p>
         <TaskList
           initialTasks={columns[selected]}
           emptyMessage="Nothing here."

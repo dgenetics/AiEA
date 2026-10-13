@@ -70,10 +70,10 @@ export default async function TasksBoardPage({
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight text-white md:text-2xl">Tasks</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-ink md:text-2xl">Tasks</h1>
         <Link
           href="/tasks/done"
-          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-xs text-indigo-300 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 active:text-indigo-200 active:opacity-80"
+          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-xs font-medium text-forest-800 hover:text-forest-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:text-forest-950 active:opacity-80"
         >
           <Archive className="h-4 w-4" aria-hidden />
           Archive
@@ -90,11 +90,11 @@ export default async function TasksBoardPage({
           return (
             <section key={lane} data-lane={lane} className="min-w-0 space-y-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-white">{BOARD_META[lane].label}</h2>
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-zinc-500">
+                <h2 className="text-sm font-semibold text-ink">{BOARD_META[lane].label}</h2>
+                <span className="rounded-full border border-cream-200 bg-cream-50 px-2 py-0.5 text-[11px] text-stone-600">
                   {list.length}
                 </span>
-                <span className="text-[11px] text-zinc-600">{BOARD_META[lane].hint}</span>
+                <span className="text-[11px] text-muted">{BOARD_META[lane].hint}</span>
               </div>
               <TaskList initialTasks={list} emptyMessage="Nothing here." allowSnooze={false} />
             </section>
@@ -105,7 +105,7 @@ export default async function TasksBoardPage({
       <div className="pt-2 text-center md:hidden">
         <Link
           href="/tasks/done"
-          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-xs text-indigo-300 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 active:text-indigo-200 active:opacity-80"
+          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-xs font-medium text-forest-800 hover:text-forest-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:text-forest-950 active:opacity-80"
         >
           <Archive className="h-4 w-4" aria-hidden />
           Archive

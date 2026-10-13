@@ -54,7 +54,6 @@ export function SiteNav() {
   const current = `${pathname}${query}`;
   const accountHref = signedIn ? "/account" : `/login?next=${encodeURIComponent(current)}`;
   const accountLabel = signedIn ? "Account" : "Sign in";
-  const cream = pathname.startsWith("/systems") || pathname.startsWith("/schedules");
 
   return (
     <>
@@ -72,21 +71,11 @@ export function SiteNav() {
       </header>
       <nav
         aria-label="Farm Manager"
-        className={
-          cream
-            ? "fixed inset-x-0 bottom-0 z-40 flex border-t border-[#e7e0d0] bg-[#fbf9f4]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md"
-            : "fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#12141c]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md"
-        }
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#e7e0d0] bg-[#fbf9f4]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md"
       >
         {TABS.map((tab) => {
           const active = tabActive(pathname, tab.href);
-          const tone = cream
-            ? active
-              ? "font-bold text-[#1c1917]"
-              : "font-medium text-[#a8a29e]"
-            : active
-              ? "font-bold text-white"
-              : "font-medium text-zinc-500";
+          const tone = active ? "font-bold text-[#1c1917]" : "font-medium text-[#a8a29e]";
           return (
             <Link
               key={tab.href}

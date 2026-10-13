@@ -55,8 +55,9 @@ export function ChangePasswordForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-xs text-zinc-400">Current password</label>
+        <label className="mb-1 block text-xs text-stone-600">Current password</label>
         <PasswordInput
+          tone="light"
           autoComplete="current-password"
           required
           value={currentPassword}
@@ -64,10 +65,11 @@ export function ChangePasswordForm() {
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-zinc-400">
+        <label className="mb-1 block text-xs text-stone-600">
           New password (8+ characters)
         </label>
         <PasswordInput
+          tone="light"
           autoComplete="new-password"
           required
           minLength={8}
@@ -76,8 +78,9 @@ export function ChangePasswordForm() {
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-zinc-400">Confirm new password</label>
+        <label className="mb-1 block text-xs text-stone-600">Confirm new password</label>
         <PasswordInput
+          tone="light"
           autoComplete="new-password"
           required
           minLength={8}
@@ -87,12 +90,12 @@ export function ChangePasswordForm() {
       </div>
 
       {error && (
-        <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           {error}
         </p>
       )}
       {success && (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+        <p className="rounded-lg border border-[#c9dccf] bg-forest-100 px-3 py-2 text-sm text-forest-900">
           Password updated. Other sessions were signed out.
         </p>
       )}
@@ -100,7 +103,7 @@ export function ChangePasswordForm() {
       <button
         type="submit"
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-lg bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-50"
       >
         {loading ? (
           <>

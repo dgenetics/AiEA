@@ -19,9 +19,9 @@ assert.equal((board.match(/href="\/tasks\/done"/g) ?? []).length, 2);
 assert.equal((board.match(/<Archive className="h-4 w-4" aria-hidden \/>/g) ?? []).length, 2);
 assert.equal((board.match(/min-h-11 items-center gap-1/g) ?? []).length, 2);
 assert.match(board, /import \{ Archive \} from "lucide-react"/);
-assert.match(board, /text-xs text-indigo-300 hover:text-indigo-200/);
-assert.match(board, /active:text-indigo-200 active:opacity-80/);
-assert.match(board, /focus-visible:outline-indigo-400/);
+assert.match(board, /text-xs font-medium text-forest-800 hover:text-forest-950/);
+assert.match(board, /active:text-forest-950 active:opacity-80/);
+assert.match(board, /focus-visible:outline-forest-700/);
 assert.match(board, /pt-2 text-center md:hidden/);
 assert.match(board, /items-baseline justify-between gap-3/);
 
@@ -29,12 +29,12 @@ assert.match(done, /href="\/tasks"/);
 assert.match(done, /<ChevronLeft className="h-4 w-4" aria-hidden \/>/);
 assert.match(done, /min-h-11 items-center gap-0\.5/);
 assert.match(done, /-ml-1\.5/);
-assert.match(done, /text-sm text-zinc-400 hover:text-white/);
-assert.match(done, /active:text-white active:opacity-80/);
+assert.match(done, /text-sm text-stone-600 hover:text-ink/);
+assert.match(done, /active:text-ink active:opacity-80/);
 assert.match(done, />\s*Tasks\s*</);
 assert.match(
   done,
-  /<h1 className="mt-0\.5 text-xl font-semibold tracking-tight text-white md:text-2xl">Archive<\/h1>/,
+  /<h1 className="mt-0\.5 text-xl font-semibold tracking-tight text-ink md:text-2xl">Archive<\/h1>/,
 );
 assert.match(done, /Completed tasks, newest first\./);
 assert.doesNotMatch(done, />Done</);

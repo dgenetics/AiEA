@@ -46,7 +46,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#07070b] text-zinc-100">
+      <body className="min-h-full flex flex-col bg-cream-100 text-ink">
         {/* useSearchParams() in the shared bar — required for static rendering. */}
         <Suspense
           fallback={
