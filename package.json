@@ -16,7 +16,8 @@
     "icons": "node scripts/generate-icons.mjs",
     "postinstall": "prisma generate",
     "test:safe-area": "tsx scripts/check-safe-area.ts",
-    "test:safe-next": "tsx scripts/check-safe-next.ts"
+    "test:safe-next": "tsx scripts/check-safe-next.ts",
+    "test:capture-mic": "tsx scripts/check-capture-mic.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
