@@ -1,18 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 /**
  * Shared switcher for the two apps on one domain.
- * Plain <a> tags: Next <Link> would prefetch /maintenance inside AiEA.
- * Copy into bf-maintenance and pass zone="maintenance" — usePathname()
+ * Plain <a> tags: Next <Link> would prefetch /maintenance inside AiEA,
+ * and in bf-maintenance it would prefix basePath.
+ * Copy into bf-maintenance and pass zone="maintenance". usePathname()
  * there omits basePath, so it cannot detect the zone on its own.
+ *
+ * Sessions are not shared. The Sign in / Account spot is AiEA-only.
+ * In the maintenance zone it is omitted; bf-maintenance has its own gate.
  */
 export function SiteNav({
-  signedIn,
   zone = "tasks",
 }: {
-  signedIn: boolean;
   zone?: "tasks" | "maintenance";
 }) {
   const pathname = usePathname() || "/";
@@ -20,20 +23,37 @@ export function SiteNav({
     zone === "maintenance" ||
     pathname === "/maintenance" ||
     pathname.startsWith("/maintenance/");
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    if (zone === "maintenance") return;
+    let cancelled = false;
+    void fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { signedIn: false }))
+      .then((data: { signedIn?: boolean }) => {
+        if (!cancelled) setSignedIn(Boolean(data.signedIn));
+      })
+      .catch(() => {
+        if (!cancelled) setSignedIn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [zone, pathname]);
+
   const accountHref = signedIn ? "/account" : "/login";
   const accountLabel = signedIn ? "Account" : "Sign in";
 
   return (
-    <header className="site-nav relative z-40 min-h-10 shrink-0 border-b border-white/10 bg-[#12141c] safe-top">
+    <header className="site-nav sticky top-0 z-40 min-h-10 shrink-0 border-b border-white/10 bg-[#12141c] safe-top">
       <nav
         aria-label="Farm Manager"
-        className="flex h-10 items-center gap-0.5 overflow-x-auto px-3 sm:gap-1 sm:px-4"
+        className="flex h-10 items-stretch gap-0.5 overflow-x-auto px-3 sm:gap-1 sm:px-4"
       >
-        <span className="mr-1.5 shrink-0 text-[13px] font-semibold tracking-tight text-white">
+        <span className="mr-1.5 flex shrink-0 items-center text-[13px] font-semibold tracking-tight text-white">
           Farm Manager
         </span>
-        {/* Raw anchors, not next/link: this bar is copied into bf-maintenance,
-            where Link would prefix basePath and prefetch the other zone. */}
+        {/* Raw anchors, not next/link: copied into bf-maintenance, Link would prefix basePath. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/"
@@ -49,13 +69,15 @@ export function SiteNav({
         >
           Maintenance
         </a>
-        <a
-          href={accountHref}
-          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-zinc-400 hover:text-white"
-        >
-          <span aria-hidden="true">•</span>
-          {accountLabel}
-        </a>
+        {zone !== "maintenance" && (
+          <a
+            href={accountHref}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 px-2 text-[13px] text-zinc-400 hover:text-white"
+          >
+            <span aria-hidden="true">•</span>
+            {accountLabel}
+          </a>
+        )}
       </nav>
     </header>
   );
@@ -63,6 +85,6 @@ export function SiteNav({
 
 function tabClass(active: boolean) {
   return active
-    ? "shrink-0 rounded-md bg-[#0c0e14] px-2.5 py-1 text-[13px] font-medium text-white"
-    : "shrink-0 rounded-md px-2.5 py-1 text-[13px] font-medium text-zinc-400 hover:bg-white/5 hover:text-zinc-100";
+    ? "flex shrink-0 items-center border-b-[3px] border-indigo-300 px-2.5 text-[13px] font-medium text-white"
+    : "flex shrink-0 items-center border-b-[3px] border-transparent px-2.5 text-[13px] font-medium text-zinc-400 hover:text-zinc-100";
 }

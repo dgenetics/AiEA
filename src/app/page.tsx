@@ -8,7 +8,7 @@ export default async function HomePage() {
   if (user) redirect("/tasks");
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-[#07070b] text-zinc-100">
+    <div className="relative min-h-screen overflow-hidden bg-[#07070b] text-zinc-100">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.2),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(139,92,246,0.12),_transparent_45%)]" />
 
       <header className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
@@ -18,17 +18,12 @@ export default async function HomePage() {
           </div>
           <span className="font-semibold tracking-tight">AiEA</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm text-zinc-400 hover:text-white">
-            Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/15"
-          >
-            Get started
-          </Link>
-        </div>
+        <Link
+          href="/register"
+          className="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/15"
+        >
+          Get started
+        </Link>
       </header>
 
       <main className="relative z-10 mx-auto max-w-5xl px-6 pb-24 pt-16 text-center">

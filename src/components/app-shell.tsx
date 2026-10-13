@@ -76,10 +76,10 @@ export function AppShell({
   }
 
   return (
-    <div className="flex h-full min-h-0 max-w-[100vw] overflow-x-hidden bg-[#07070b] text-zinc-100">
+    <div className="flex min-h-screen max-w-[100vw] overflow-x-hidden bg-[#07070b] text-zinc-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.12),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(139,92,246,0.08),_transparent_40%)]" />
 
-      <div className="relative z-10 flex h-full min-h-0 w-full max-w-[100vw] min-w-0 overflow-x-hidden">
+      <div className="relative z-10 flex min-h-screen w-full max-w-[100vw] min-w-0 overflow-x-hidden">
         {/* Desktop sidebar — original component, md+ only */}
         <div className="hidden shrink-0 md:flex">
           <Sidebar userName={userName} />
@@ -87,7 +87,7 @@ export function AppShell({
 
         <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
           {/* Mobile top bar only */}
-          <header className="sticky top-0 z-40 flex min-h-12 items-center gap-2 border-b border-white/5 bg-[#07070b]/95 px-3 backdrop-blur-md md:hidden">
+          <header className="sticky top-[calc(2.5rem+env(safe-area-inset-top,0px))] z-30 flex min-h-12 items-center gap-2 border-b border-white/5 bg-[#07070b]/95 px-3 backdrop-blur-md md:hidden">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}

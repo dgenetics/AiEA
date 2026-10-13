@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteNav } from "@/components/site-nav";
-import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,21 +36,19 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCurrentUser();
-
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex h-dvh flex-col overflow-hidden bg-[#07070b] text-zinc-100">
-        <SiteNav signedIn={Boolean(user)} />
-        <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      <body className="min-h-full flex flex-col bg-[#07070b] text-zinc-100">
+        <SiteNav />
+        {children}
       </body>
     </html>
   );

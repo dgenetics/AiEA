@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-/** Live bf-maintenance deployment. Mirrored in vercel.json rewrites. */
+/** Live bf-maintenance deployment. The only rewrite definition (not also vercel.json). */
 const BF_MAINTENANCE_ORIGIN = "https://bf-maintenance.vercel.app";
 
 const nextConfig: NextConfig = {

@@ -2,10 +2,11 @@
  * Assert iOS PWA safe-area wiring.
  * Run in CI: npm run test:safe-area
  *
- * The Farm Manager bar is the topmost element, so it owns safe-area-inset-top.
- * A fixed height plus .safe-top under border-box eats the inset — the bar
- * must grow. The in-app mobile header sits below that bar and must not add
- * a second inset. The drawer still covers the viewport, so it keeps its own.
+ * The Farm Manager bar is sticky at the top of the document and owns
+ * safe-area-inset-top. A fixed height plus .safe-top under border-box eats
+ * the inset — the bar must grow. The in-app mobile header sticks just below
+ * that bar (not top-0, and not a second inset). The drawer covers the
+ * viewport, so it keeps its own inset.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -37,13 +38,15 @@ assert.ok(navHeader, "Farm Manager bar header className not found");
 const navClass = navHeader![1];
 assert.match(navClass, /\bsafe-top\b/);
 assert.match(navClass, /\bmin-h-10\b/);
+assert.match(navClass, /\bsticky\b/);
+assert.match(navClass, /\btop-0\b/);
 assert.doesNotMatch(
   navClass,
   /(?:^|\s)h-10(?:\s|$)/,
   "fixed h-10 on the Farm Manager bar collapses its row under border-box + safe-top padding",
 );
 
-// In-app mobile header sits under that bar: keep min-h/sticky, do not add a second inset.
+// In-app mobile header sticks below the bar. top-0 would slide it under the bar and the notch.
 const headerMatch = shell.match(
   /<header\s+className="([^"]*md:hidden[^"]*)"/,
 );
@@ -61,7 +64,11 @@ assert.doesNotMatch(
   "fixed h-12 on the mobile header collapses content under border-box",
 );
 assert.match(headerClass, /\bsticky\b/);
-assert.match(headerClass, /\btop-0\b/);
+assert.match(
+  headerClass,
+  /top-\[calc\(2\.5rem\+env\(safe-area-inset-top,0px\)\)\]/,
+);
+assert.doesNotMatch(headerClass, /\btop-0\b/);
 
 // Drawer covers the bar, so it still pads for the notch. Bottom tabs keep safe-bottom.
 assert.match(shell, /safe-top/);
