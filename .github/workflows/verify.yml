@@ -71,6 +71,9 @@ jobs:
       - name: Unit assertions (capture mic release)
         run: npm run test:capture-mic
 
+      - name: Unit assertions (system cards)
+        run: npm run test:systems
+
       - name: Build
         run: npm run build
 

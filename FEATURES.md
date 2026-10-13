@@ -38,7 +38,7 @@ Moving an AI-created task to another lane within seven days records that correct
 
 ## Systems
 
-Systems is the cream list of equipment: a plain “Systems” title and “+ Add system”. Open a system to edit it, add components, and see what is overdue. Open a component for its fields (model, vendor, costs, notes), to move or duplicate it, and to attach schedules. There is no farm banner and no second header.
+Systems is a cream grid of cards grouped by category. A card shows the system name, a short type and location line when those are known, and how many components it has. Category headers are small muted uppercase labels with a thin rule. Categories run A–Z, systems are alphabetical inside each group, and empty categories are left out. Cards stack on a phone and sit in three columns on a wider screen. A system with an open task on one of its components is tinted amber, and a short legend explains that tint. The whole card opens that system. “+ Add system” creates one. Inside a system you edit it, add components, and open a component for its fields (model, vendor, costs, notes), to move or duplicate it, and to attach schedules. There is no farm banner and no second header.
 
 ## Schedules
 
