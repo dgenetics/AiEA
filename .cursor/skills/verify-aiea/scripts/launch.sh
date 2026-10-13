@@ -68,7 +68,7 @@ echo "$RUN_ID" >"$OUT/../.last-run-id"
 ready=0
 for _ in $(seq 1 90); do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$BASE/" || true)
-  if [[ "$code" == "200" ]]; then
+  if [[ "$code" == "200" || "$code" == "301" || "$code" == "307" || "$code" == "308" ]]; then
     ready=1
     break
   fi

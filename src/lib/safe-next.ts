@@ -16,6 +16,9 @@ export function safeNextPath(input: string | null | undefined): string {
   if (!input.startsWith("/")) return DEFAULT_NEXT_PATH;
   if (input.startsWith("//")) return DEFAULT_NEXT_PATH;
   if (input.includes("\\")) return DEFAULT_NEXT_PATH;
+  const pathOnly = input.split(/[?#]/)[0] || "/";
+  const bare = pathOnly.length > 1 && pathOnly.endsWith("/") ? pathOnly.slice(0, -1) : pathOnly;
+  if (bare === "/maintenance" || bare.startsWith("/maintenance/")) return DEFAULT_NEXT_PATH;
   try {
     if (new URL(input, "http://x").origin !== "http://x") return DEFAULT_NEXT_PATH;
   } catch {

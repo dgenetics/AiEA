@@ -7,8 +7,10 @@
 #   gate.sh --local --feature capture-accept
 #   gate.sh --local --feature capture-accept,tasks-board,board-lanes,bf-sync
 #   gate.sh --live-smoke
-#     → when AIEA_SMOKE_EMAIL+PASSWORD set: doctor+live-smoke on live base
-#     → when absent: clean-skip (exit 0), evidence shows SKIP
+#     → pull_request CI: clean-skip. Production is still the pre-merge app
+#       (GET / is 200). Doctor's 307 check stays strict on main and locally.
+#     → when AIEA_SMOKE_EMAIL+PASSWORD set (not a pull request): doctor+live-smoke
+#     → when secrets absent: clean-skip (exit 0), evidence shows SKIP
 #
 # Env: AIEA_SMOKE_EMAIL / AIEA_SMOKE_PASSWORD (live/post-auth; preferred),
 #      legacy AIEA_EMAIL / AIEA_PASSWORD demoted — migrate to SMOKE names,
@@ -93,17 +95,33 @@ SHA=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)
   echo "- features: \`$FEATURES_CSV\`"
 } > "$OUT/SUMMARY.md"
 
-# --- live-smoke path: clean-skip when secrets absent (gate stays green) ---
+# --- live-smoke path: clean-skip on pull requests and when secrets are absent ---
 if [[ "$LIVE_SMOKE" == "1" ]]; then
   BASE="$(default_live_base_url)"
   echo "- mode: live-smoke" >> "$OUT/SUMMARY.md"
   echo "- base: $BASE" >> "$OUT/SUMMARY.md"
-  if ! has_smoke_creds; then
-    REASON="AIEA_SMOKE_EMAIL and/or AIEA_SMOKE_PASSWORD not set — clean-skip live/post-auth (not a failure)"
-    echo "$REASON" | tee "$OUT/live-smoke-skipped.txt"
-    echo "- smoke_creds: absent" >> "$OUT/SUMMARY.md"
+  echo "- github_event: ${GITHUB_EVENT_NAME:-none}" >> "$OUT/SUMMARY.md"
+  SKIP_REASON=""
+  SKIP_LABEL=""
+  # Production (aiea-cyan) is still the pre-merge app until this branch lands.
+  # Its GET / is 200. This revision's doctor requires 307 to /tasks, and
+  # GET /capture 308. Those checks stay strict on main and on local runs.
+  if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+    SKIP_REASON="Pull request: production is still the pre-merge app (GET / returns 200, not 307 to /tasks). Live-smoke stays strict on main. The local gate checks this revision."
+    SKIP_LABEL="pre-merge production"
+  elif ! has_smoke_creds; then
+    SKIP_REASON="AIEA_SMOKE_EMAIL and/or AIEA_SMOKE_PASSWORD not set — clean-skip live/post-auth (not a failure)"
+    SKIP_LABEL="secrets unset"
+  fi
+  if [[ -n "$SKIP_REASON" ]]; then
+    echo "$SKIP_REASON" | tee "$OUT/live-smoke-skipped.txt"
+    if [[ "$SKIP_LABEL" == "secrets unset" ]]; then
+      echo "- smoke_creds: absent" >> "$OUT/SUMMARY.md"
+    else
+      echo "- smoke_creds: not consulted (pre-merge skip)" >> "$OUT/SUMMARY.md"
+    fi
     echo "- drive (live-smoke) exit: 0" >> "$OUT/SUMMARY.md"
-    echo "- result: **SKIP** live-smoke (secrets unset)" >> "$OUT/SUMMARY.md"
+    echo "- result: **SKIP** live-smoke ($SKIP_LABEL)" >> "$OUT/SUMMARY.md"
     echo "- finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT/SUMMARY.md"
     echo "- evidence: \`$OUT\`" >> "$OUT/SUMMARY.md"
     # Also write drive-live-smoke.json so evidence is machine-readable
@@ -114,14 +132,14 @@ json.dump({
   "base": "$BASE",
   "runId": "$RUN_ID",
   "status": "skipped",
-  "skipReason": """$REASON""",
-  "steps": ["SKIP: $REASON"],
+  "skipReason": """$SKIP_REASON""",
+  "steps": ["SKIP: $SKIP_REASON"],
   "sha": "$SHA"[:12],
   "finished": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
 }, open("$OUT/drive-live-smoke.json", "w"), indent=2)
 print("wrote $OUT/drive-live-smoke.json")
 PY
-    echo "SKIP live-smoke (no AIEA_SMOKE_* secrets) evidence=$OUT"
+    echo "SKIP live-smoke ($SKIP_LABEL) evidence=$OUT"
     exit 0
   fi
   echo "- smoke_creds: present (AIEA_SMOKE_EMAIL set)" >> "$OUT/SUMMARY.md"

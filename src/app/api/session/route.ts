@@ -9,9 +9,9 @@ const NO_STORE = {
 } as const;
 
 /**
- * Suite session verifier for other Farm Manager zones (bf-maintenance).
+ * Session verifier. The cookie is the only credential.
  *
- * bf calls this server-side, on the same host the browser used:
+ * A caller on this host can check:
  *   GET {AIEA_URL}/api/session
  *   Cookie: <the incoming Cookie header, forwarded unchanged>
  * Never log that header or the aiea_session value.
@@ -21,11 +21,9 @@ const NO_STORE = {
  * 401
  *   { error: "Unauthorized" }
  *   Missing cookie, unknown token, or expiresAt in the past.
- *   An expired row is deleted here. bf must not delete it.
+ *   An expired row is deleted here.
  *
- * The cookie is the only credential. BF_INTEGRATION_SECRET is ignored.
- * Cache-Control is no-store. bf may keep an in-memory copy for 30–60s,
- * keyed by the sha256 of the token, and must drop it on 401.
+ * Cache-Control is no-store.
  */
 export async function GET() {
   const session = await getSessionIdentity();

@@ -1,5 +1,5 @@
-// AiEA — AI Executive Assistant
-// Multi-tenant ready: every domain entity is scoped to a Workspace.
+// Farm Manager — one app: Systems, Schedules, and Tasks.
+// Multi-tenant: every domain entity is scoped to a Workspace.
 
 generator client {
   provider = "prisma-client"
@@ -42,34 +42,19 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// Last time Daily Brief called Grok (polish). Skips AI until a new capture is accepted.
-  lastAiBriefAt      DateTime?
-  /// Cached polished summary from last successful Grok brief
-  lastAiBriefSummary String?
-  /// JSON string array of tips from last successful Grok brief
-  lastAiBriefTips    String?
-  lastAiBriefModel   String?
-
-  /// When true, cron auto-imports open BF Maintenance tasks as PROPOSED
-  bfAutoPullEnabled  Boolean   @default(false)
-  /// Last successful auto-pull from BF Maintenance
-  bfLastAutoPullAt   DateTime?
-
   members     WorkspaceMember[]
-  areas       Area[]
   projects    Project[]
-  people      Person[]
   tasks       Task[]
   captures    CaptureBatch[]
-  reminders   Reminder[]
   corrections AiCorrection[]
+  systems     System[]
 }
 
-/// User corrections used as few-shot "training" for future AI capture proposals.
+/// User corrections used as few-shot training for future capture parses.
 model AiCorrection {
   id          String   @id @default(cuid())
   workspaceId String
-  /// What was wrong, e.g. area | priority | kind
+  /// What was wrong, e.g. board
   field       String
   taskTitle   String
   beforeValue String?
@@ -98,78 +83,119 @@ model WorkspaceMember {
   @@index([userId])
 }
 
-model Area {
-  id          String   @id @default(cuid())
-  workspaceId String
-  name        String
-  slug        String
-  color       String   @default("#6366f1")
-  icon        String   @default("circle")
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projects  Project[]
-  tasks     Task[]
-
-  @@unique([workspaceId, slug])
-  @@index([workspaceId])
-}
-
 model Project {
   id          String   @id @default(cuid())
   workspaceId String
-  areaId      String?
   name        String
   status      String   @default("ACTIVE") // ACTIVE | DONE | ARCHIVED
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  area      Area?     @relation(fields: [areaId], references: [id], onDelete: SetNull)
   tasks     Task[]
 
   @@index([workspaceId])
 }
 
-model Person {
-  id            String    @id @default(cuid())
-  workspaceId   String
-  name          String
-  email         String?
-  company       String?
-  notes         String?
-  lastContactAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+/// A house or property system (tractor, furnace, well).
+model System {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  category    String   @default("Other")
+  notes       String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tasks     Task[]
-  reminders Reminder[]
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  components Component[]
 
   @@index([workspaceId])
+  @@index([workspaceId, category])
+  @@index([workspaceId, name])
 }
 
-/// Tasks cover one-time work, recurring templates, generated occurrences, and people follow-ups.
+/// A piece of equipment that belongs to a system.
+model Component {
+  id                    String    @id @default(cuid())
+  workspaceId           String
+  systemId              String
+  name                  String
+  location              String    @default("")
+  modelNumber           String    @default("")
+  productNumber         String    @default("")
+  serialNumber          String    @default("")
+  manufacturer          String    @default("")
+  warrantyInfo          String    @default("")
+  userManual            String    @default("")
+  vendorName            String    @default("")
+  vendorContact         String    @default("")
+  serviceCompanyName    String    @default("")
+  serviceCompanyContact String    @default("")
+  purchaseDate          DateTime?
+  purchaseCost          Float?
+  replacementCost       Float?
+  notes                 String    @default("")
+  sortOrder             Int       @default(0)
+
+  system    System                @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  schedules MaintenanceSchedule[]
+  tasks     Task[]
+
+  @@index([workspaceId])
+  @@index([systemId])
+}
+
+/// Recurrence owner for a farm chore. The open chore itself is a Task.
+model MaintenanceSchedule {
+  id          String    @id @default(cuid())
+  workspaceId String
+  componentId String
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  name         String
+  description  String?
+  /// e.g. "30d", "90d", "6mo", "1y"
+  frequency    String?
+  intervalDays Int?
+  isRecurring  Boolean   @default(true)
+
+  nextDueDate     DateTime
+  lastCompletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
+
+  @@index([workspaceId])
+  @@index([componentId])
+  @@index([nextDueDate])
+}
+
+/// Tasks cover one-time work and the single open chore for a schedule.
 model Task {
   id          String  @id @default(cuid())
   workspaceId String
-  areaId      String?
   projectId   String?
-  personId    String?
-  parentId    String? // recurrence parent or subtask parent
+  parentId    String? // subtask parent
 
   title String
   notes String?
 
   /// ONE_TIME | RECURRING_TEMPLATE | OCCURRENCE
+  /// New rows are always ONE_TIME. Schedule cadence lives on MaintenanceSchedule.
   kind String @default("ONE_TIME")
 
-  /// INBOX | PROPOSED | ACTIVE | DONE | CANCELLED | SNOOZED
+  /// ACTIVE | DONE | CANCELLED | SNOOZED | INBOX
+  /// PROPOSED is retired: every open task is on the board.
   status String @default("ACTIVE")
 
   /// User-facing kanban lane: ICEBOX | BACKLOG | CURRENT
   board String @default("BACKLOG")
+
+  /// Why capture picked this lane (shown on the card and in edit).
+  boardReason String?
 
   /// Legacy dual-write sort field (1=Current … 5=Icebox). Prefer `board` in UI.
   priority Int?
@@ -177,43 +203,42 @@ model Task {
   urgencyScore Float?
   impactScore  Float?
 
-  dueAt         DateTime?
-  scheduledFor  DateTime?
-  completedAt   DateTime?
-  snoozedUntil  DateTime?
+  dueAt           DateTime?
+  scheduledFor    DateTime?
+  completedAt     DateTime?
+  snoozedUntil    DateTime?
   estimateMinutes Int?
 
-  /// JSON: { frequency, interval, byWeekday?, time?, times?: string[] }
-  /// times = multiple daily slots e.g. ["10:00","14:00","18:00"] → one task, multiple checkboxes
+  /// Legacy JSON recurrence. Farm cadence is MaintenanceSchedule.intervalDays.
   recurrenceRule String?
 
   nextOccurrenceAt DateTime?
 
-  /// JSON for multi-slot days: { day, slots: [{ time, done, completedAt? }] }
+  /// JSON for multi-slot days (legacy; not rendered).
   checkIns String?
-
-  isFollowUp    Boolean   @default(false)
-  followUpDueAt DateTime?
 
   aiRationale     String?
   sourceCaptureId String?
 
-  /// External integration provenance (e.g. "bf-maintenance")
+  /// External integration provenance kept one release for traceability.
   externalSource String?
-  /// Stable id from source system for idempotent import (e.g. "bf-task:cuid")
+  /// Stable id from a source system (e.g. "bf-task:cuid")
   externalId     String?
+
+  /// Set when this task is the open (or historical) chore for a schedule.
+  scheduleId  String?
+  componentId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  area      Area?      @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  person    Person?    @relation(fields: [personId], references: [id], onDelete: SetNull)
-  parent    Task?      @relation("TaskTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Task[]     @relation("TaskTree")
-  reminders Reminder[]
-  capture   CaptureBatch? @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
+  workspace Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parent    Task?                @relation("TaskTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Task[]               @relation("TaskTree")
+  capture   CaptureBatch?        @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
+  schedule  MaintenanceSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  component Component?           @relation(fields: [componentId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, externalSource, externalId])
   @@index([workspaceId, status])
@@ -221,8 +246,9 @@ model Task {
   @@index([workspaceId, scheduledFor])
   @@index([workspaceId, kind])
   @@index([workspaceId, board])
-  @@index([personId])
   @@index([workspaceId, externalSource])
+  @@index([scheduleId])
+  @@index([componentId])
 }
 
 model CaptureBatch {
@@ -230,9 +256,9 @@ model CaptureBatch {
   workspaceId String
   userId      String
   rawText     String
-  /// PENDING | PROPOSED | PARTIALLY_ACCEPTED | ACCEPTED | DISMISSED
-  status      String   @default("PENDING")
-  /// JSON array of ProposedItem
+  /// ACCEPTED | UNDONE
+  status      String   @default("ACCEPTED")
+  /// JSON array of parsed capture items
   proposals   String   @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -242,27 +268,4 @@ model CaptureBatch {
   tasks     Task[]
 
   @@index([workspaceId])
-}
-
-model Reminder {
-  id          String    @id @default(cuid())
-  workspaceId String
-  taskId      String?
-  personId    String?
-  title       String
-  body        String?
-  fireAt      DateTime
-  /// PENDING | SENT | DISMISSED | SNOOZED
-  status      String    @default("PENDING")
-  /// IN_APP | PUSH
-  channel     String    @default("IN_APP")
-  sentAt      DateTime?
-  createdAt   DateTime  @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  person    Person?   @relation(fields: [personId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, status, fireAt])
-  @@index([fireAt, status])
 }

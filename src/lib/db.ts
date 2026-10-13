@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
   prismaSchemaVersion?: string;
 };
 
-const SCHEMA_VERSION = "turso-durable-v1";
+const SCHEMA_VERSION = "farm-manager-v1";
 
 /**
  * Production (Vercel): Turso libSQL — durable, serverless-friendly SQLite.

@@ -40,11 +40,8 @@ export function toArchiveRow(t: ArchiveTaskRaw): TaskRowData {
     priority: t.priority,
     dueAt: completedAt ?? (t.dueAt ? String(t.dueAt) : null),
     status: t.status,
-    isFollowUp: t.isFollowUp,
     kind: t.kind,
     estimateMinutes: t.estimateMinutes,
     aiRationale: t.aiRationale,
-    area: t.area,
-    person: t.person,
   };
 }

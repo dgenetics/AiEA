@@ -1,26 +1,29 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { BOARD_LANES, BOARD_STATUSES, laneWrite, resolveBoard } from "@/lib/board";
 import { prisma } from "@/lib/db";
+import { requireWorkspace } from "@/lib/require-workspace";
+
+const taskInclude = {
+  schedule: { select: { id: true, name: true, frequency: true, intervalDays: true } },
+  component: {
+    select: {
+      id: true,
+      name: true,
+      system: { select: { id: true, name: true } },
+    },
+  },
+  parent: { select: { id: true, title: true } },
+} as const;
 
 export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const workspaceId = await getPrimaryWorkspaceId(user.id);
-  if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+  const auth = await requireWorkspace();
+  if ("error" in auth) return auth.error;
+  const { workspaceId } = auth;
 
   const { searchParams } = new URL(req.url);
   const view = searchParams.get("view") || "board";
 
-  const baseInclude = {
-    area: true,
-    person: true,
-  } as const;
-
-  // Tasks board: every non-done task, no due-date window. Legacy
-  // view=today / view=upcoming (removed) resolve to the same list.
   if (view === "board" || view === "today" || view === "upcoming") {
     const tasks = await prisma.task.findMany({
       where: {
@@ -28,31 +31,10 @@ export async function GET(req: Request) {
         kind: "ONE_TIME",
         status: { in: [...BOARD_STATUSES] },
       },
-      include: baseInclude,
+      include: taskInclude,
       orderBy: [{ createdAt: "asc" }],
     });
     return NextResponse.json({ tasks });
-  }
-
-  if (view === "inbox") {
-    const tasks = await prisma.task.findMany({
-      where: {
-        workspaceId,
-        kind: "ONE_TIME",
-        status: { in: ["INBOX", "PROPOSED"] },
-      },
-      include: baseInclude,
-      orderBy: { createdAt: "desc" },
-    });
-    const captures = await prisma.captureBatch.findMany({
-      where: {
-        workspaceId,
-        status: { in: ["PROPOSED", "PARTIALLY_ACCEPTED"] },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
-    return NextResponse.json({ tasks, captures });
   }
 
   if (view === "children") {
@@ -72,39 +54,32 @@ export async function GET(req: Request) {
         kind: "ONE_TIME",
         status: { not: "CANCELLED" },
       },
-      include: baseInclude,
+      include: taskInclude,
       orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "asc" }],
     });
     return NextResponse.json({ tasks, parent });
   }
 
   if (view === "archive") {
-    const pageSize = Math.min(
-      Math.max(Number(searchParams.get("limit") || 40), 1),
-      100,
-    );
+    const pageSize = Math.min(Math.max(Number(searchParams.get("limit") || 40), 1), 100);
     const offset = Math.max(Number(searchParams.get("offset") || 0), 0);
-    // Native recurring occurrences are no longer surfaced; archive is one-time only.
     const where = {
       workspaceId,
       status: "DONE" as const,
       kind: "ONE_TIME" as const,
     };
-
     const [total, tasks] = await Promise.all([
       prisma.task.count({ where }),
       prisma.task.findMany({
         where,
-        include: baseInclude,
+        include: taskInclude,
         orderBy: [{ completedAt: "desc" }, { id: "desc" }],
         take: pageSize,
         skip: offset,
       }),
     ]);
-
     const nextOffset = offset + tasks.length;
     const hasMore = nextOffset < total;
-
     return NextResponse.json({
       tasks,
       total,
@@ -117,7 +92,7 @@ export async function GET(req: Request) {
 
   const tasks = await prisma.task.findMany({
     where: { workspaceId, kind: "ONE_TIME", status: { not: "CANCELLED" } },
-    include: baseInclude,
+    include: taskInclude,
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
@@ -126,46 +101,25 @@ export async function GET(req: Request) {
 
 const createSchema = z.object({
   title: z.string().min(1).max(300),
-  areaId: z.string().optional().nullable(),
   board: z.enum(BOARD_LANES).optional(),
-  /** @deprecated Prefer board */
   priority: z.number().int().min(1).max(5).optional().nullable(),
   dueAt: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  /** Parent task id — creates a subtask with its own due date */
   parentId: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const workspaceId = await getPrimaryWorkspaceId(user.id);
-  if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+  const auth = await requireWorkspace();
+  if ("error" in auth) return auth.error;
+  const { workspaceId } = auth;
 
   const body = createSchema.parse(await req.json());
 
-  let parent: {
-    id: string;
-    areaId: string | null;
-    board: string | null;
-    priority: number | null;
-    personId: string | null;
-  } | null = null;
-
+  let parent: { id: string; board: string | null; priority: number | null } | null = null;
   if (body.parentId) {
     parent = await prisma.task.findFirst({
-      where: {
-        id: body.parentId,
-        workspaceId,
-        kind: "ONE_TIME",
-      },
-      select: {
-        id: true,
-        areaId: true,
-        board: true,
-        priority: true,
-        personId: true,
-      },
+      where: { id: body.parentId, workspaceId, kind: "ONE_TIME" },
+      select: { id: true, board: true, priority: true },
     });
     if (!parent) {
       return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
@@ -182,19 +136,13 @@ export async function POST(req: Request) {
       workspaceId,
       parentId: parent?.id ?? null,
       title: body.title,
-      areaId: body.areaId ?? parent?.areaId ?? null,
       ...laneWrite(lane),
-      personId: parent?.personId ?? null,
       dueAt: body.dueAt ? new Date(body.dueAt) : null,
       notes: body.notes || null,
       kind: "ONE_TIME",
       status: "ACTIVE",
     },
-    include: {
-      area: true,
-      person: true,
-      parent: { select: { id: true, title: true } },
-    },
+    include: taskInclude,
   });
   return NextResponse.json({ task });
 }

@@ -30,14 +30,6 @@ export function TaskList({
     setTasks(initialTasks);
   }, [initialTasks]);
 
-  /** Surface linked BF Maintenance sync failures (local change is kept). */
-  async function noteSync(res: Response) {
-    const data = (await res.json().catch(() => null)) as {
-      bfSyncError?: string | null;
-    } | null;
-    setSyncError(data?.bfSyncError ?? null);
-  }
-
   async function complete(id: string) {
     if (mode === "archive") {
       setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -47,7 +39,10 @@ export function TaskList({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reopen" }),
       });
-      await noteSync(res);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setSyncError(data?.error ?? "Could not reopen that task");
+      }
       router.refresh();
       return;
     }
@@ -59,7 +54,12 @@ export function TaskList({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "complete" }),
     });
-    await noteSync(res);
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(data?.error ?? "Could not complete that task");
+    } else {
+      setSyncError(null);
+    }
     router.refresh();
   }
 

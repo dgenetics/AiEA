@@ -1,6 +1,6 @@
-# AiEA feature map
+# Farm Manager feature map
 
-Maintained verification source for AiEA (capture, Tasks board, board lanes, BF pull, live smoke). Read this index, then the feature file. Drive the real UI with Playwright (`scripts/drive.mjs`); curl alone is not enough for a mapped UI feature.
+Verification source for Farm Manager (capture field, Tasks board, lanes, schedule chores, live smoke). Read this index, then the feature file. Drive the real UI with Playwright (`scripts/drive.mjs`); curl alone is not enough for a mapped UI feature.
 
 ## Baseline preconditions
 
@@ -9,16 +9,16 @@ Maintained verification source for AiEA (capture, Tasks board, board lanes, BF p
   - Local: doctor-registered disposable user (`verify-user.json`) on a fresh local DB.
   - Live/post-auth: **`AIEA_SMOKE_EMAIL` + `AIEA_SMOKE_PASSWORD`** (both). Smoke user only — never personal / 1Password. Absent → clean-skip live-smoke.
   - Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted — migrate to SMOKE names.
-- `doctor.sh` green for that base URL before driving (except live-smoke skip-before-doctor when secrets unset).
+- `doctor.sh` green for that base URL before driving (except live-smoke skip-before-doctor when secrets are unset, or on a pull request).
 - Never attach to a browser session the human already owns; use headless Playwright or a fresh context.
-- bf-maintenance PIN / farm chores UI is **out of scope** (separate verify skill).
-- No separate `BF_*` pair for smoke login.
+- No separate `BF_*` pair for smoke login. Schedule chores are created through this app's API.
 
 ## Driving conventions
 
 - Harness: `node .cursor/skills/verify-aiea/scripts/drive.mjs --feature <id> --base-url <url>`.
 - Prefer ARIA roles / accessible names. Login email/password inputs are **not** labelled via `htmlFor` — use `input[type="email"]` / `input[type="password"]`.
-- Board lanes: `getByRole('group', { name: 'Board lane' })` then buttons `Icebox` / `Backlog` / `Current`.
+- Capture field: placeholder `Type or talk`, button `Add`.
+- Board columns: `section[data-lane="CURRENT"|"BACKLOG"|"ICEBOX"]`.
 - Mutations on live: prefer local `--local` gate; on live avoid junk titles or use a clearly tagged `Verify …` prefix.
 - Never delete `evidence/` in cleanup.
 
@@ -26,8 +26,9 @@ Maintained verification source for AiEA (capture, Tasks board, board lanes, BF p
 
 - Capture action + resulting state (screenshot + aria under `evidence/<run-id>/`).
 - Record feature id and base URL in `drive-<feature>.json` / `SUMMARY.md`.
-- `bf-sync` without env or with unreachable BF → **skipped** with `bf-sync-skipped.txt` (not claimed as happy-path pass).
+- `bf-sync` always runs in-app. It does not skip for missing BF secrets.
 - `live-smoke` without `AIEA_SMOKE_*` → **skipped** with `live-smoke-skipped.txt` (gate green).
+- `live-smoke` on a pull request → **skipped** the same way. Production is still the pre-merge app (`GET /` is 200). On `main` the doctor still requires 307 to `/tasks`.
 - Unreachable path → report attempted command + unmet precondition; do not claim verified via a different entry point.
 
 ## Feature entry contract
@@ -36,8 +37,8 @@ Each feature file: H1 + one paragraph, then exactly four H2s — `Sub-features`,
 
 ## Features
 
-- [Capture → accept](./capture-accept.md) — brain dump → organize → accept onto the Tasks board.
+- [Capture](./capture-accept.md) — type on the Tasks board and the task is created active.
 - [Tasks board](./tasks-board.md) — every open task in its lane; /today + /upcoming redirect (no 500).
-- [Board lanes](./board-lanes.md) — Icebox / Backlog / Current picker on capture.
-- [BF sync](./bf-sync.md) — Pull farm maintenance into Inbox (skip if env missing).
-- [Live smoke](./live-smoke.md) — smoke login + post-auth home on live (skip if secrets unset).
+- [Board lanes](./board-lanes.md) — “asap” lands in Current without a review picker.
+- [Schedule chores](./bf-sync.md) — a due-today schedule appears as a Current task.
+- [Live smoke](./live-smoke.md) — smoke login + post-auth home on live (skip if secrets unset, or on a pull request before merge).

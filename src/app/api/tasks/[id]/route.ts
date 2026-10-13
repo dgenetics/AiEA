@@ -1,106 +1,33 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { recordCorrections } from "@/lib/ai/corrections";
-import {
-  completeBfMaintenanceTask,
-  parseBfTaskExternalId,
-  reopenBfMaintenanceTask,
-} from "@/lib/api/maintenance";
-import {
-  BOARD_LANES,
-  laneWrite,
-  resolveBoard,
-} from "@/lib/board";
+import { BOARD_LANES, laneWrite, resolveBoard } from "@/lib/board";
 import { prisma } from "@/lib/db";
-
-const BF_SYNC_ERROR = "Couldn't sync to BF Maintenance — try again.";
-
-/**
- * Best-effort: if task came from BF Maintenance, mark it complete there too.
- * Returns a user-facing error when a linked sync fails (local change stays).
- */
-async function syncBfComplete(task: {
-  externalSource: string | null;
-  externalId: string | null;
-  notes: string | null;
-  title: string;
-}): Promise<string | null> {
-  if (task.externalSource !== "bf-maintenance") return null;
-  const bfTaskId = parseBfTaskExternalId(task.externalId);
-  if (!bfTaskId) return null;
-  try {
-    const result = await completeBfMaintenanceTask(
-      bfTaskId,
-      `Completed in AiEA: ${task.title}`,
-    );
-    if (!result.ok) {
-      console.warn("BF Maintenance complete sync failed:", result.error);
-      return BF_SYNC_ERROR;
-    }
-  } catch (err) {
-    console.warn("BF Maintenance complete sync error:", err);
-    return BF_SYNC_ERROR;
-  }
-  return null;
-}
-
-/** Best-effort: if task came from BF Maintenance, reopen it there too. */
-async function syncBfReopen(task: {
-  externalSource: string | null;
-  externalId: string | null;
-}): Promise<string | null> {
-  if (task.externalSource !== "bf-maintenance") return null;
-  const bfTaskId = parseBfTaskExternalId(task.externalId);
-  if (!bfTaskId) return null;
-  try {
-    const result = await reopenBfMaintenanceTask(bfTaskId);
-    if (!result.ok) {
-      console.warn("BF Maintenance reopen sync failed:", result.error);
-      return BF_SYNC_ERROR;
-    }
-  } catch (err) {
-    console.warn("BF Maintenance reopen sync error:", err);
-    return BF_SYNC_ERROR;
-  }
-  return null;
-}
+import { requireWorkspace } from "@/lib/require-workspace";
+import { completeTaskAndMaybeAdvance } from "@/lib/schedule-tasks";
 
 const patchSchema = z.object({
-  action: z
-    .enum([
-      "complete",
-      "reopen",
-      "snooze",
-      "update",
-      "cancel",
-      "accept",
-    ])
-    .optional(),
+  action: z.enum(["complete", "reopen", "snooze", "update", "cancel"]).optional(),
   title: z.string().min(1).max(300).optional(),
   board: z.enum(BOARD_LANES).optional(),
-  /** @deprecated Prefer board */
   priority: z.number().int().min(1).max(5).optional().nullable(),
   dueAt: z.string().optional().nullable(),
   status: z.string().optional(),
   notes: z.string().optional().nullable(),
-  areaId: z.string().optional().nullable(),
-  isFollowUp: z.boolean().optional(),
   estimateMinutes: z.number().int().min(1).max(480).optional().nullable(),
   snoozeDays: z.number().int().min(1).max(30).optional(),
-  /** When true, log field changes as AI training corrections */
-  trainAi: z.boolean().optional(),
 });
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const workspaceId = await getPrimaryWorkspaceId(user.id);
-    if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+    const auth = await requireWorkspace();
+    if ("error" in auth) return auth.error;
+    const { workspaceId } = auth;
 
     const { id } = await params;
     const task = await prisma.task.findFirst({ where: { id, workspaceId } });
@@ -122,50 +49,30 @@ export async function PATCH(
     const action = body.action || "update";
 
     if (action === "complete") {
-      const updated = await prisma.task.update({
-        where: { id },
-        data: { status: "DONE", completedAt: new Date() },
-        include: { area: true, person: true },
-      });
-
-      await prisma.reminder.updateMany({
-        where: { taskId: id, status: "PENDING" },
-        data: { status: "DISMISSED" },
-      });
-
-      if (task.personId) {
-        await prisma.person.update({
-          where: { id: task.personId },
-          data: { lastContactAt: new Date() },
-        });
-      }
-
-      const bfSyncError = await syncBfComplete(task);
-      return NextResponse.json({ task: updated, bfSyncError });
+      const result = await completeTaskAndMaybeAdvance(prisma, workspaceId, id);
+      if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ task: result.task, next: result.next });
     }
 
     if (action === "reopen") {
-      const updated = await prisma.task.update({
-        where: { id },
-        data: { status: "ACTIVE", completedAt: null },
-        include: { area: true, person: true },
-      });
-      const bfSyncError = await syncBfReopen(task);
-      return NextResponse.json({ task: updated, bfSyncError });
-    }
-
-    /** Promote PROPOSED / INBOX task to ACTIVE (Inbox review accept). */
-    if (action === "accept") {
-      if (!["PROPOSED", "INBOX"].includes(task.status)) {
-        return NextResponse.json(
-          { error: "Only proposed or inbox tasks can be accepted" },
-          { status: 400 },
-        );
+      if (task.scheduleId) {
+        const other = await prisma.task.findFirst({
+          where: {
+            scheduleId: task.scheduleId,
+            id: { not: task.id },
+            status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
+          },
+        });
+        if (other) {
+          return NextResponse.json(
+            { error: "This schedule already has an open task." },
+            { status: 409 },
+          );
+        }
       }
       const updated = await prisma.task.update({
         where: { id },
-        data: { status: "ACTIVE" },
-        include: { area: true, person: true },
+        data: { status: "ACTIVE", completedAt: null },
       });
       return NextResponse.json({ task: updated });
     }
@@ -174,7 +81,6 @@ export async function PATCH(
       const updated = await prisma.task.update({
         where: { id },
         data: { status: "CANCELLED" },
-        include: { area: true, person: true },
       });
       return NextResponse.json({ task: updated });
     }
@@ -184,46 +90,20 @@ export async function PATCH(
       const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
       const updated = await prisma.task.update({
         where: { id },
-        data: {
-          status: "SNOOZED",
-          snoozedUntil: until,
-          dueAt: until,
-        },
-        include: { area: true, person: true },
+        data: { status: "SNOOZED", snoozedUntil: until, dueAt: until },
       });
       return NextResponse.json({ task: updated });
     }
 
-    // --- update (title / area / board / etc.) ---
-    let nextAreaSlug: string | null = null;
-    if (body.areaId !== undefined && body.areaId) {
-      const area = await prisma.area.findFirst({
-        where: { id: body.areaId, workspaceId },
-      });
-      if (!area) {
-        return NextResponse.json({ error: "Invalid area" }, { status: 400 });
-      }
-      nextAreaSlug = area.slug;
-    }
-
-    const prevArea = task.areaId
-      ? await prisma.area.findUnique({ where: { id: task.areaId } })
-      : null;
-
-    const prevBoard = resolveBoard({
-      board: task.board,
-      priority: task.priority,
-    });
+    const prevBoard = resolveBoard({ board: task.board, priority: task.priority });
     const nextBoard =
       body.board !== undefined || body.priority !== undefined
         ? resolveBoard({
             board: body.board ?? task.board,
-            priority:
-              body.priority !== undefined ? body.priority : task.priority,
+            priority: body.priority !== undefined ? body.priority : task.priority,
           })
         : null;
 
-    // Save task first — never block on AI training
     const updated = await prisma.task.update({
       where: { id },
       data: {
@@ -234,54 +114,27 @@ export async function PATCH(
           : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
-        ...(body.areaId !== undefined ? { areaId: body.areaId } : {}),
-        ...(body.isFollowUp !== undefined ? { isFollowUp: body.isFollowUp } : {}),
         ...(body.estimateMinutes !== undefined
           ? { estimateMinutes: body.estimateMinutes }
           : {}),
       },
-      include: { area: true, person: true },
     });
 
-    // Best-effort training log (must not fail the save)
-    const trainAi = body.trainAi !== false;
-    if (trainAi) {
+    if (
+      nextBoard &&
+      nextBoard !== prevBoard &&
+      task.sourceCaptureId &&
+      Date.now() - task.createdAt.getTime() <= SEVEN_DAYS_MS
+    ) {
       try {
-        const corrections: Array<{
-          field: string;
-          taskTitle: string;
-          beforeValue?: string | null;
-          afterValue: string;
-        }> = [];
-
-        if (body.areaId !== undefined && body.areaId !== task.areaId) {
-          corrections.push({
-            field: "area",
-            taskTitle: (body.title ?? task.title).slice(0, 300),
-            beforeValue: prevArea?.slug ?? null,
-            afterValue: nextAreaSlug ?? "life",
-          });
-        }
-        if (nextBoard && nextBoard !== prevBoard) {
-          corrections.push({
+        await recordCorrections(workspaceId, [
+          {
             field: "board",
             taskTitle: (body.title ?? task.title).slice(0, 300),
             beforeValue: prevBoard,
             afterValue: nextBoard,
-          });
-        }
-        if (body.isFollowUp !== undefined && body.isFollowUp !== task.isFollowUp) {
-          corrections.push({
-            field: "isFollowUp",
-            taskTitle: (body.title ?? task.title).slice(0, 300),
-            beforeValue: String(task.isFollowUp),
-            afterValue: String(body.isFollowUp),
-          });
-        }
-
-        if (corrections.length > 0) {
-          await recordCorrections(workspaceId, corrections);
-        }
+          },
+        ]);
       } catch (trainErr) {
         console.error("AI training log failed (task still saved):", trainErr);
       }
@@ -300,29 +153,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const workspaceId = await getPrimaryWorkspaceId(user.id);
-    if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+    const auth = await requireWorkspace();
+    if ("error" in auth) return auth.error;
+    const { workspaceId } = auth;
 
     const { id } = await params;
     const task = await prisma.task.findFirst({ where: { id, workspaceId } });
     if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Cascade: delete subtasks / occurrences under this task, then the task itself
-    // (parent relation is SetNull, so children would otherwise be orphaned)
     const children = await prisma.task.findMany({
       where: { parentId: id, workspaceId },
       select: { id: true },
     });
     const childIds = children.map((c) => c.id);
     if (childIds.length) {
-      await prisma.reminder.deleteMany({ where: { taskId: { in: childIds } } });
       await prisma.task.deleteMany({ where: { id: { in: childIds } } });
     }
-    await prisma.reminder.deleteMany({ where: { taskId: id } });
     await prisma.task.delete({ where: { id } });
-
     return NextResponse.json({ ok: true, deletedChildren: childIds.length });
   } catch (err) {
     console.error("DELETE /api/tasks/[id] failed:", err);

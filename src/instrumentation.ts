@@ -1,13 +1,9 @@
 /**
- * Cold-start hook. Durable schema lives on Turso — push via `npm run db:push:turso`.
- * Also self-heals critical columns Vercel builds skip (no migrate step).
+ * Next.js boot hook. Schema changes and the bf-maintenance import do not run
+ * here. Preview and production share one Turso database, so a boot must not
+ * migrate or copy rows. Apply SQL with scripts/push-turso-schema.mjs and
+ * import with scripts/import-bf-data.ts, both offline.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "edge") return;
-  try {
-    const { ensureTursoSchema } = await import("@/lib/ensure-schema");
-    await ensureTursoSchema();
-  } catch (err) {
-    console.error("[instrumentation] ensureTursoSchema failed:", err);
-  }
 }

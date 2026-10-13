@@ -68,14 +68,31 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 | Var | Purpose |
 |-----|---------|
 | `DATABASE_URL` | SQLite path (`file:./dev.db`) |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Production libSQL (AiEA’s **own** Turso DB only — never share with BF Maintenance) |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Production libSQL. Preview uses its own database, `aiea-db-preview`, not production. |
 
-After any `prisma/migrations` change, run against production (and preview if it shares the DB):
+Starting the app does not copy a bf-maintenance database and does not change the schema. Production (`aiea-cyan`) stays on the old schema until you push the schema immediately before merge, then merge right away — the code that is live now breaks on the new schema.
+
+Back up first (`turso db shell <db-name> ".dump"` or a Turso branch). Count tasks before and after (`SELECT COUNT(*) FROM Task`). Find the workspace with `SELECT id, name, createdAt FROM Workspace`. Then:
 
 ```bash
 vercel env pull .env.vercel --environment=production --yes
-node --env-file=.env.vercel scripts/push-turso-schema.mjs
-# or: npm run db:push:turso
+FARM_SCHEMA_PUSH=1 node --env-file=.env.vercel scripts/push-turso-schema.mjs
+```
+
+Import only after that backup, into the workspace id you looked up. Load the production env with `--env-file`. `BF_SOURCE_*` stays on this command, never in Vercel.
+
+```bash
+FARM_IMPORT_ALLOW_REMOTE=1 \
+  BF_SOURCE_DATABASE_URL="libsql://..." \
+  BF_SOURCE_AUTH_TOKEN="..." \
+  npx tsx --env-file=.env.vercel scripts/import-bf-data.ts --workspace <id>
+```
+
+A file database needs an explicit `--local`. With `TURSO_DATABASE_URL` unset and no `--local`, the script refuses so it cannot write `dev.db`:
+
+```bash
+BF_SOURCE_DATABASE_URL="file:./bf.db" \
+  npx tsx scripts/import-bf-data.ts --local --workspace <id>
 ```
 
 | `XAI_API_KEY` | SpaceXAI / xAI key — [console.x.ai](https://console.x.ai/team/default/api-keys) |
@@ -83,10 +100,13 @@ node --env-file=.env.vercel scripts/push-turso-schema.mjs
 | `XAI_BASE_URL` | Optional API base (default `https://api.x.ai/v1`) |
 | `AIEA_TIMEZONE` | Optional IANA tz for AI date reasoning (e.g. `America/New_York`) |
 | `AUTH_SECRET` | Session hardening (change in prod) |
-| `CRON_SECRET` | Auth for cron jobs including `/api/cron/bf-maintenance-pull` (daily 12:00 UTC) |
-| `BF_MAINTENANCE_URL` | BF Maintenance base URL (server) |
-| `BF_INTEGRATION_SECRET` | Shared secret with BF Maintenance (inbound + outbound) |
-| `NEXT_PUBLIC_BF_MAINTENANCE_URL` | Optional public BF URL |
+| `CRON_SECRET` | Auth for `/api/cron/materialize-schedules` (daily 12:00 UTC) |
+| `BF_SOURCE_DATABASE_URL` / `BF_SOURCE_AUTH_TOKEN` | Old bf-maintenance database for `scripts/import-bf-data.ts`. One-shot, on your machine. Never set these in Vercel. |
+| `FARM_IMPORT_WORKSPACE_ID` | Workspace that receives that import (or pass `--workspace`) |
+| `FARM_SCHEMA_PUSH` | Set to `1` to allow `scripts/push-turso-schema.mjs` on a remote database. Not a Vercel env var. |
+| `FARM_IMPORT_ALLOW_REMOTE` | Set to `1` to allow the import script to write to Turso. Not a Vercel env var. |
+
+Remove these from Vercel when this app ships: `BF_MAINTENANCE_URL`, `BF_MAINTENANCE_ORIGIN`, `NEXT_PUBLIC_BF_MAINTENANCE_URL`, `BF_INTEGRATION_SECRET`. Keep `CRON_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `AUTH_SECRET`, and `XAI_*`. After the import, freeze `bf-maintenance.vercel.app` (no further deploys or edits).
 
 ### Wire SpaceXAI
 
@@ -98,17 +118,15 @@ XAI_API_KEY="xai-..."
 ```
 
 3. Restart the dev server (`npm run dev`) so Next.js reloads env.
-4. In the app header, the badge should show **SpaceXAI · grok-4.5**.
-5. Optional live check (while logged in): `GET /api/ai/status?ping=1`
+4. Optional live check (while logged in): `GET /api/ai/status?ping=1`
 
-Without a key, Capture still works via local heuristics (amber badge / “Local heuristics” label).
+Without a key, Capture still works via local heuristics.
 
 ### AI behavior
 
-- **Capture** uses structured JSON outputs + Zod validation (strict schema).
-- **Daily Brief** polishes summary/tips with the same pipeline.
+- **Capture** uses structured JSON outputs + Zod validation (strict schema) and creates tasks immediately.
 - Prompts include clock context (timezone, today, EOM) so deadlines stay grounded.
-- On any AI failure, the app falls back to heuristics and surfaces the reason.
+- On any AI failure, the app falls back to heuristics. The field also offers Retry and Save as one task.
 
 ## Roadmap (post-MVP)
 
@@ -131,4 +149,4 @@ Hong / agents: use **poteto-mode** with the project skill `.cursor/skills/verify
 ./.cursor/skills/verify-aiea/scripts/gate.sh --local --feature capture-accept
 ```
 
-Live/post-auth needs **`AIEA_SMOKE_EMAIL` + `AIEA_SMOKE_PASSWORD`** (both; smoke user only — never personal / 1Password). When unset, `gate.sh --live-smoke` **clean-skips** (CI stays green). Hong creates the smoke User row; verify does not. Set CI secrets with `gh secret set` (see `.cursor/skills/verify-aiea/SKILL.md`). Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` are demoted — migrate to SMOKE names. No separate `BF_*` pair for smoke login. Parallel to bf-maintenance verify — do not conflate with BF PIN / #20 login threads.
+Live/post-auth needs **`AIEA_SMOKE_EMAIL` + `AIEA_SMOKE_PASSWORD`** (both; smoke user only — never personal / 1Password). When unset, `gate.sh --live-smoke` **clean-skips** (CI stays green). On a pull request it also clean-skips: production is still the pre-merge app (`GET /` is 200), while this revision’s doctor requires 307 to `/tasks`. That 307 check stays strict on `main`. Hong creates the smoke User row; verify does not. Set CI secrets with `gh secret set` (see `.cursor/skills/verify-aiea/SKILL.md`). Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` are demoted — migrate to SMOKE names. No separate `BF_*` pair for smoke login. Parallel to bf-maintenance verify — do not conflate with BF PIN / #20 login threads.

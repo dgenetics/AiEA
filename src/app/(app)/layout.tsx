@@ -6,5 +6,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  return <AppShell userName={user.name}>{children}</AppShell>;
+  return <AppShell>{children}</AppShell>;
 }
