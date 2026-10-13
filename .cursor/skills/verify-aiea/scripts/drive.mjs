@@ -304,7 +304,7 @@ async function driveBfSync(page, out) {
   await page.goto("/schedules", { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Schedules", level: 1 }).waitFor({ timeout: 15000 });
   await page.getByText(marker).waitFor({ timeout: 15000 });
-  steps.push("schedules: the same schedule is listed with its open card");
+  steps.push("schedules: the same schedule is listed as a card");
   await screenshot(page, join(out, "bf-sync-after-pull.png"));
   await ariaDump(page, join(out, "bf-sync-after-pull.aria.txt"));
   return { steps, status: "pass" };

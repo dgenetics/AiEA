@@ -17,6 +17,7 @@
     "postinstall": "prisma generate",
     "test:safe-area": "tsx scripts/check-safe-area.ts",
     "test:safe-next": "tsx scripts/check-safe-next.ts",
+    "test:schedules": "tsx scripts/check-schedules.ts",
     "test:capture-mic": "tsx scripts/check-capture-mic.ts"
   },
   "dependencies": {

@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useData } from "@/components/farm/data-context";
 import { Modal } from "@/components/farm/Modal";
 import { ScheduleForm } from "@/components/farm/ScheduleForm";
 import { Button } from "@/components/farm/ui";
 import { maintenanceApi } from "@/lib/farm-api";
-import { cadencePhrase, choreDuePresentation } from "@/lib/chore-display";
-import { formatCalendarDate } from "@/lib/calendar";
+import { scheduleCardFrequency } from "@/lib/chore-display";
 import type { ScheduleJson } from "@/lib/maintenance";
 
 type OpenCard = {
@@ -24,11 +22,13 @@ export function SchedulesView() {
   const { assets } = useData();
   const params = useSearchParams();
   const focusId = params.get("id");
+  const openedFocus = useRef<string | null>(null);
   const [schedules, setSchedules] = useState<ScheduleJson[]>([]);
   const [openCards, setOpenCards] = useState<OpenCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(params.get("add") === "1");
+  const [editing, setEditing] = useState<ScheduleJson | null>(null);
   const [componentId, setComponentId] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -54,6 +54,15 @@ export function SchedulesView() {
     void load();
   }, []);
 
+  useEffect(() => {
+    if (!focusId || loading) return;
+    if (openedFocus.current === focusId) return;
+    const row = schedules.find((s) => s.id === focusId);
+    if (!row) return;
+    openedFocus.current = focusId;
+    setEditing(row);
+  }, [focusId, loading, schedules]);
+
   const meta = useMemo(() => {
     const byId = new Map<string, { system: string; component: string }>();
     for (const system of assets) {
@@ -74,7 +83,10 @@ export function SchedulesView() {
     return list.sort((a, b) => a.label.localeCompare(b.label));
   }, [assets]);
 
-  const rows = schedules;
+  const openIds = useMemo(
+    () => new Set(openCards.map((t) => t.scheduleId).filter((id): id is string => Boolean(id))),
+    [openCards],
+  );
 
   return (
     <div>
@@ -93,84 +105,79 @@ export function SchedulesView() {
       {loading ? (
         <p className="text-sm text-stone-500">Loading schedules…</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[#efe9dc] bg-white">
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr className="text-left text-[11px] tracking-wide text-stone-500 uppercase">
-                <th className="px-3 py-2.5 font-medium">Schedule</th>
-                <th className="px-3 py-2.5 font-medium">System · Component</th>
-                <th className="px-3 py-2.5 font-medium">Every</th>
-                <th className="px-3 py-2.5 font-medium">Next due</th>
-                <th className="px-3 py-2.5 font-medium">Open card</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-stone-500">
-                    No schedules yet.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((s) => {
-                  const m = meta.get(s.componentId);
-                  const card = openCards.find((t) => t.scheduleId === s.id);
-                  const due = choreDuePresentation(s.nextDueDate);
-                  const highlighted = focusId === s.id;
-                  return (
-                    <tr
-                      key={s.id}
-                      id={`schedule-${s.id}`}
-                      className={highlighted ? "bg-amber-50" : undefined}
+        <>
+          {schedules.length === 0 ? (
+            <p className="rounded-2xl border border-[#ebe3d3] bg-[#fffdf8] px-4 py-8 text-center text-sm text-stone-500">
+              No schedules yet.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {schedules.map((s) => {
+                const m = meta.get(s.componentId);
+                const open = openIds.has(s.id);
+                const place = m ? `${m.system} · ${m.component}` : "—";
+                const every = scheduleCardFrequency(s.frequency, s.intervalDays);
+                return (
+                  <li key={s.id} id={`schedule-${s.id}`}>
+                    <button
+                      type="button"
+                      aria-label={`Edit ${s.name}`}
+                      onClick={() => setEditing(s)}
+                      className={
+                        open
+                          ? "w-full rounded-2xl border border-[#f3d79a] bg-[#fdf0d5] px-4 py-3.5 text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800"
+                          : "w-full rounded-2xl border border-[#ebe3d3] bg-[#fffdf8] px-4 py-3.5 text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800"
+                      }
                     >
-                      <td className="border-t border-[#efe8da] px-3 py-2.5 font-semibold text-stone-900">
-                        {s.name}
-                      </td>
-                      <td className="border-t border-[#efe8da] px-3 py-2.5 text-stone-700">
-                        {m ? `${m.system} · ${m.component}` : "—"}
-                      </td>
-                      <td className="border-t border-[#efe8da] px-3 py-2.5 text-stone-600">
-                        {cadencePhrase(s.frequency, s.intervalDays) ?? "—"}
-                      </td>
-                      <td className="border-t border-[#efe8da] px-3 py-2.5 text-stone-700">
-                        {formatCalendarDate(s.nextDueDate, { month: "short", day: "numeric" })}
-                      </td>
-                      <td className="border-t border-[#efe8da] px-3 py-2.5">
-                        {card ? (
-                          <>
-                            <span
-                              className={
-                                due?.tone === "overdue"
-                                  ? "font-semibold text-rose-700"
-                                  : due?.tone === "soon"
-                                    ? "font-semibold text-amber-700"
-                                    : "text-stone-600"
-                              }
-                            >
-                              {due?.tone === "later"
-                                ? card.board === "CURRENT"
-                                  ? "Current"
-                                  : card.board === "ICEBOX"
-                                    ? "Icebox"
-                                    : "Backlog"
-                                : due?.text}
-                            </span>
-                            {" · "}
-                            <Link href="/tasks" className="text-green-800 underline">
-                              on Tasks ›
-                            </Link>
-                          </>
-                        ) : (
-                          <span className="text-stone-400">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <div className="text-[15px] font-semibold text-stone-900">{s.name}</div>
+                      <div className="mt-0.5 text-[13px] text-stone-500">{place}</div>
+                      <div className="mt-2 text-[13px] text-stone-600">↻ {every}</div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="mt-3.5 flex items-center gap-1.5 text-xs text-stone-500">
+            <span
+              aria-hidden
+              className="inline-block size-3 rounded border border-[#f3d79a] bg-[#fdf0d5]"
+            />
+            Tinted = has an open task on Tasks
+          </p>
+        </>
+      )}
+
+      {editing && (
+        <Modal title="Edit schedule" onClose={() => setEditing(null)}>
+          <ScheduleForm
+            key={editing.id}
+            componentId={editing.componentId}
+            initial={{
+              name: editing.name,
+              description: editing.description,
+              frequency: editing.frequency,
+              intervalDays: editing.intervalDays,
+              isRecurring: editing.isRecurring,
+              nextDueDate: editing.nextDueDate,
+            }}
+            busy={saving}
+            embedActions
+            formId="schedule-edit-form"
+            submitLabel="Save"
+            onCancel={() => setEditing(null)}
+            onSubmit={async (input) => {
+              setSaving(true);
+              try {
+                await maintenanceApi.updateSchedule(editing.id, input);
+                setEditing(null);
+                await load();
+              } finally {
+                setSaving(false);
+              }
+            }}
+          />
+        </Modal>
       )}
 
       {addOpen && (
