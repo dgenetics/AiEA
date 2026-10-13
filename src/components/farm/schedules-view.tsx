@@ -9,49 +9,61 @@ import { Button } from "@/components/farm/ui";
 import { maintenanceApi } from "@/lib/farm-api";
 import { scheduleCardFrequency } from "@/lib/chore-display";
 import type { ScheduleJson } from "@/lib/maintenance";
+import {
+  beginSchedulesFetch,
+  readSchedulesCache,
+  schedulesFetchIsCurrent,
+  writeSchedulesCache,
+  type CachedOpenCard,
+} from "@/lib/schedules-cache";
 
-type OpenCard = {
-  id: string;
-  scheduleId: string | null;
-  board: string | null;
-  dueAt: string | null;
-  status: string;
-};
+type OpenCard = CachedOpenCard;
 
 export function SchedulesView() {
   const { assets } = useData();
   const params = useSearchParams();
   const focusId = params.get("id");
   const openedFocus = useRef<string | null>(null);
-  const [schedules, setSchedules] = useState<ScheduleJson[]>([]);
-  const [openCards, setOpenCards] = useState<OpenCard[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [schedules, setSchedules] = useState<ScheduleJson[]>(
+    () => readSchedulesCache()?.schedules ?? [],
+  );
+  const [openCards, setOpenCards] = useState<OpenCard[]>(
+    () => readSchedulesCache()?.openCards ?? [],
+  );
+  const [loading, setLoading] = useState(() => readSchedulesCache() == null);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(params.get("add") === "1");
   const [editing, setEditing] = useState<ScheduleJson | null>(null);
   const [componentId, setComponentId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  async function load() {
-    setLoading(true);
+  async function load(background: boolean) {
+    const id = beginSchedulesFetch();
+    if (!background) setLoading(true);
     setError(null);
     try {
       const [rows, taskRes] = await Promise.all([
         maintenanceApi.listSchedules(),
         fetch("/api/tasks?view=board", { credentials: "include" }).then((r) => r.json()),
       ]);
-      setSchedules(rows);
+      if (!schedulesFetchIsCurrent(id)) return;
       const tasks = (taskRes.tasks ?? []) as OpenCard[];
-      setOpenCards(tasks.filter((t) => t.scheduleId));
+      const open = tasks.filter((t) => t.scheduleId);
+      writeSchedulesCache({ schedules: rows, openCards: open });
+      setSchedules(rows);
+      setOpenCards(open);
     } catch (e) {
+      if (!schedulesFetchIsCurrent(id)) return;
       setError(e instanceof Error ? e.message : "Could not load schedules");
     } finally {
-      setLoading(false);
+      if (schedulesFetchIsCurrent(id)) setLoading(false);
     }
   }
 
   useEffect(() => {
-    void load();
+    void load(readSchedulesCache() != null);
+    // Reload once per visit. A warm cache paints first; this refreshes it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -171,7 +183,7 @@ export function SchedulesView() {
               try {
                 await maintenanceApi.updateSchedule(editing.id, input);
                 setEditing(null);
-                await load();
+                await load(true);
               } finally {
                 setSaving(false);
               }
@@ -218,7 +230,7 @@ export function SchedulesView() {
                     await maintenanceApi.createSchedule(input);
                     setAddOpen(false);
                     setComponentId("");
-                    await load();
+                    await load(true);
                   } finally {
                     setSaving(false);
                   }
