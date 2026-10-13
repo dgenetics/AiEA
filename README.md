@@ -1,8 +1,8 @@
-# AiEA — AI Executive Assistant
+# Farm Manager
 
 A personal (and soon multi-user) operating system for **life, home, and work**.
 
-Capture messy notes. AiEA proposes structure — one-time vs recurring, priorities, deadlines, people follow-ups — **you confirm**. Then it surfaces a Today board, Daily Brief, and in-app pings so you stay ahead.
+Capture messy notes. Farm Manager proposes structure — one-time vs recurring, priorities, deadlines, people follow-ups — **you confirm**. Then it surfaces a Today board, Daily Brief, and in-app pings so you stay ahead.
 
 ## Stack
 

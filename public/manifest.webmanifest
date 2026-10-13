@@ -1,6 +1,6 @@
 {
   "name": "Farm Manager",
-  "short_name": "Farm",
+  "short_name": "Farm Manager",
   "description": "Systems, schedules, and tasks for the farm.",
   "start_url": "/tasks",
   "display": "standalone",

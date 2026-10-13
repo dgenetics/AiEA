@@ -41,10 +41,10 @@ export function LoginForm({ next }: { next: string | null }) {
       <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl backdrop-blur sm:p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white">
-            A
+            F
           </div>
           <h1 className="text-xl font-semibold text-white">Welcome back</h1>
-          <p className="mt-1 text-sm text-zinc-500">Sign in to your executive assistant</p>
+          <p className="mt-1 text-sm text-zinc-500">Sign in to Farm Manager</p>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
