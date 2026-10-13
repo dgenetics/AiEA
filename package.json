@@ -21,7 +21,8 @@
     "test:capture-mic": "tsx scripts/check-capture-mic.ts",
     "test:systems": "tsx scripts/check-systems.ts",
     "test:tasks-archive": "tsx scripts/check-tasks-archive.ts",
-    "test:tasks-cream": "tsx scripts/check-tasks-cream.ts"
+    "test:tasks-cream": "tsx scripts/check-tasks-cream.ts",
+    "test:account-menu": "tsx scripts/check-account-menu.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
