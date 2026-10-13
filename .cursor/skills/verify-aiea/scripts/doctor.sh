@@ -29,11 +29,12 @@ echo "repo_sha: $SHA"
 echo "package_version: $PKG_VERSION"
 
 # 1) Port / process answering
-code=$(curl -s -o /tmp/aiea-doctor-root.html -w '%{http_code}' --max-time 10 "$BASE/" || echo "000")
+code=$(curl -s -D /tmp/aiea-doctor-root.hdr -o /tmp/aiea-doctor-root.html -w '%{http_code}' --max-time 10 "$BASE/" || echo "000")
 echo "GET / -> $code"
-[[ "$code" == "200" ]] || { echo "FAIL: root not 200"; exit 1; }
-if ! grep -qiE 'AiEA|executive|Sign in|Get started' /tmp/aiea-doctor-root.html; then
-  echo "WARN: root HTML did not mention AiEA/Sign in (SPA shell may still be ok)"
+[[ "$code" == "308" ]] || { echo "FAIL: root must 308 to /tasks (got $code)"; exit 1; }
+if ! grep -qiE '^location: .*/tasks' /tmp/aiea-doctor-root.hdr; then
+  echo "FAIL: GET / Location is not /tasks"
+  exit 1
 fi
 
 # 2) Auth — wrong password rejected
@@ -126,7 +127,7 @@ fi
 cookie_path=$(awk -F '\t' '$6 == "aiea_session" { print $3; exit }' "$jar")
 echo "aiea_session path: ${cookie_path:-missing}"
 if [[ "$cookie_path" != "/" ]]; then
-  echo "FAIL: aiea_session must be Path=/ so /maintenance receives it (got '${cookie_path:-missing}')"
+  echo "FAIL: aiea_session must be Path=/ so every tab receives it (got '${cookie_path:-missing}')"
   rm -f "$jar"
   exit 1
 fi
@@ -205,11 +206,11 @@ else:
     print(f"tasks_keys: {sorted(data.keys())[:12]}")
 PY
 
-# 6) Capture page reachable
-cap=$(curl -s -b "$jar" -o /tmp/aiea-doctor-capture.html -w '%{http_code}' --max-time 15 \
+# 6) Standalone capture page redirects onto the Tasks board
+cap=$(curl -s -b "$jar" -o /dev/null -w '%{http_code}' --max-time 15 \
   "$BASE/capture" || echo "000")
 echo "GET /capture -> $cap"
-[[ "$cap" == "200" ]] || { echo "FAIL: /capture"; rm -f "$jar"; exit 1; }
+[[ "$cap" == "308" ]] || { echo "FAIL: /capture must 308 to /tasks (got $cap)"; rm -f "$jar"; exit 1; }
 
 # 7) Local: GET /api/session returns this user, then logout deletes that one row.
 if is_local_base "$BASE"; then

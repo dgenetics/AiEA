@@ -1,68 +1,96 @@
 /**
- * Schema for durable Turso is applied offline via:
- *   npm run db:push:turso
- * Local SQLite uses prisma migrate / db push against DATABASE_URL.
+ * Cold-start schema heal.
+ * Local SQLite is usually created with `prisma db push`.
+ * Turso production is migrated by this hook when a deploy has not run
+ * `scripts/push-turso-schema.mjs` yet.
  *
- * Cold-start also self-heals critical columns that Vercel builds do not migrate
- * (build = `prisma generate && next build` only).
+ * The farm migration SQL copies every Task row. It runs only when Task
+ * still lacks scheduleId, so a second boot does not rebuild the table.
  */
+import fs from "node:fs";
+import path from "node:path";
 
-let tursoEnsurePromise: Promise<void> | null = null;
+let ensurePromise: Promise<void> | null = null;
 
 export function ensureSqliteSchema(_dbPath?: string) {
   void _dbPath;
-  // no-op — kept so old imports do not break
 }
 
-/** Idempotent: ensure Task.board (+ index) exists on Turso. No-op without TURSO_DATABASE_URL. */
-export function ensureTursoSchema(): Promise<void> {
-  if (!process.env.TURSO_DATABASE_URL?.trim()) return Promise.resolve();
-  if (!tursoEnsurePromise) {
-    tursoEnsurePromise = ensureTursoSchemaInner().catch((err) => {
-      tursoEnsurePromise = null;
+export function ensureAppSchema(): Promise<void> {
+  if (!ensurePromise) {
+    ensurePromise = ensureAppSchemaInner().catch((err) => {
+      ensurePromise = null;
       throw err;
     });
   }
-  return tursoEnsurePromise;
+  return ensurePromise;
 }
 
-async function ensureTursoSchemaInner() {
-  const url = process.env.TURSO_DATABASE_URL!.trim();
-  const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
-  const { createClient } = await import("@libsql/client");
-  const client = createClient({ url, authToken });
+/** @deprecated use ensureAppSchema */
+export function ensureTursoSchema(): Promise<void> {
+  return ensureAppSchema();
+}
 
-  try {
-    const cols = await client.execute(`PRAGMA table_info("Task")`);
-    const names = new Set(cols.rows.map((r) => String(r.name)));
-    if (names.has("board")) return;
+function statementsFrom(sql: string): string[] {
+  const cleaned = sql
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("--"))
+    .join("\n");
+  return cleaned
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
-    console.warn(
-      "[ensure-schema] Task.board missing on Turso — applying board migration",
-    );
+async function ensureAppSchemaInner() {
+  const { prisma } = await import("@/lib/db");
 
-    await client.execute(
+  const taskTables = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='Task'",
+  );
+  if (taskTables.length === 0) return;
+
+  const cols = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+    `PRAGMA table_info("Task")`,
+  );
+  const names = new Set(cols.map((c) => c.name));
+
+  if (!names.has("board")) {
+    await prisma.$executeRawUnsafe(
       `ALTER TABLE "Task" ADD COLUMN "board" TEXT NOT NULL DEFAULT 'BACKLOG'`,
     );
-    await client.execute(
+    await prisma.$executeRawUnsafe(
       `UPDATE "Task" SET "board" = 'CURRENT' WHERE "priority" IS NOT NULL AND "priority" <= 2`,
     );
-    await client.execute(
+    await prisma.$executeRawUnsafe(
       `UPDATE "Task" SET "board" = 'ICEBOX' WHERE "priority" IS NOT NULL AND "priority" >= 4`,
     );
-    await client.execute(
-      `UPDATE "Task" SET "board" = 'BACKLOG' WHERE "priority" IS NULL OR ("priority" > 2 AND "priority" < 4)`,
-    );
+  }
 
-    try {
-      await client.execute(
-        `CREATE INDEX "Task_workspaceId_board_idx" ON "Task"("workspaceId", "board")`,
-      );
-    } catch (e) {
-      const msg = String((e as Error)?.message || e);
-      if (!/already exists/i.test(msg)) throw e;
+  if (!names.has("scheduleId")) {
+    const sqlPath = path.join(
+      process.cwd(),
+      "prisma/migrations/20261013140000_farm_manager/migration.sql",
+    );
+    if (fs.existsSync(sqlPath)) {
+      const sql = fs.readFileSync(sqlPath, "utf8");
+      for (const statement of statementsFrom(sql)) {
+        await prisma.$executeRawUnsafe(statement);
+      }
     }
-  } finally {
-    client.close();
+  } else {
+    await prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "Task_one_open_per_schedule" ON "Task"("scheduleId") WHERE "scheduleId" IS NOT NULL AND "status" IN ('ACTIVE', 'INBOX', 'SNOOZED')`,
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Task" SET "status" = 'ACTIVE' WHERE "status" IN ('PROPOSED', 'INBOX')`,
+    );
+  }
+
+  try {
+    const { importBfMaintenance } = await import("@/lib/import-bf-data");
+    await importBfMaintenance();
+  } catch (err) {
+    console.error("[ensure-schema] bf import failed:", err);
   }
 }

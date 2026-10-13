@@ -15,15 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AiEA — AI Executive Assistant",
-  description:
-    "Capture, organize, prioritize, and get pings for life, home, and work — with AI that proposes and you confirm.",
-  applicationName: "AiEA",
+  title: "Farm Manager",
+  description: "Systems, schedules, and tasks for the farm. Capture a line and it lands on the board.",
+  applicationName: "Farm Manager",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "AiEA",
+    title: "Farm Manager",
   },
 };
 

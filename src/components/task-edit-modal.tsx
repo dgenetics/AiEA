@@ -36,7 +36,6 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
   );
   const [dueAt, setDueAt] = useState(toDateInput(task.dueAt));
   const [notes, setNotes] = useState(task.notes ?? "");
-  const [isFollowUp, setIsFollowUp] = useState(Boolean(task.isFollowUp));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +81,6 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
     setBoard(laneOf(task));
     setDueAt(toDateInput(task.dueAt));
     setNotes(task.notes ?? "");
-    setIsFollowUp(Boolean(task.isFollowUp));
     setError(null);
     setNewSubTitle("");
     setNewSubDue("");
@@ -104,8 +102,6 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
           board,
           dueAt: dueAt ? toStoredDueDate(dueAt) : null,
           notes: notes.trim() || null,
-          isFollowUp,
-          trainAi: true,
         }),
       });
       const raw = await res.text();
@@ -151,7 +147,6 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
           title: newSubTitle.trim(),
           parentId: task.id,
           dueAt: newSubDue ? toStoredDueDate(newSubDue) : null,
-          areaId: task.area?.id ?? null,
           board,
         }),
       });
@@ -261,15 +256,19 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
               <DateField value={dueAt} onChange={setDueAt} />
             </label>
 
-            <label className="flex min-w-0 items-center gap-2 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                checked={isFollowUp}
-                onChange={(e) => setIsFollowUp(e.target.checked)}
-                className="shrink-0 rounded border-white/20"
-              />
-              People follow-up
-            </label>
+            {task.boardReason ? (
+              <p className="text-[11px] text-zinc-500" title={task.boardReason}>
+                AI: {task.boardReason}
+              </p>
+            ) : null}
+            {task.scheduleId ? (
+              <a
+                href={`/schedules?id=${task.scheduleId}`}
+                className="text-[12px] text-emerald-300 underline"
+              >
+                Schedule ›
+              </a>
+            ) : null}
 
             <label className="block min-w-0">
               <span className="mb-1 block text-xs text-zinc-400">Notes</span>

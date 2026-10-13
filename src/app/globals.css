@@ -10,6 +10,34 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-forest-950: #1a2e26;
+  --color-forest-900: #2d4a3e;
+  --color-forest-800: #3a5c4d;
+  --color-forest-700: #4a705e;
+  --color-forest-600: #5a8570;
+  --color-forest-100: #e8f0eb;
+  --color-forest-50: #f2f7f4;
+  --color-cream-50: #fdfbf7;
+  --color-cream-100: #f7f3eb;
+  --color-cream-200: #ebe4d6;
+  --color-cream-300: #d9cfb8;
+  --color-ink: #1c1917;
+  --color-muted: #78716c;
+}
+
+@keyframes task-flash {
+  0% {
+    box-shadow: 0 0 0 2px rgba(165, 180, 252, 0.95);
+    background-color: rgba(99, 102, 241, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.task-flash {
+  animation: task-flash 3s ease-out;
 }
 
 html {

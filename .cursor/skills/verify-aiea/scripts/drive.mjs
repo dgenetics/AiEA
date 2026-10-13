@@ -161,45 +161,25 @@ async function driveCaptureAccept(page, out) {
   const steps = [];
   await ensureSignedIn(page, out);
 
-  await page.goto("/capture", { waitUntil: "networkidle" });
-  await page
-    .getByRole("heading", { name: /Brain dump/i })
-    .waitFor({ timeout: 20000 });
+  await page.goto("/tasks", { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Tasks", level: 1 }).waitFor({ timeout: 20000 });
+  const box = page.getByPlaceholder(/Type or talk/i);
+  await box.waitFor({ timeout: 10000 });
   await screenshot(page, join(out, "capture-empty.png"));
   await ariaDump(page, join(out, "capture-empty.aria.txt"));
-  steps.push("capture page: Brain dump heading visible");
+  steps.push("tasks: Type or talk field visible on the board");
 
   const marker = `Verify capture ${Date.now()}`;
-  const dump = `${marker}: call the plumber about the kitchen leak by Friday`;
-  await page.locator("textarea").first().fill(dump);
-  await page.getByRole("button", { name: "Organize with AI" }).click();
-  await page
-    .getByRole("heading", { name: /Review & edit before accept/i })
-    .waitFor({ timeout: 60000 });
+  const dump = `${marker} call the plumber about the kitchen leak`;
+  await box.fill(dump);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByText(/Added \d+/).waitFor({ timeout: 60000 });
   await screenshot(page, join(out, "capture-proposed.png"));
-  await ariaDump(page, join(out, "capture-proposed.aria.txt"));
-  steps.push("propose: Review & edit before accept visible");
+  steps.push("add: tasks created immediately (no review step)");
 
-  const acceptBtn = page.getByRole("button", { name: /Accept \d+ item/i }).first();
-  await acceptBtn.waitFor({ timeout: 10000 });
-  await acceptBtn.click();
-  await page.waitForURL(/\/tasks(\?|$)/, { timeout: 30000 });
-  // Task title may be AI-rewritten; marker string or plumber keyword should appear.
-  const todayBody = page.locator("body");
-  await todayBody.waitFor({ timeout: 10000 });
-  const text = await todayBody.innerText();
-  const seen =
-    text.includes(marker) ||
-    /plumber/i.test(text) ||
-    /kitchen leak/i.test(text);
-  if (!seen) {
-    await page.getByRole("heading", { name: "Tasks" }).first().waitFor({ timeout: 10000 });
-    steps.push(
-      "accept: landed on Tasks board (task title rewritten; board chrome present)",
-    );
-  } else {
-    steps.push("accept: landed on Tasks board with capture content visible");
-  }
+  const body = page.locator("body");
+  await body.getByText(/plumber|kitchen leak|Verify capture/i).first().waitFor({ timeout: 20000 });
+  steps.push("board: capture content is visible as an active task");
   await screenshot(page, join(out, "capture-accepted-board.png"));
   await ariaDump(page, join(out, "capture-accepted-board.aria.txt"));
   return { steps, status: "pass" };
@@ -239,9 +219,13 @@ async function driveTasksBoard(page, out) {
     }
   }
   steps.push("redirect: /today and /upcoming land on /tasks");
-  await page.getByRole("link", { name: /Capture/i }).first().waitFor({
-    timeout: 10000,
-  });
+  await page.getByPlaceholder(/Type or talk/i).waitFor({ timeout: 10000 });
+  for (const name of ["Systems", "Schedules", "Tasks"]) {
+    await page.getByRole("link", { name, exact: true }).first().waitFor({ timeout: 5000 });
+  }
+  if (await page.getByRole("link", { name: "Inbox", exact: true }).count()) {
+    throw new Error("nav still has an Inbox link");
+  }
   await screenshot(page, join(out, "tasks-board.png"));
   await ariaDump(page, join(out, "tasks-board.aria.txt"));
   return { steps, status: "pass" };
@@ -250,39 +234,19 @@ async function driveTasksBoard(page, out) {
 async function driveBoardLanes(page, out) {
   const steps = [];
   await ensureSignedIn(page, out);
-  await page.goto("/capture", { waitUntil: "networkidle" });
-  const dump = `Board lane check ${Date.now()}: buy mulch for the garden beds`;
-  await page.locator("textarea").first().fill(dump);
-  await page.getByRole("button", { name: "Organize with AI" }).click();
-  await page
-    .getByRole("heading", { name: /Review & edit before accept/i })
-    .waitFor({ timeout: 60000 });
-
-  const laneGroup = page.getByRole("group", { name: "Board lane" }).first();
-  await laneGroup.waitFor({ timeout: 15000 });
-  for (const name of ["Icebox", "Backlog", "Current"]) {
-    await laneGroup.getByRole("button", { name, exact: true }).waitFor({
-      timeout: 5000,
-    });
-  }
-  steps.push("board picker: Icebox | Backlog | Current buttons present");
+  await page.goto("/tasks", { waitUntil: "networkidle" });
+  const marker = `Lane check ${Date.now()}`;
+  const dump = `${marker} call plumber asap`;
+  await page.getByPlaceholder(/Type or talk/i).fill(dump);
   await screenshot(page, join(out, "board-lanes-picker.png"));
-  await ariaDump(page, join(out, "board-lanes-picker.aria.txt"));
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByText(/Added \d+/).waitFor({ timeout: 60000 });
+  steps.push("capture: asap phrasing parsed without a review picker");
 
-  await laneGroup.getByRole("button", { name: "Current", exact: true }).click();
-  steps.push("selected Current lane on proposal");
-  await page.getByRole("button", { name: /Accept \d+ item/i }).first().click();
-  await page.waitForURL(/\/tasks(\?|$)/, { timeout: 30000 });
-  // Accepted card renders in the Current column (desktop layout)
   const current = page.locator('[data-board-layout="columns"] section[data-lane="CURRENT"]');
   await current.waitFor({ timeout: 10000 });
-  if (await current.getByText(/mulch|garden/i).count()) {
-    steps.push("board: accepted task renders in the Current column");
-  } else {
-    // Title may be AI-rewritten; the Current column must still hold a card.
-    await current.locator("[data-task-id]").first().waitFor({ timeout: 10000 });
-    steps.push("board: Current column has the accepted card (title rewritten)");
-  }
+  await current.getByText(/plumber|Lane check/i).first().waitFor({ timeout: 15000 });
+  steps.push("board: asap task renders in the Current column");
   await screenshot(page, join(out, "board-lanes-board.png"));
   await ariaDump(page, join(out, "board-lanes-board.aria.txt"));
   return { steps, status: "pass" };
@@ -290,78 +254,59 @@ async function driveBoardLanes(page, out) {
 
 async function driveBfSync(page, out) {
   const steps = [];
-  const bfUrl = (process.env.BF_MAINTENANCE_URL || "").trim();
-  const bfSecret = (process.env.BF_INTEGRATION_SECRET || "").trim();
-  if (!bfUrl || !bfSecret) {
-    const reason =
-      "BF_MAINTENANCE_URL and/or BF_INTEGRATION_SECRET not set — skipping BF sync (not a fake green)";
-    steps.push(`SKIP: ${reason}`);
-    writeFileSync(
-      join(out, "bf-sync-skipped.txt"),
-      reason + "\n",
-      "utf8",
-    );
-    return { steps, status: "skipped", skipReason: reason };
-  }
-
   await ensureSignedIn(page, out);
-  await page.goto("/inbox", { waitUntil: "networkidle" });
-  await page
-    .getByRole("heading", { name: /Review & accept/i })
-    .waitFor({ timeout: 20000 });
-  await screenshot(page, join(out, "bf-sync-inbox.png"));
-  steps.push("inbox: Review & accept visible");
-
-  const pullBtn = page.getByRole("button", {
-    name: /Pull farm maintenance/i,
-  });
-  await pullBtn.waitFor({ timeout: 15000 });
-  await pullBtn.click();
-
-  // Wait for either suggestion UI or an honest error (connection / secret).
-  const deadline = Date.now() + 45000;
-  let outcome = null;
-  while (Date.now() < deadline) {
-    const body = await page.locator("body").innerText();
-    if (/cannot reach|unavailable|not set|rejected|Open Account/i.test(body)) {
-      outcome = "error";
-      break;
-    }
-    if (
-      /Import selected|suggestion|already imported|No open|Farm maintenance/i.test(
-        body,
-      ) &&
-      (await page
-        .locator("text=/Import|suggestion|already imported|selected/i")
-        .count()) > 0
-    ) {
-      outcome = "ui";
-      break;
-    }
-    // Dialog / modal may show count
-    if (await page.getByText(/suggestion/i).count()) {
-      outcome = "ui";
-      break;
-    }
-    await page.waitForTimeout(500);
+  const marker = `Oil change ${Date.now()}`;
+  async function authed(path, body) {
+    return page.evaluate(
+      async ({ path, body }) => {
+        const res = await fetch(path, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const text = await res.text();
+        return { status: res.status, text };
+      },
+      { path, body },
+    );
   }
+  const created = await authed("/api/systems", {
+    name: "Tractor",
+    category: "Farm Equipment",
+    components: [{ name: "Engine" }],
+  });
+  if (created.status !== 201 && created.status !== 200) {
+    throw new Error(`create system failed ${created.status}: ${created.text}`);
+  }
+  const system = JSON.parse(created.text);
+  const componentId = system.components?.[0]?.id;
+  if (!componentId) throw new Error("system response missing component id");
+  const schedule = await authed("/api/schedules", {
+    componentId,
+    name: marker,
+    frequency: "every 90 days",
+    intervalDays: 90,
+    isRecurring: true,
+    nextDueDate: new Date().toISOString(),
+  });
+  if (schedule.status !== 201 && schedule.status !== 200) {
+    throw new Error(`create schedule failed ${schedule.status}: ${schedule.text}`);
+  }
+  steps.push("schedule: created a recurring chore on a component");
 
+  await page.goto("/tasks", { waitUntil: "networkidle" });
+  const current = page.locator('[data-board-layout="columns"] section[data-lane="CURRENT"]');
+  await current.getByText(marker).waitFor({ timeout: 20000 });
+  steps.push("tasks: overdue-or-today schedule card is an ordinary Current task");
+  await screenshot(page, join(out, "bf-sync-inbox.png"));
+
+  await page.goto("/schedules", { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Schedules", level: 1 }).waitFor({ timeout: 15000 });
+  await page.getByText(marker).waitFor({ timeout: 15000 });
+  steps.push("schedules: the same schedule is listed with its open card");
   await screenshot(page, join(out, "bf-sync-after-pull.png"));
   await ariaDump(page, join(out, "bf-sync-after-pull.aria.txt"));
-
-  if (outcome === "error") {
-    const reason =
-      "BF pull returned connection/config error — env present but BF unreachable; not claiming happy path";
-    steps.push(`SKIP happy-path: ${reason}`);
-    writeFileSync(join(out, "bf-sync-skipped.txt"), reason + "\n");
-    return { steps, status: "skipped", skipReason: reason };
-  }
-  if (!outcome) {
-    throw new Error(
-      "BF pull: no suggestion UI and no clear error within timeout",
-    );
-  }
-  steps.push("bf pull: suggestion / import UI appeared (happy path)");
   return { steps, status: "pass" };
 }
 
@@ -393,12 +338,10 @@ async function driveLiveSmoke(page, out) {
   }
   await page.getByRole("heading", { name: "Tasks" }).first().waitFor({ timeout: 10000 });
   steps.push(`post-auth: Tasks heading visible on live ${new URL(page.url()).pathname}`);
-  await page.getByRole("link", { name: /Capture/i }).first().waitFor({
-    timeout: 10000,
-  });
+  await page.getByPlaceholder(/Type or talk/i).waitFor({ timeout: 10000 });
   await screenshot(page, join(out, "live-smoke-home.png"));
   await ariaDump(page, join(out, "live-smoke-home.aria.txt"));
-  steps.push("post-auth: live home chrome + Capture link (smoke path)");
+  steps.push("post-auth: live Tasks board with the capture field");
   return { steps, status: "pass" };
 }
 

@@ -83,10 +83,8 @@ node --env-file=.env.vercel scripts/push-turso-schema.mjs
 | `XAI_BASE_URL` | Optional API base (default `https://api.x.ai/v1`) |
 | `AIEA_TIMEZONE` | Optional IANA tz for AI date reasoning (e.g. `America/New_York`) |
 | `AUTH_SECRET` | Session hardening (change in prod) |
-| `CRON_SECRET` | Auth for cron jobs including `/api/cron/bf-maintenance-pull` (daily 12:00 UTC) |
-| `BF_MAINTENANCE_URL` | BF Maintenance base URL (server) |
-| `BF_INTEGRATION_SECRET` | Shared secret with BF Maintenance (inbound + outbound) |
-| `NEXT_PUBLIC_BF_MAINTENANCE_URL` | Optional public BF URL |
+| `CRON_SECRET` | Auth for `/api/cron/materialize-schedules` (daily 12:00 UTC) |
+| `BF_SOURCE_DATABASE_URL` | Optional existing bf-maintenance database to copy in once |
 
 ### Wire SpaceXAI
 
@@ -98,17 +96,15 @@ XAI_API_KEY="xai-..."
 ```
 
 3. Restart the dev server (`npm run dev`) so Next.js reloads env.
-4. In the app header, the badge should show **SpaceXAI · grok-4.5**.
-5. Optional live check (while logged in): `GET /api/ai/status?ping=1`
+4. Optional live check (while logged in): `GET /api/ai/status?ping=1`
 
-Without a key, Capture still works via local heuristics (amber badge / “Local heuristics” label).
+Without a key, Capture still works via local heuristics.
 
 ### AI behavior
 
-- **Capture** uses structured JSON outputs + Zod validation (strict schema).
-- **Daily Brief** polishes summary/tips with the same pipeline.
+- **Capture** uses structured JSON outputs + Zod validation (strict schema) and creates tasks immediately.
 - Prompts include clock context (timezone, today, EOM) so deadlines stay grounded.
-- On any AI failure, the app falls back to heuristics and surfaces the reason.
+- On any AI failure, the app falls back to heuristics. The field also offers Retry and Save as one task.
 
 ## Roadmap (post-MVP)
 

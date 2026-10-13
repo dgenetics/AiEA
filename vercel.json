@@ -6,7 +6,7 @@
   "regions": ["iad1"],
   "crons": [
     {
-      "path": "/api/cron/bf-maintenance-pull",
+      "path": "/api/cron/materialize-schedules",
       "schedule": "0 12 * * *"
     }
   ]

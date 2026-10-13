@@ -13,11 +13,13 @@ type RawTask = {
   kind?: string;
   estimateMinutes?: number | null;
   aiRationale?: string | null;
+  boardReason?: string | null;
   parentId?: string | null;
   externalSource?: string | null;
   externalId?: string | null;
-  area?: { id?: string; name: string; color: string; slug: string } | null;
-  person?: { name: string } | null;
+  scheduleId?: string | null;
+  schedule?: { frequency?: string | null; intervalDays?: number | null } | null;
+  component?: { name: string; system?: { name: string } | null } | null;
   parent?: { id: string; title: string } | null;
   children?: Array<{
     id: string;
@@ -55,10 +57,7 @@ export function toTaskRow(
       priority: c.priority,
       dueAt: iso(c.dueAt),
       status: c.status,
-      isFollowUp: c.isFollowUp,
       kind: c.kind,
-      area: c.area,
-      person: c.person,
       parentId: t.id,
       parentTitle: t.title,
     }));
@@ -74,14 +73,15 @@ export function toTaskRow(
     priority: t.priority,
     dueAt: iso(t.dueAt),
     status: t.status,
-    isFollowUp: t.isFollowUp,
     kind: t.kind,
     estimateMinutes: t.estimateMinutes,
     aiRationale: t.aiRationale,
+    boardReason: t.boardReason ?? null,
     externalSource: t.externalSource ?? null,
     externalId: t.externalId ?? null,
-    area: t.area,
-    person: t.person,
+    scheduleId: t.scheduleId ?? null,
+    schedule: t.schedule ?? null,
+    component: t.component ?? null,
     parentId: t.parentId,
     parentTitle: t.parent?.title,
     children,

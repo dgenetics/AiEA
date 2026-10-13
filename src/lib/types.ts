@@ -1,32 +1,11 @@
 import type { BoardLane } from "@/lib/board";
 
 export type TaskKind = "ONE_TIME" | "RECURRING_TEMPLATE" | "OCCURRENCE";
-export type TaskStatus =
-  | "INBOX"
-  | "PROPOSED"
-  | "ACTIVE"
-  | "DONE"
-  | "CANCELLED"
-  | "SNOOZED";
+export type TaskStatus = "ACTIVE" | "DONE" | "CANCELLED" | "SNOOZED" | "INBOX";
 
 export type { BoardLane };
 
-export type CaptureStatus =
-  | "PENDING"
-  | "PROPOSED"
-  | "PARTIALLY_ACCEPTED"
-  | "ACCEPTED"
-  | "DISMISSED";
-
-export type RecurrenceRule = {
-  frequency: "daily" | "weekly" | "monthly" | "custom";
-  interval: number;
-  byWeekday?: number[]; // 0=Sun … 6=Sat
-  /** Primary / first slot (HH:mm). Prefer `times` when multi-slot. */
-  time?: string;
-  /** Legacy multi-slot times (no longer rendered or materialized in AiEA). */
-  times?: string[];
-};
+export type CaptureStatus = "ACCEPTED" | "UNDONE";
 
 /** Child part created under a parent task (own due date). */
 export type ProposedSubtask = {
@@ -35,44 +14,17 @@ export type ProposedSubtask = {
   notes?: string;
 };
 
+/** One task the capture parser will create as ACTIVE. */
 export type ProposedItem = {
   id: string;
   title: string;
   notes?: string;
-  kind: TaskKind;
-  areaSlug?: "work" | "life" | string;
-  /** User-facing lane */
-  board?: BoardLane;
-  /** @deprecated Prefer board; kept for old payloads / dual-write */
+  kind: "ONE_TIME";
+  board: BoardLane;
+  boardReason?: string;
+  /** @deprecated Prefer board; kept for dual-write */
   priority?: 1 | 2 | 3 | 4 | 5;
-  dueAt?: string | null; // ISO
-  scheduledFor?: string | null;
-  estimateMinutes?: number | null;
-  recurrenceRule?: RecurrenceRule | null;
-  isFollowUp?: boolean;
-  personName?: string | null;
-  followUpDueAt?: string | null;
+  dueAt?: string | null;
   aiRationale?: string;
-  /** Parts to create as child tasks with their own due dates */
   subtasks?: ProposedSubtask[];
-  accepted?: boolean;
-  dismissed?: boolean;
-};
-
-export type DailyBrief = {
-  generatedAt: string;
-  greeting: string;
-  summary: string;
-  topPriorities: Array<{
-    id: string;
-    title: string;
-    reason: string;
-    /** @deprecated Prefer board */
-    priority: number | null;
-    board?: BoardLane;
-  }>;
-  followUps: Array<{ id: string; title: string; personName: string; dueLabel: string }>;
-  recurringDue: Array<{ id: string; title: string }>;
-  overdue: Array<{ id: string; title: string; dueLabel: string }>;
-  tips: string[];
 };

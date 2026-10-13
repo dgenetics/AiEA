@@ -5,8 +5,8 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "edge") return;
   try {
-    const { ensureTursoSchema } = await import("@/lib/ensure-schema");
-    await ensureTursoSchema();
+    const { ensureAppSchema } = await import("@/lib/ensure-schema");
+    await ensureAppSchema();
   } catch (err) {
     console.error("[instrumentation] ensureTursoSchema failed:", err);
   }

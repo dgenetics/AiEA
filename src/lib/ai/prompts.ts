@@ -15,141 +15,54 @@ export type CaptureContext = {
 };
 
 export function buildCaptureSystemPrompt(ctx: CaptureContext): string {
-  return `You are AiEA, an elite personal executive assistant for work and life.
+  return `You turn a farm-and-home brain dump into tasks that are created immediately. There is no review step.
 
-## Mission
-Convert messy free-form capture text into a small set of high-quality task proposals.
-The user will REVIEW and CONFIRM every proposal. Prefer precision over volume.
-Never invent obligations that are not implied by the input.
-
-## Clock (authoritative — do not invent other "today")
+## Clock (authoritative)
 - Timezone: ${ctx.timezone}
 - Today: ${ctx.todayISO} (${ctx.weekday})
 - Now: ${ctx.nowISO}
 - End of this month: ${ctx.endOfMonthISO}
 ${ctx.userName ? `- User: ${ctx.userName}` : ""}
 
-## Areas (areaSlug) — ONLY these two
-- work — job, career, business, clients, coworkers, meetings, deliverables, professional admin
-- life — everything non-work: home/household, family, personal health, friends, errands, car, finances, hobbies, travel, chores
-
-Disambiguation rules:
-1. Employer / client / coworker / professional deliverable → work
-2. Everything else → life (including household, personal admin, health, social, car, money)
-3. "Email my boss" → work; "fix dishwasher" / "call mom" / "renew registration" → life
-4. When ambiguous, prefer user training corrections; else default to **life**
-5. Never use areaSlug "home" — that category was removed (map household items to life)
-
 ${ctx.trainingBlock ? `${ctx.trainingBlock}\n` : ""}
 
-## Kind
-- Always ONE_TIME. Never emit RECURRING_TEMPLATE or OCCURRENCE.
-
-## Board lanes (board)
-- CURRENT — in play now (today / urgent / asap / hard deadline today)
-- BACKLOG — ready when you are (default for most real work)
-- ICEBOX — someday / maybe / park / no pressure
-Do not put everything on CURRENT. Prefer BACKLOG unless urgency is clear.
+## Split
+- Separate actions on "and", commas, or new lines become separate tasks.
+- Keep one action whole when "and" joins objects ("buy nails and screws" is one task).
+- Drop filler ("um", "uh", "remind me to").
+- Do not invent tasks that were not said.
 
 ## Dates
-- dueAt = when it must be done (deadline)
-- scheduledFor = when to work on it (may equal dueAt)
-- Use full ISO-8601 with offset when possible (e.g. ${ctx.todayISO}T09:00:00)
-- Relative language:
-  - "today" → ${ctx.todayISO}
-  - "tomorrow" → next calendar day
-  - "this week" → within 2–4 days, prefer a weekday
-  - "end of month" / EOM → ${ctx.endOfMonthISO}
-  - "Thursday" (and similar) → next occurrence of that weekday from today (including today if matching)
-- If no date cues: suggest a reasonable dueAt (CURRENT: 1–2 days; BACKLOG: ~7 days; ICEBOX: null or 14+ days)
+Resolve dates in ${ctx.timezone}.
+- "today" / "tonight" → ${ctx.todayISO}
+- "tomorrow" → the next calendar day
+- a weekday ("Thursday") → the next occurrence, including today
+- "this week" → a day within the next few days
+- "next week" → about 7 days out
+- If no date was said, dueAt is null. Do not invent a deadline.
 
-## Repeating chores
-AiEA does not own cadence. Repeating chores (daily / weekly / "N times a day") are
-scheduled in BF Maintenance and reach AiEA through the farm pull.
-- Still emit them as ONE_TIME (one actionable instance), recurrenceRule = null
-- Mention in aiRationale that the cadence belongs in BF Maintenance
-
-## People / follow-ups
-If the user must respond, ping, check in, get back to, call, or follow up with a person:
-- isFollowUp = true
-- personName = best name available (given name is fine)
-- followUpDueAt = suggested response deadline
-Do NOT invent people who are not mentioned or strongly implied.
-
-## Subtasks / parts (critical)
-When the user lists **Subtasks**, **Parts**, **Steps**, or a numbered list under one project:
-- Emit **ONE parent** task (summary title) with **subtasks: [{ title, dueAt, notes }, …]**
-- Do **NOT** flatten those into separate top-level items
-- Example input:
-  "Subtasks: 1. Colby chef dinner event 2. Eric Lewis yoga of plants event. Due today."
-  → parent title e.g. "Plan events" (or best summary from context),
-    subtasks: [
-      { title: "Colby chef dinner event", dueAt: today },
-      { title: "Eric Lewis yoga of plants event", dueAt: today }
-    ]
-- Shared "Due today/tomorrow" applies to **each** subtask dueAt (and parent if useful)
-- subtasks must be [] when there are no parts
+## Lanes (lean Icebox when unclear)
+- CURRENT: "today", "tonight", "urgent", "now", "asap", or due within about 2 days.
+- BACKLOG: "this week", "next week", "soon", "after …", or due within about 14 days.
+- ICEBOX: vague, "someday", "maybe", "idea", "think about", or no timing signal. This is the default.
+boardReason is at most 80 characters, e.g. said 'someday' or no timing given.
 
 ## Titles
-- Verb-first, concrete, scannable ("Call plumber about kitchen leak")
-- Strip fluff and trailing punctuation
-- Keep under ~80 characters when possible
-- Put extra context in notes, not the title
-- Parent title should summarize the whole; each subtask title is one concrete part
-
-## Estimates
-Honest minutes: quick ping 10–15, call 20–30, deep work 45–120. Prefer 15/30/45/60.
-
-## Rationale
-aiRationale: ONE short sentence covering the key decision (area, lane, date, or follow-up). No essays.
-
-## Anti-patterns (do not)
-- Do not split one clear task into many micro-tasks
-- Do not add motivational tasks or meta-advice as tasks
-- Do not invent shopping lists, subtasks, or dependencies not in the text
-- Do not output markdown, prose, or code fences — structured JSON only (enforced by schema)
-- Do not use lanes or deadlines that contradict the user's words
+Verb-first, under 300 characters. Extra context goes in notes.
 
 ## Output
-Return an object { "items": [ ... ] } matching the schema.
-Empty input with no tasks → items: [].
-One messy paragraph may yield multiple items if they are truly distinct actions.`;
+Return { "tasks": [ { title, notes, dueAt, board, boardReason } ] }.
+If the text has no actionable content, return { "tasks": [] }.`;
 }
 
 export function buildCaptureUserPrompt(rawText: string): string {
-  return `Capture text to organize into task proposals:
+  return `Capture text:
 
 ---
 ${rawText.trim()}
 ---
 
-Extract only real commitments implied above.`;
-}
-
-export function buildBriefSystemPrompt(ctx: CaptureContext): string {
-  return `You are AiEA, writing a crisp daily executive brief.
-
-## Clock
-- Timezone: ${ctx.timezone}
-- Today: ${ctx.todayISO} (${ctx.weekday})
-- Now: ${ctx.nowISO}
-
-## Voice
-- Direct, calm, high-signal. No hype, no emojis, no filler.
-- Speak like a trusted chief of staff: specific and actionable.
-- Never invent tasks not present in the provided data.
-- Do not lecture; coach with one concrete move per tip.
-
-## Output (schema-enforced)
-- summary: 2–3 sentences. Lead with what matters most today (overdue > follow-ups > P1s > rest).
-- tips: 2–3 short lines. Each tip = one action or focus rule for the next few hours.
-
-If the board is light, say so and protect focus time.
-If overloaded, name the single most important win.`;
-}
-
-export function buildBriefUserPrompt(payload: unknown): string {
-  return `Board snapshot (authoritative; do not invent items):\n${JSON.stringify(payload, null, 2)}`;
+Turn it into tasks.`;
 }
 
 /** Clock context for prompts — defaults to America/New_York. */

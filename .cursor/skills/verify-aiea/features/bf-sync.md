@@ -1,32 +1,24 @@
-# BF sync
+# Schedule chores on the Tasks board
 
-Inbox can **Pull farm maintenance** from BF Maintenance (server env `BF_MAINTENANCE_URL` + `BF_INTEGRATION_SECRET`), showing suggestions to import as proposed tasks. This is AiEA’s integration happy path — not BF’s own verify skill.
+A recurring schedule creates one ordinary open task. Due today starts in Current. This stays inside Farm Manager.
 
 ## Sub-features
 
-- `bf-inbox-chrome` Inbox shows Review & accept + Pull farm maintenance.
-- `bf-pull-happy` pull returns suggestion / import UI when BF is reachable.
-- `bf-pull-skip` clean skip when secrets missing or BF unreachable (documented, not fake green).
+- `schedule-create` posts a system, component, and schedule.
+- `schedule-card` shows that name in Current and on `/schedules`.
 
 ## How to get to it (user POV)
 
-- Nav → **Inbox** (`/inbox`).
-- Account → Farm maintenance (connection status); pull still lives on Inbox.
+- Systems → add a system and component, or use the API the drive uses.
+- Schedules → the row links to the open card on Tasks.
 
 ## Driving it with Playwright
 
-Preconditions:
-
-- `doctor.sh` green; signed-in.
-- For happy path: `BF_MAINTENANCE_URL` and `BF_INTEGRATION_SECRET` set and BF answering.
-- If either secret missing: drive exits **skipped** with `bf-sync-skipped.txt` — gate still PASSes with an explicit SKIP note.
-
-- **Open Inbox.** Run `node scripts/drive.mjs --feature bf-sync --base-url <url>`. Heading `Review & accept` and button `Pull farm maintenance` appear.
-- **Pull.** Click the button. Within ~45s either suggestion/import UI appears (pass) or a connection/config error (skip with note). Capture `bf-sync-after-pull.png`.
-- **Proof.** Happy path: suggestion UI artifact. Skip path: `bf-sync-skipped.txt` states why.
+- **Create.** `node scripts/drive.mjs --feature bf-sync --base-url <url>`. `POST /api/systems` then `POST /api/schedules` with `nextDueDate` now.
+- **Board.** `/tasks` Current column contains the schedule name.
+- **Table.** `/schedules` lists the same name.
 
 ## Gotchas
 
-- Missing env must not be reported as a green happy-path pass.
-- Do not steal BF account-login / sync branch work (`hong/aiea-bf-complete-sync`, BF #20); only exercise AiEA’s existing pull UI.
-- Live Turso + prod BF may create real proposed tasks — prefer local AiEA with BF URL pointed at a safe instance when mutating.
+- Always runs. Missing `BF_MAINTENANCE_URL` is not a skip.
+- The feature id stays `bf-sync` so the existing gate command still selects it.

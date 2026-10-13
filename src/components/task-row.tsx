@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Clock, Pencil, Sprout, UserRound } from "lucide-react";
+import { Check, Clock, Pencil, Sprout } from "lucide-react";
+import { cadencePhrase, choreDuePresentation } from "@/lib/chore-display";
 import {
   boardColor,
   boardLabel,
@@ -22,10 +23,13 @@ export type TaskRowData = {
   kind?: string;
   estimateMinutes?: number | null;
   aiRationale?: string | null;
+  boardReason?: string | null;
   externalSource?: string | null;
   externalId?: string | null;
-  area?: { id?: string; name: string; color: string; slug: string } | null;
-  person?: { name: string } | null;
+  highlight?: boolean;
+  scheduleId?: string | null;
+  schedule?: { frequency?: string | null; intervalDays?: number | null } | null;
+  component?: { name: string; system?: { name: string } | null } | null;
   parentId?: string | null;
   parentTitle?: string | null;
   children?: TaskRowData[];
@@ -55,7 +59,11 @@ export function TaskRow({
 }) {
   const done = task.status === "DONE";
   const openChildren = (task.children ?? []).filter((c) => c.status !== "DONE");
-  const fromFarm = task.externalSource === "bf-maintenance";
+  const fromSchedule = Boolean(task.scheduleId && task.component?.system?.name);
+  const cadence = fromSchedule
+    ? cadencePhrase(task.schedule?.frequency, task.schedule?.intervalDays)
+    : null;
+  const dueState = fromSchedule ? choreDuePresentation(task.dueAt) : null;
   const inboxMode = mode === "inbox";
   const lane = laneOf(task);
 
@@ -65,7 +73,8 @@ export function TaskRow({
       className={cn(
         "rounded-xl border border-white/5 bg-zinc-900/40 transition hover:border-white/10 hover:bg-zinc-900/70",
         nested && "border-l-2 border-l-indigo-500/30 bg-zinc-950/40",
-        fromFarm && "border-emerald-500/15",
+        fromSchedule && "border-emerald-500/15",
+        task.highlight && "task-flash",
         done && "opacity-50",
       )}
     >
@@ -117,17 +126,14 @@ export function TaskRow({
               >
                 {task.title}
               </p>
-              {fromFarm && (
+              {fromSchedule && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
                   <Sprout className="h-3 w-3" />
-                  Farm
+                  {task.component?.system?.name} · {task.component?.name}
                 </span>
               )}
-              {task.isFollowUp && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300">
-                  <UserRound className="h-3 w-3" />
-                  Follow-up
-                </span>
+              {cadence && (
+                <span className="text-[11px] text-indigo-300">↻ {cadence}</span>
               )}
               {task.subtaskProgress && task.subtaskProgress.total > 0 && (
                 <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-300">
@@ -137,23 +143,48 @@ export function TaskRow({
             </div>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
-              <span
-                className={cn(
-                  "rounded-full border px-1.5 py-0.5 font-medium",
-                  boardColor(lane),
-                )}
-                title={lane}
-              >
-                {boardLabel(lane)}
-              </span>
-              {task.dueAt && (
+              {!fromSchedule && lane === "ICEBOX" && (
+                <span
+                  className={cn(
+                    "rounded-full border px-1.5 py-0.5 font-medium",
+                    boardColor(lane),
+                  )}
+                  title={task.boardReason || lane}
+                >
+                  {boardLabel(lane)}
+                </span>
+              )}
+              {task.boardReason && !fromSchedule && (
+                <span className="text-zinc-600" title={task.boardReason}>
+                  AI: {task.boardReason}
+                </span>
+              )}
+              {dueState ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 font-medium",
+                    dueState.tone === "overdue" && "text-rose-400",
+                    dueState.tone === "soon" && "text-amber-300",
+                    dueState.tone === "later" && "text-zinc-500",
+                  )}
+                >
+                  {dueState.tone === "later" && <Clock className="h-3 w-3" />}
+                  {dueState.text}
+                </span>
+              ) : task.dueAt ? (
                 <span className="inline-flex items-center gap-1 text-zinc-500">
                   <Clock className="h-3 w-3" />
                   {formatRelativeDue(task.dueAt)}
                 </span>
-              )}
-              {task.person && (
-                <span className="text-zinc-500">· {task.person.name}</span>
+              ) : null}
+              {fromSchedule && task.scheduleId && (
+                <a
+                  href={`/schedules?id=${task.scheduleId}`}
+                  className="text-emerald-300 underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Schedule ›
+                </a>
               )}
               {task.estimateMinutes ? (
                 <span className="text-zinc-600">· {task.estimateMinutes}m</span>
@@ -166,10 +197,8 @@ export function TaskRow({
               {task.notes.split("\n---")[0]?.trim() || task.notes}
             </p>
           )}
-          {fromFarm && task.aiRationale && !dense && (
-            <p className="mt-1 text-[10px] text-emerald-500/80">
-              {task.aiRationale}
-            </p>
+          {task.boardReason && fromSchedule && !dense && (
+            <p className="mt-1 text-[10px] text-zinc-600">{task.boardReason}</p>
           )}
         </div>
 

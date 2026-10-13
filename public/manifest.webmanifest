@@ -1,8 +1,8 @@
 {
-  "name": "AiEA — AI Executive Assistant",
-  "short_name": "AiEA",
-  "description": "Keep up with life, home, and work. AI proposes; you confirm.",
-  "start_url": "/today",
+  "name": "Farm Manager",
+  "short_name": "Farm",
+  "description": "Systems, schedules, and tasks for the farm.",
+  "start_url": "/tasks",
   "display": "standalone",
   "background_color": "#07070b",
   "theme_color": "#07070b",

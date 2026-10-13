@@ -42,9 +42,19 @@ const dirs = fs
   })
   .sort();
 
+await client.execute(
+  `CREATE TABLE IF NOT EXISTS "_farm_schema_migrations" ("id" TEXT PRIMARY KEY, "appliedAt" TEXT NOT NULL)`,
+);
+const applied = await client.execute(`SELECT "id" FROM "_farm_schema_migrations"`);
+const appliedIds = new Set(applied.rows.map((r) => String(r.id)));
+
 for (const d of dirs) {
   const sqlPath = path.join(migrationsDir, d, "migration.sql");
   if (!fs.existsSync(sqlPath)) continue;
+  if (appliedIds.has(d)) {
+    console.log("Already applied", d);
+    continue;
+  }
   console.log("Applying", d);
   for (const s of statementsFrom(fs.readFileSync(sqlPath, "utf8"))) {
     try {
@@ -59,6 +69,10 @@ for (const d of dirs) {
       process.exit(1);
     }
   }
+  await client.execute({
+    sql: `INSERT INTO "_farm_schema_migrations" ("id", "appliedAt") VALUES (?, ?)`,
+    args: [d, new Date().toISOString()],
+  });
   console.log("  ok");
 }
 

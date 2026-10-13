@@ -1,7 +1,6 @@
 # Poteto verify gate for AiEA.
 # Local launch + doctor + core features. Disposable register — no smoke secrets required for CI core.
 # Optional live/post-auth: AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (both). When unset → clean-skip (gate stays green).
-# Optional: BF_MAINTENANCE_URL, BF_INTEGRATION_SECRET (bf-sync happy path; else skip).
 # Optional override: AIEA_BASE_URL (default https://aiea-cyan.vercel.app).
 # Migration: prefer AIEA_SMOKE_* — do not use AIEA_EMAIL/AIEA_PASSWORD or personal/1Password logins.
 # No separate BF_* pair for smoke login.
@@ -26,8 +25,6 @@ jobs:
       DATABASE_URL: file:./dev.db
       AUTH_SECRET: ci-aiea-verify-secret
       AIEA_TIMEZONE: America/New_York
-      BF_MAINTENANCE_URL: ${{ secrets.BF_MAINTENANCE_URL }}
-      BF_INTEGRATION_SECRET: ${{ secrets.BF_INTEGRATION_SECRET }}
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       # Live smoke (optional — clean-skip when unset)
       AIEA_SMOKE_EMAIL: ${{ secrets.AIEA_SMOKE_EMAIL }}
@@ -51,8 +48,6 @@ jobs:
             "DATABASE_URL=\"file:./dev.db\"" \
             "AUTH_SECRET=\"${AUTH_SECRET}\"" \
             "AIEA_TIMEZONE=\"${AIEA_TIMEZONE}\"" \
-            "BF_MAINTENANCE_URL=\"${BF_MAINTENANCE_URL:-}\"" \
-            "BF_INTEGRATION_SECRET=\"${BF_INTEGRATION_SECRET:-}\"" \
             "XAI_API_KEY=\"${XAI_API_KEY:-}\"" \
             > .env
 
@@ -65,11 +60,8 @@ jobs:
       - name: Unit assertions (PWA safe-area header)
         run: npm run test:safe-area
 
-      - name: Unit assertions (login next guard + shared bar)
+      - name: Unit assertions (login next guard + Farm Manager bar)
         run: npm run test:safe-next
-
-      - name: Shared site-nav sha256
-        run: sha256sum -c scripts/pins/site-nav.sha256
 
       - name: Build
         run: npm run build
