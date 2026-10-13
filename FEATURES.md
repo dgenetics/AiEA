@@ -8,7 +8,7 @@ The header shows only `Farm Manager`, centered, and a small person icon on the r
 
 `/` sends you to `/tasks`. The other routes are `/systems`, `/systems/:id`, `/systems/:id/components/:cid`, `/schedules`, `/tasks`, `/tasks/done`, `/account`, `/login`, and `/register`.
 
-Old `/maintenance/*` bookmarks redirect to the new pages. Retired pages (`/inbox`, `/brief`, `/people`, `/areas`, `/capture`, `/archive`, `/recurring`, `/today`, `/upcoming`) send you to Tasks or Done.
+Old `/maintenance/*` bookmarks redirect to the new pages. Retired pages (`/inbox`, `/brief`, `/people`, `/areas`, `/capture`, `/archive`, `/recurring`, `/today`, `/upcoming`) send you to Tasks or Archive.
 
 ## Sign-in
 
@@ -18,7 +18,7 @@ Email and password. One session cookie (`aiea_session`, path `/`) covers every t
 
 The Tasks tab is the dark board with three columns: Current, Backlog, and Icebox. On a phone the same lanes are tabs. Every open task is on the board. Nothing is filtered out, and there is no Inbox or proposed-review state.
 
-A task can have a due date, notes, and subtasks. You can complete it, edit it, move its lane, or cancel it. Done tasks live at `/tasks/done`.
+A task can have a due date, notes, and subtasks. You can complete it, edit it, move its lane, or cancel it. Completed tasks are on Archive at `/tasks/done`. The board links there as Archive, and Archive links back to Tasks.
 
 ## Capture
 

@@ -106,7 +106,7 @@ export function ArchiveBoard({ initial, grandTotal }: Props) {
       {empty ? (
         <div className="rounded-xl border border-dashed border-white/10 px-6 py-12 text-center">
           <p className="text-sm text-zinc-500">
-            Finish tasks on Today or Upcoming and they&apos;ll show up here.
+            Finish tasks on the board and they&apos;ll show up here.
           </p>
         </div>
       ) : (

@@ -1,6 +1,6 @@
 # Tasks board
 
-`/tasks` is the home board: Current, Backlog, and Icebox. Done tasks live at `/tasks/done`. The header is Farm Manager and an Account icon. Systems, Schedules, and Tasks are the bottom bar.
+`/tasks` is the home board: Current, Backlog, and Icebox. Completed tasks are on Archive at `/tasks/done`. The header is Farm Manager and an Account icon. Systems, Schedules, and Tasks are the bottom bar.
 
 ## Sub-features
 
@@ -14,7 +14,7 @@
 
 ## Driving it with Playwright
 
-- **Open.** `node scripts/drive.mjs --feature tasks-board --base-url <url>`. Heading `Tasks`, three `h2` lane names, capture placeholder, bottom-bar links Systems, Schedules, Tasks.
+- **Open.** `node scripts/drive.mjs --feature tasks-board --base-url <url>`. Heading `Tasks`, three `h2` lane names, capture placeholder, bottom-bar links Systems, Schedules, Tasks. An Archive link opens `/tasks/done`, titled Archive, with a Tasks link back.
 - **Redirects.** `/today` and `/upcoming` land on `/tasks`.
 
 ## Gotchas

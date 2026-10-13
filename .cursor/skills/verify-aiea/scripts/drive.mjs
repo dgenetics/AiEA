@@ -196,6 +196,9 @@ async function driveTasksBoard(page, out) {
   if (/Internal Server Error|Application error|HTTP 500/i.test(body)) {
     throw new Error("Tasks board shows server error");
   }
+  if (/nothing hidden|from schedules/i.test(body)) {
+    throw new Error("Tasks board still shows the open-task subheader");
+  }
   // Desktop columns (md+) expose the three lane headings; mobile tabs are also in the DOM.
   for (const name of LANES) {
     await page.getByRole("heading", { name, level: 2, exact: true }).waitFor({
@@ -226,6 +229,13 @@ async function driveTasksBoard(page, out) {
   if (await page.getByRole("link", { name: "Inbox", exact: true }).count()) {
     throw new Error("nav still has an Inbox link");
   }
+  const archive = page.locator("main").getByRole("link", { name: "Archive", exact: true });
+  if ((await archive.count()) < 1) throw new Error("Tasks board is missing the Archive link");
+  await archive.first().click();
+  await page.getByRole("heading", { name: "Archive", level: 1 }).waitFor({ timeout: 15000 });
+  await page.locator("main").getByRole("link", { name: "Tasks", exact: true }).click();
+  await page.getByRole("heading", { name: "Tasks", level: 1 }).waitFor({ timeout: 15000 });
+  steps.push("archive: Archive opens /tasks/done and Tasks returns to the board");
   await screenshot(page, join(out, "tasks-board.png"));
   await ariaDump(page, join(out, "tasks-board.aria.txt"));
   return { steps, status: "pass" };
