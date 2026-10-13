@@ -163,11 +163,11 @@ async function driveCaptureAccept(page, out) {
 
   await page.goto("/tasks", { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Tasks", level: 1 }).waitFor({ timeout: 20000 });
-  const box = page.getByPlaceholder(/Type or talk/i);
+  const box = page.getByPlaceholder(/Type a task/i);
   await box.waitFor({ timeout: 10000 });
   await screenshot(page, join(out, "capture-empty.png"));
   await ariaDump(page, join(out, "capture-empty.aria.txt"));
-  steps.push("tasks: Type or talk field visible on the board");
+  steps.push("tasks: Type a task field visible on the board");
 
   const marker = `Verify capture ${Date.now()}`;
   const dump = `${marker} call the plumber about the kitchen leak`;
@@ -222,7 +222,7 @@ async function driveTasksBoard(page, out) {
     }
   }
   steps.push("redirect: /today and /upcoming land on /tasks");
-  await page.getByPlaceholder(/Type or talk/i).waitFor({ timeout: 10000 });
+  await page.getByPlaceholder(/Type a task/i).waitFor({ timeout: 10000 });
   for (const name of ["Systems", "Schedules", "Tasks"]) {
     await page.getByRole("link", { name, exact: true }).first().waitFor({ timeout: 5000 });
   }
@@ -247,7 +247,7 @@ async function driveBoardLanes(page, out) {
   await page.goto("/tasks", { waitUntil: "networkidle" });
   const marker = `Lane check ${Date.now()}`;
   const dump = `${marker} call plumber asap`;
-  await page.getByPlaceholder(/Type or talk/i).fill(dump);
+  await page.getByPlaceholder(/Type a task/i).fill(dump);
   await screenshot(page, join(out, "board-lanes-picker.png"));
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByText(/Added \d+/).waitFor({ timeout: 60000 });
@@ -348,7 +348,7 @@ async function driveLiveSmoke(page, out) {
   }
   await page.getByRole("heading", { name: "Tasks" }).first().waitFor({ timeout: 10000 });
   steps.push(`post-auth: Tasks heading visible on live ${new URL(page.url()).pathname}`);
-  await page.getByPlaceholder(/Type or talk/i).waitFor({ timeout: 10000 });
+  await page.getByPlaceholder(/Type a task/i).waitFor({ timeout: 10000 });
   await screenshot(page, join(out, "live-smoke-home.png"));
   await ariaDump(page, join(out, "live-smoke-home.aria.txt"));
   steps.push("post-auth: live Tasks board with the capture field");

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mic } from "lucide-react";
-import { createMicSession, type MicSession, type SpeechRecognizer } from "@/lib/capture-mic";
+import { Loader2 } from "lucide-react";
 
 type Created = {
   id: string;
@@ -19,15 +18,6 @@ type CaptureResponse = {
   rawFallback?: boolean;
 };
 
-function getRecognizer(): (new () => SpeechRecognizer) | null {
-  if (typeof window === "undefined") return null;
-  const w = window as Window & {
-    SpeechRecognition?: new () => SpeechRecognizer;
-    webkitSpeechRecognition?: new () => SpeechRecognizer;
-  };
-  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
-}
-
 const LANE_LABEL = { CURRENT: "Current", BACKLOG: "Backlog", ICEBOX: "Icebox" } as const;
 
 export function CaptureComposer({
@@ -37,9 +27,6 @@ export function CaptureComposer({
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [micNote, setMicNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     captureId: string;
@@ -47,43 +34,7 @@ export function CaptureComposer({
     counts: { CURRENT: number; BACKLOG: number; ICEBOX: number };
     rawFallback: boolean;
   } | null>(null);
-  const [supported, setSupported] = useState<boolean | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
-  const sessionRef = useRef<MicSession | null>(null);
-  const baseText = useRef("");
-  const startedAt = useRef(0);
-
-  useEffect(() => {
-    setSupported(Boolean(getRecognizer()));
-  }, []);
-
-  useEffect(() => {
-    const session = createMicSession({
-      createRecognizer: () => {
-        const Ctor = getRecognizer();
-        if (!Ctor) throw new Error("Speech recognition is unavailable");
-        return new Ctor();
-      },
-      onTranscript: (spoken) => {
-        setText([baseText.current, spoken].filter(Boolean).join(baseText.current ? " " : ""));
-      },
-      onListening: (next) => {
-        if (next) {
-          startedAt.current = Date.now();
-          setSeconds(0);
-        }
-        setListening(next);
-      },
-      onNote: (note) => setMicNote(note),
-    });
-    sessionRef.current = session;
-    const unbind = session.bindLifecycle(document, window);
-    return () => {
-      unbind();
-      session.release("unmount");
-      sessionRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -108,37 +59,9 @@ export function CaptureComposer({
     return () => window.removeEventListener("keydown", onKey);
   }, [text]);
 
-  useEffect(() => {
-    if (!listening) return;
-    const id = window.setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startedAt.current) / 1000));
-    }, 250);
-    return () => window.clearInterval(id);
-  }, [listening]);
-
-  function stopMic() {
-    sessionRef.current?.release("manual");
-  }
-
-  function startMic() {
-    if (!getRecognizer() || !sessionRef.current) {
-      setSupported(false);
-      return;
-    }
-    setError(null);
-    setMicNote(null);
-    baseText.current = text.trim();
-    try {
-      sessionRef.current.begin();
-    } catch {
-      setMicNote("Microphone permission denied. You can still type.");
-    }
-  }
-
   async function submit(mode: "parse" | "raw" = "parse") {
     const value = text.trim();
     if (!value || busy) return;
-    sessionRef.current?.release("submit");
     setBusy(true);
     setError(null);
     try {
@@ -199,7 +122,7 @@ export function CaptureComposer({
             value={text}
             disabled={busy}
             rows={1}
-            placeholder='Type or talk… e.g. "call vet thursday, fix the fence, someday think about a greenhouse"'
+            placeholder="Type a task…"
             className="max-h-36 min-h-10 w-full resize-none bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted"
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -210,23 +133,6 @@ export function CaptureComposer({
             }}
           />
         </label>
-        {supported === false ? null : (
-          <button
-            type="button"
-            aria-pressed={listening}
-            aria-label={listening ? "Stop listening" : "Start voice"}
-            disabled={busy || supported === null}
-            onClick={() => (listening ? stopMic() : startMic())}
-            className={
-              listening
-                ? "flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-rose-500 px-3 text-xs font-semibold text-white"
-                : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#efe8da] text-stone-700"
-            }
-          >
-            <Mic className="h-4 w-4" />
-            {listening ? "Stop" : null}
-          </button>
-        )}
         <button
           type="submit"
           disabled={busy || !text.trim()}
@@ -237,15 +143,7 @@ export function CaptureComposer({
       </form>
 
       <div aria-live="polite" className="min-h-5 text-xs text-muted">
-        {supported === false && "Voice unavailable; type instead"}
-        {listening && (
-          <span className="text-rose-700">
-            Listening {seconds}s · tap to stop
-            <span className="ml-2 inline-block h-2 w-8 rounded-full bg-rose-500/70 align-middle" />
-          </span>
-        )}
         {busy && "Making tasks…"}
-        {micNote && <span className="text-amber-700">{micNote}</span>}
       </div>
 
       {error && (
