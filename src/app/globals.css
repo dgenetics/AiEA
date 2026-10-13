@@ -134,6 +134,10 @@ input[type="datetime-local"]:not(.date-field-input) {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+/* Room for the fixed bottom tab bar plus the home indicator. */
+.pad-tab-bar {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
 
 /**
  * iOS Safari zooms the page when focusing an input with font-size < 16px.

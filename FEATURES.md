@@ -4,7 +4,7 @@ One app for the farm: systems, the schedules that keep them up, and the tasks yo
 
 ## Getting around
 
-The header is `Farm Manager | Systems | Schedules | Tasks`, with Account on the right. Account is a link, not a tab. The same bar is the only navigation on desktop and on a phone. Login and register sit outside that bar.
+The header shows only `Farm Manager`, centered, and a small person icon on the right that opens Account. Systems, Schedules, and Tasks are a fixed bottom bar at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
 
 `/` sends you to `/tasks`. The other routes are `/systems`, `/systems/:id`, `/systems/:id/components/:cid`, `/schedules`, `/tasks`, `/tasks/done`, `/account`, `/login`, and `/register`.
 

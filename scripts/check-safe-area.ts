@@ -5,7 +5,7 @@
  * The Farm Manager bar is sticky at the top of the document and owns
  * safe-area-inset-top. A fixed height plus .safe-top under border-box eats
  * the inset — the bar must grow. There is no second in-app header.
- * The page main pads for the home indicator.
+ * The page main pads for the fixed bottom tabs and the home indicator.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -43,7 +43,14 @@ assert.doesNotMatch(
 );
 
 assert.doesNotMatch(shell, /<header\b/, "in-app shell must not add a second header");
-assert.match(shell, /safe-bottom/);
+assert.match(shell, /pad-tab-bar/);
 assert.doesNotMatch(shell, /safe-top/);
+assert.match(
+  css,
+  /\.pad-tab-bar\s*\{[\s\S]*?padding-bottom:\s*calc\(\s*3\.5rem\s*\+\s*env\(\s*safe-area-inset-bottom/,
+);
+assert.match(nav, /fixed inset-x-0 bottom-0/);
+assert.match(nav, /safe-area-inset-bottom/);
+assert.doesNotMatch(nav, /href: "\/systems"[\s\S]*lucide-react/);
 
-console.log("safe-area: Farm Manager bar owns the top inset; main pads the home indicator");
+console.log("safe-area: header owns the top inset; main pads the bottom tabs and home indicator");
