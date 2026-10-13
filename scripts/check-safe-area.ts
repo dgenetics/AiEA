@@ -47,7 +47,7 @@ assert.match(shell, /pad-tab-bar/);
 assert.doesNotMatch(shell, /safe-top/);
 assert.match(
   css,
-  /\.pad-tab-bar\s*\{[\s\S]*?padding-bottom:\s*calc\(\s*3\.5rem\s*\+\s*env\(\s*safe-area-inset-bottom/,
+  /\.pad-tab-bar\s*\{[\s\S]*?padding-bottom:\s*calc\(\s*3\.5rem\s*\+\s*env\(\s*safe-area-inset-bottom,\s*0px\)\s*\+\s*1\.5rem\s*\)/,
 );
 assert.match(nav, /fixed inset-x-0 bottom-0/);
 assert.match(nav, /safe-area-inset-bottom/);

@@ -136,9 +136,9 @@ input[type="datetime-local"]:not(.date-field-input) {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-/* Room for the fixed bottom tab bar plus the home indicator. */
+/* Footer height, the home indicator, and a gap so the last card clears the bar. */
 .pad-tab-bar {
-  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 1.5rem);
 }
 
 /**
