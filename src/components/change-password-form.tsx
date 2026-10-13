@@ -1,16 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/password-input";
 
-export function ChangePasswordForm() {
+const fieldClass = "h-10 bg-white py-0 focus:ring-[3px] focus:ring-forest-100";
+
+export function ChangePasswordForm({
+  onCancel,
+  onSuccess,
+}: {
+  onCancel?: () => void;
+  onSuccess?: () => void;
+} = {}) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+
+  useEffect(() => {
+    if (!success) return;
+    const id = window.setTimeout(() => onSuccessRef.current?.(), 2000);
+    return () => window.clearTimeout(id);
+  }, [success]);
+
+  function clearFields() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError(null);
+    setSuccess(false);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,10 +65,10 @@ export function ChangePasswordForm() {
       if (!res.ok) {
         throw new Error(data.error || "Could not change password");
       }
-      setSuccess(true);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not change password");
     } finally {
@@ -53,7 +77,7 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-3">
       <div>
         <label className="mb-1 block text-xs text-stone-600">Current password</label>
         <PasswordInput
@@ -62,6 +86,7 @@ export function ChangePasswordForm() {
           required
           value={currentPassword}
           onChange={setCurrentPassword}
+          inputClassName={fieldClass}
         />
       </div>
       <div>
@@ -75,6 +100,7 @@ export function ChangePasswordForm() {
           minLength={8}
           value={newPassword}
           onChange={setNewPassword}
+          inputClassName={fieldClass}
         />
       </div>
       <div>
@@ -86,6 +112,7 @@ export function ChangePasswordForm() {
           minLength={8}
           value={confirmPassword}
           onChange={setConfirmPassword}
+          inputClassName={fieldClass}
         />
       </div>
 
@@ -100,20 +127,34 @@ export function ChangePasswordForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg bg-forest-900 px-4 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-50"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Saving…
-          </>
-        ) : (
-          "Update password"
-        )}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg bg-forest-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-50"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            "Update password"
+          )}
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={() => {
+              clearFields();
+              onCancel();
+            }}
+            className="px-1.5 py-2 text-sm text-muted"
+          >
+            Cancel
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }
