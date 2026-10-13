@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic } from "lucide-react";
+import { createMicSession, type MicSession, type SpeechRecognizer } from "@/lib/capture-mic";
 
 type Created = {
   id: string;
@@ -18,25 +19,11 @@ type CaptureResponse = {
   rawFallback?: boolean;
 };
 
-type SpeechRec = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  onresult: ((ev: {
-    resultIndex: number;
-    results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
-  }) => void) | null;
-  onerror: ((ev: { error: string }) => void) | null;
-  onend: (() => void) | null;
-};
-
-function getRecognizer(): (new () => SpeechRec) | null {
+function getRecognizer(): (new () => SpeechRecognizer) | null {
   if (typeof window === "undefined") return null;
   const w = window as Window & {
-    SpeechRecognition?: new () => SpeechRec;
-    webkitSpeechRecognition?: new () => SpeechRec;
+    SpeechRecognition?: new () => SpeechRecognizer;
+    webkitSpeechRecognition?: new () => SpeechRecognizer;
   };
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
@@ -62,13 +49,40 @@ export function CaptureComposer({
   } | null>(null);
   const [supported, setSupported] = useState<boolean | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
-  const recRef = useRef<SpeechRec | null>(null);
+  const sessionRef = useRef<MicSession | null>(null);
   const baseText = useRef("");
-  const silence = useRef<number | null>(null);
   const startedAt = useRef(0);
 
   useEffect(() => {
     setSupported(Boolean(getRecognizer()));
+  }, []);
+
+  useEffect(() => {
+    const session = createMicSession({
+      createRecognizer: () => {
+        const Ctor = getRecognizer();
+        if (!Ctor) throw new Error("Speech recognition is unavailable");
+        return new Ctor();
+      },
+      onTranscript: (spoken) => {
+        setText([baseText.current, spoken].filter(Boolean).join(baseText.current ? " " : ""));
+      },
+      onListening: (next) => {
+        if (next) {
+          startedAt.current = Date.now();
+          setSeconds(0);
+        }
+        setListening(next);
+      },
+      onNote: (note) => setMicNote(note),
+    });
+    sessionRef.current = session;
+    const unbind = session.bindLifecycle(document, window);
+    return () => {
+      unbind();
+      session.release("unmount");
+      sessionRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -98,63 +112,24 @@ export function CaptureComposer({
     if (!listening) return;
     const id = window.setInterval(() => {
       setSeconds(Math.floor((Date.now() - startedAt.current) / 1000));
-      if (Date.now() - startedAt.current > 120_000) stopMic();
     }, 250);
     return () => window.clearInterval(id);
   }, [listening]);
 
   function stopMic() {
-    if (silence.current) window.clearTimeout(silence.current);
-    silence.current = null;
-    try {
-      recRef.current?.stop();
-    } catch {
-      /* already stopped */
-    }
-    setListening(false);
+    sessionRef.current?.release("manual");
   }
 
   function startMic() {
-    const Ctor = getRecognizer();
-    if (!Ctor) {
+    if (!getRecognizer() || !sessionRef.current) {
       setSupported(false);
       return;
     }
     setError(null);
     setMicNote(null);
     baseText.current = text.trim();
-    const rec = new Ctor();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = "en-US";
-    rec.onresult = (ev) => {
-      let finalText = "";
-      let interim = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        const piece = ev.results[i]?.[0]?.transcript ?? "";
-        if (ev.results[i]?.isFinal) finalText += piece;
-        else interim += piece;
-      }
-      const spoken = `${finalText} ${interim}`.replace(/\s+/g, " ").trim();
-      setText([baseText.current, spoken].filter(Boolean).join(baseText.current ? " " : ""));
-      if (silence.current) window.clearTimeout(silence.current);
-      silence.current = window.setTimeout(() => stopMic(), 2000);
-    };
-    rec.onerror = (ev) => {
-      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
-        setMicNote("Microphone permission denied. You can still type.");
-      } else if (ev.error !== "aborted" && ev.error !== "no-speech") {
-        setMicNote("Voice didn't start. You can still type.");
-      }
-      setListening(false);
-    };
-    rec.onend = () => setListening(false);
-    recRef.current = rec;
     try {
-      rec.start();
-      startedAt.current = Date.now();
-      setSeconds(0);
-      setListening(true);
+      sessionRef.current.begin();
     } catch {
       setMicNote("Microphone permission denied. You can still type.");
     }
@@ -163,7 +138,7 @@ export function CaptureComposer({
   async function submit(mode: "parse" | "raw" = "parse") {
     const value = text.trim();
     if (!value || busy) return;
-    stopMic();
+    sessionRef.current?.release("submit");
     setBusy(true);
     setError(null);
     try {
@@ -239,16 +214,17 @@ export function CaptureComposer({
           <button
             type="button"
             aria-pressed={listening}
-            aria-label={listening ? "Stop voice" : "Start voice"}
+            aria-label={listening ? "Stop listening" : "Start voice"}
             disabled={busy || supported === null}
             onClick={() => (listening ? stopMic() : startMic())}
             className={
               listening
-                ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white"
+                ? "flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-rose-500 px-3 text-xs font-semibold text-white"
                 : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-200"
             }
           >
             <Mic className="h-4 w-4" />
+            {listening ? "Stop" : null}
           </button>
         )}
         <button
@@ -264,7 +240,7 @@ export function CaptureComposer({
         {supported === false && "Voice unavailable; type instead"}
         {listening && (
           <span className="text-rose-300">
-            Listening {seconds}s
+            Listening {seconds}s · tap to stop
             <span className="ml-2 inline-block h-2 w-8 rounded-full bg-rose-400/70 align-middle" />
           </span>
         )}

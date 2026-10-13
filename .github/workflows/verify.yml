@@ -65,6 +65,9 @@ jobs:
       - name: Unit assertions (login next guard + Farm Manager bar)
         run: npm run test:safe-next
 
+      - name: Unit assertions (capture mic release)
+        run: npm run test:capture-mic
+
       - name: Build
         run: npm run build
 
