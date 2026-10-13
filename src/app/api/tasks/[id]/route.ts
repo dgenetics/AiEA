@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { recordCorrections } from "@/lib/ai/corrections";
+import { correctionsForCaptureEdit, recordCorrections } from "@/lib/ai/corrections";
 import { BOARD_LANES, laneWrite, resolveBoard } from "@/lib/board";
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/require-workspace";
@@ -17,8 +17,6 @@ const patchSchema = z.object({
   estimateMinutes: z.number().int().min(1).max(480).optional().nullable(),
   snoozeDays: z.number().int().min(1).max(30).optional(),
 });
-
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function PATCH(
   req: Request,
@@ -120,21 +118,17 @@ export async function PATCH(
       },
     });
 
-    if (
-      nextBoard &&
-      nextBoard !== prevBoard &&
-      task.sourceCaptureId &&
-      Date.now() - task.createdAt.getTime() <= SEVEN_DAYS_MS
-    ) {
+    const edits = correctionsForCaptureEdit({
+      sourceCaptureId: task.sourceCaptureId,
+      createdAt: task.createdAt,
+      prevTitle: task.title,
+      nextTitle: body.title,
+      prevBoard,
+      nextBoard,
+    });
+    if (edits.length) {
       try {
-        await recordCorrections(workspaceId, [
-          {
-            field: "board",
-            taskTitle: (body.title ?? task.title).slice(0, 300),
-            beforeValue: prevBoard,
-            afterValue: nextBoard,
-          },
-        ]);
+        await recordCorrections(workspaceId, edits);
       } catch (trainErr) {
         console.error("AI training log failed (task still saved):", trainErr);
       }
