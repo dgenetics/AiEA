@@ -9,7 +9,7 @@ Verification source for Farm Manager (capture field, Tasks board, lanes, schedul
   - Local: doctor-registered disposable user (`verify-user.json`) on a fresh local DB.
   - Live/post-auth: **`AIEA_SMOKE_EMAIL` + `AIEA_SMOKE_PASSWORD`** (both). Smoke user only — never personal / 1Password. Absent → clean-skip live-smoke.
   - Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted — migrate to SMOKE names.
-- `doctor.sh` green for that base URL before driving (except live-smoke skip-before-doctor when secrets unset).
+- `doctor.sh` green for that base URL before driving (except live-smoke skip-before-doctor when secrets are unset, or on a pull request).
 - Never attach to a browser session the human already owns; use headless Playwright or a fresh context.
 - No separate `BF_*` pair for smoke login. Schedule chores are created through this app's API.
 
@@ -28,6 +28,7 @@ Verification source for Farm Manager (capture field, Tasks board, lanes, schedul
 - Record feature id and base URL in `drive-<feature>.json` / `SUMMARY.md`.
 - `bf-sync` always runs in-app. It does not skip for missing BF secrets.
 - `live-smoke` without `AIEA_SMOKE_*` → **skipped** with `live-smoke-skipped.txt` (gate green).
+- `live-smoke` on a pull request → **skipped** the same way. Production is still the pre-merge app (`GET /` is 200). On `main` the doctor still requires 307 to `/tasks`.
 - Unreachable path → report attempted command + unmet precondition; do not claim verified via a different entry point.
 
 ## Feature entry contract
@@ -40,4 +41,4 @@ Each feature file: H1 + one paragraph, then exactly four H2s — `Sub-features`,
 - [Tasks board](./tasks-board.md) — every open task in its lane; /today + /upcoming redirect (no 500).
 - [Board lanes](./board-lanes.md) — “asap” lands in Current without a review picker.
 - [Schedule chores](./bf-sync.md) — a due-today schedule appears as a Current task.
-- [Live smoke](./live-smoke.md) — smoke login + post-auth home on live (skip if secrets unset).
+- [Live smoke](./live-smoke.md) — smoke login + post-auth home on live (skip if secrets unset, or on a pull request before merge).

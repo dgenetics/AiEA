@@ -34,6 +34,7 @@ Or: `node scripts/drive.mjs --feature live-smoke` (defaults base to live when no
 
 ## Gotchas
 
+- Pull request CI (`GITHUB_EVENT_NAME=pull_request`) clean-skips even when smoke secrets are set. Production is still the pre-merge app: `GET /` returns 200, and this revision’s doctor requires 307 to `/tasks` (and `GET /capture` 308). That doctor stays strict on `main` and on `gate.sh --local`. Evidence: `live-smoke-skipped.txt` with a pre-merge reason.
 - Legacy `AIEA_EMAIL`/`AIEA_PASSWORD` alone do **not** satisfy live-smoke (demoted; migrate to SMOKE names).
 - Local `gate.sh --local` ignores `AIEA_SMOKE_*` and uses disposable register.
 - Never Will’s personal / 1Password credentials.

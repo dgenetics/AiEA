@@ -52,11 +52,11 @@ A daily job (`/api/cron/materialize-schedules`, bearer `CRON_SECRET`) creates th
 
 ## Bringing over an existing farm database
 
-Boot does not copy data and does not change the schema. Both happen only when you run a script, after a backup.
+Starting the app does not copy a bf-maintenance database, and it does not change the schema. Copying is only `scripts/import-bf-data.ts`, after a backup, into a workspace id you pass.
 
-`scripts/push-turso-schema.mjs` applies migrations once. The farm migration rebuilds tables in a single transaction with foreign keys off, and records that in `_farm_schema_migrations`. A remote database also needs `FARM_SCHEMA_PUSH=1`.
+`scripts/push-turso-schema.mjs` applies migrations once. The farm migration rebuilds tables in a single transaction with foreign keys off, and records that in `_farm_schema_migrations`. A remote database also needs `FARM_SCHEMA_PUSH=1`. Run it immediately before merging this app, then merge right away: the code that is live now breaks on the new schema.
 
-`scripts/import-bf-data.ts` copies systems, components, schedules, and chores into the workspace you name (`--workspace` or `FARM_IMPORT_WORKSPACE_ID`). Set `BF_SOURCE_DATABASE_URL` to the old database. Running it again does not duplicate rows. If several open chores share a schedule, only the earliest stays open, and that choice is made before any task is written. A remote target also needs `FARM_IMPORT_ALLOW_REMOTE=1`.
+`scripts/import-bf-data.ts` copies systems, components, schedules, and chores into the workspace you name (`--workspace` or `FARM_IMPORT_WORKSPACE_ID`). Point `BF_SOURCE_DATABASE_URL` at the old database and pass `BF_SOURCE_AUTH_TOKEN` when that database needs one. Running it again does not duplicate rows. If several open chores share a schedule, only the earliest stays open, and that choice is made before any task is written. A remote target also needs `FARM_IMPORT_ALLOW_REMOTE=1`. If `TURSO_DATABASE_URL` is unset, the script stops unless you pass `--local`, so it cannot write `dev.db` by accident. Do not put `BF_SOURCE_*` in Vercel.
 
 ## What this app does not do
 

@@ -1,6 +1,8 @@
 # Poteto verify gate for AiEA.
 # Local launch + doctor + core features. Disposable register — no smoke secrets required for CI core.
-# Optional live/post-auth: AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (both). When unset → clean-skip (gate stays green).
+# Live/post-auth: AIEA_SMOKE_EMAIL + AIEA_SMOKE_PASSWORD (both). When unset → clean-skip.
+# Pull requests skip live-smoke: production is still the pre-merge app (GET / is 200).
+# Push to main keeps the strict doctor (GET / must 307 to /tasks).
 # Optional override: AIEA_BASE_URL (default https://aiea-cyan.vercel.app).
 # Migration: prefer AIEA_SMOKE_* — do not use AIEA_EMAIL/AIEA_PASSWORD or personal/1Password logins.
 # No separate BF_* pair for smoke login.
@@ -84,12 +86,14 @@ jobs:
           ./.cursor/skills/verify-aiea/scripts/gate.sh --local \
             --feature capture-accept,tasks-board,board-lanes,bf-sync
 
-      - name: Live smoke (post-auth; skip when AIEA_SMOKE_* unset)
+      - name: Live smoke (strict on main; skip on pull requests)
         env:
           PLAYWRIGHT_CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: |
           export PATH="$(dirname "${PLAYWRIGHT_CHROME_PATH:-/usr/bin/google-chrome}"):$PATH"
-          # Secrets passed via job env. Absent → gate --live-smoke exits 0 with SKIP evidence.
+          # pull_request: production is still the pre-merge app (GET / is 200).
+          # gate.sh clean-skips and does not weaken the 307 check used on main.
+          # push to main: doctor requires GET / 307 to /tasks. Secrets absent → skip.
           ./.cursor/skills/verify-aiea/scripts/gate.sh --live-smoke
 
       - name: Upload verify evidence

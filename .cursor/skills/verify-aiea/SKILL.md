@@ -24,7 +24,7 @@ App account **email + password** (BF PIN path is going away — do not use PIN h
 | Mode | Credentials |
 |------|-------------|
 | Local / CI (`gate.sh --local`) | Doctor **auto-registers** a disposable `verify+…@aiea.test` user into the run’s SQLite DB and writes `evidence/<run-id>/verify-user.json`. No secrets required for the core gate. `AIEA_SMOKE_*` is **ignored** on local bases. |
-| Live / post-auth (`gate.sh --live-smoke`) | Set **`AIEA_SMOKE_EMAIL`** + **`AIEA_SMOKE_PASSWORD`** (both). Real AiEA User row — **Hong creates**; verify does **not** create the smoke user. When **both** set → login + post-auth path on live. When **absent** → **clean-skip** (gate stays green). |
+| Live / post-auth (`gate.sh --live-smoke`) | Set **`AIEA_SMOKE_EMAIL`** + **`AIEA_SMOKE_PASSWORD`** (both). Real AiEA User row — **Hong creates**; verify does **not** create the smoke user. When **both** set, and this is not a pull request → login + post-auth path on live. When **absent** → **clean-skip**. On **`GITHUB_EVENT_NAME=pull_request`** → **clean-skip** even if secrets are set: production is still the pre-merge app (`GET /` is 200). The 307 check stays strict on `main` and on the local gate. |
 
 **Smoke user only — never Will’s personal login / 1Password.**
 
@@ -146,6 +146,7 @@ All under `.cursor/skills/verify-aiea/scripts/`:
   --feature capture-accept,tasks-board,board-lanes,bf-sync
 
 # live/post-auth (needs AIEA_SMOKE_* both; clean-skips when unset)
+# pull_request CI clean-skips: prod is still the pre-merge app (GET / is 200)
 AIEA_SMOKE_EMAIL=… AIEA_SMOKE_PASSWORD=… \
   ./.cursor/skills/verify-aiea/scripts/gate.sh --live-smoke
 ```
@@ -161,7 +162,7 @@ For required-check style workflow (`.github/workflows/verify.yml`):
 | Secret | Required? | Purpose |
 |--------|-----------|---------|
 | *(none for local gate core)* | — | CI creates disposable user via register on fresh SQLite |
-| `AIEA_SMOKE_EMAIL` / `AIEA_SMOKE_PASSWORD` | Live / optional | Live/post-auth smoke on `aiea-cyan.vercel.app` (or `AIEA_BASE_URL`). **Both** or clean-skip. Smoke user only — never personal / 1Password. |
+| `AIEA_SMOKE_EMAIL` / `AIEA_SMOKE_PASSWORD` | Live / optional | Live/post-auth smoke on `aiea-cyan.vercel.app` (or `AIEA_BASE_URL`) **on main**. **Both** or clean-skip. Pull requests skip live-smoke because production is still the pre-merge app. Smoke user only — never personal / 1Password. |
 | `AIEA_BASE_URL` | Optional | Override live base (default `https://aiea-cyan.vercel.app`) |
 | `AUTH_SECRET` | CI writes one | Session signing for local instance |
 | `XAI_API_KEY` | Optional | Capture uses heuristics without it |
