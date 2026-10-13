@@ -7,12 +7,9 @@ export default async function AccountPage() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto max-w-lg space-y-8">
+    <div className="mx-auto max-w-lg space-y-8 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-forest-800">
-          Account
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-ink">Your account</h1>
+        <h1 className="text-2xl font-semibold text-ink">Your account</h1>
         <p className="mt-1 text-sm text-muted">
           Profile details and security.
         </p>

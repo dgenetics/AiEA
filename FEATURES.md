@@ -4,7 +4,7 @@ One app for the farm: systems, the schedules that keep them up, and the tasks yo
 
 ## Getting around
 
-The header shows only `Farm Manager`, centered, on a dark bar, and a small person icon on the right that opens Account. Systems, Schedules, and Tasks are a fixed cream bottom bar at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold. Every page behind that bar is the same cream. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
+The header shows only `Farm Manager`, centered, on a dark bar, and a small person icon on the right that opens Account. Systems, Schedules, and Tasks are a fixed bottom bar in that same dark style at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold white. Every page behind that bar is cream. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
 
 `/` sends you to `/tasks`. The other routes are `/systems`, `/systems/:id`, `/systems/:id/components/:cid`, `/schedules`, `/tasks`, `/tasks/done`, `/account`, `/login`, and `/register`.
 
@@ -12,7 +12,7 @@ Old `/maintenance/*` bookmarks redirect to the new pages. Retired pages (`/inbox
 
 ## Sign-in
 
-Email and password. One session cookie (`aiea_session`, path `/`) covers every tab. Account shows your name and email and lets you change the password. Changing it signs out other devices.
+Email and password. One session cookie (`aiea_session`, path `/`) covers every tab. Account shows your name and email and lets you change the password. The title is “Your account”, with no small label above it. Extra space under the password button keeps it clear of the tab bar, including the home indicator. Changing the password signs out other devices.
 
 ## Tasks
 
@@ -42,7 +42,7 @@ Systems is a cream grid of cards grouped by category. A card shows the system na
 
 ## Schedules
 
-Schedules is a cream grid of cards. Each card shows the schedule name, its system and component, and how often it repeats. Cards stack on a phone and sit in two columns, then three, on a wider screen. A card with an open task on Tasks is tinted amber, and a short legend explains that tint. The whole card opens that schedule’s editor, with save and cancel. “+ Add schedule” creates one. Each schedule keeps exactly one open task. Coming back to Schedules shows the last list at once and refreshes it in the background. Saving or adding a schedule updates that list without a loading screen.
+Schedules is a cream grid of cards, rendered with the page. A refresh shows the cards immediately, with no loading line. Each card shows the schedule name, its system and component, and how often it repeats. Cards stack on a phone and sit in two columns, then three, on a wider screen. A card with an open task on Tasks is tinted amber, and a short legend explains that tint. The whole card opens that schedule’s editor, with save and cancel. “+ Add schedule” creates one. Each schedule keeps exactly one open task. Saving or adding a schedule updates the list in place.
 
 A new chore is an ordinary task. If it is overdue or due within 7 days it starts in Current. Otherwise it starts in Backlog. It is never parked in Icebox automatically. The card links back to its schedule. After you place it, later edits to the schedule update the due date and do not move the lane.
 

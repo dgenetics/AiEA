@@ -34,10 +34,10 @@ assert.doesNotMatch(shell, /startsWith\("\/systems"\)/);
 
 const nav = read("src/components/site-nav.tsx");
 assert.match(nav, /border-b border-white\/10 bg-\[#12141c\]/);
-assert.match(nav, /border-t border-\[#e7e0d0\] bg-\[#fbf9f4\]\/95/);
-assert.match(nav, /font-bold text-\[#1c1917\]/);
-assert.match(nav, /font-medium text-\[#a8a29e\]/);
-assert.doesNotMatch(nav, /bg-\[#12141c\]\/95/);
+assert.match(nav, /border-t border-white\/10 bg-\[#12141c\]/);
+assert.match(nav, /font-bold text-white/);
+assert.match(nav, /font-medium text-zinc-400/);
+assert.doesNotMatch(nav, /#fbf9f4/);
 assert.doesNotMatch(nav, /startsWith\("\/systems"\)/);
 
 const board = read("src/lib/board.ts");

@@ -9,9 +9,16 @@ export type CachedOpenCard = {
   status: string;
 };
 
+export type SchedulePlace = { system: string; component: string };
+
 export type SchedulesSnapshot = {
   schedules: ScheduleJson[];
   openCards: CachedOpenCard[];
+};
+
+/** Server page payload. `places` is what the cards show before Systems data arrives. */
+export type SchedulesPageData = SchedulesSnapshot & {
+  places: Record<string, SchedulePlace>;
 };
 
 let snapshot: SchedulesSnapshot | null = null;
