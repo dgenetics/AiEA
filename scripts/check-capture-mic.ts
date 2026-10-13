@@ -259,4 +259,14 @@ for (const reason of paths) {
   assert.equal(closed, 1, "second release closed the context again");
 }
 
+const composer = readFileSync(join(import.meta.dirname, "../src/components/capture-composer.tsx"), "utf8");
+assert.match(composer, /release\("manual"\)/);
+assert.match(composer, /release\("submit"\)/);
+assert.match(composer, /release\("unmount"\)/);
+assert.match(composer, /bindLifecycle\(document, window\)/);
+assert.match(composer, /Stop listening/);
+assert.match(composer, /tap to stop/);
+assert.doesNotMatch(composer, /rec\.continuous\s*=\s*true/);
+assert.doesNotMatch(composer, /onend\s*=\s*\(\)\s*=>\s*\{[^}]*\.start\(/);
+
 console.log("capture-mic: stop/abort on manual, submit, silence, error, end, hide, pagehide, unmount; no onend restart");
