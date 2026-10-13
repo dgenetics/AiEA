@@ -80,6 +80,9 @@ jobs:
       - name: Unit assertions (Tasks Archive links)
         run: npm run test:tasks-archive
 
+      - name: Unit assertions (account menu)
+        run: npm run test:account-menu
+
       - name: Build
         run: npm run build
 

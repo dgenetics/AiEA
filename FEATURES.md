@@ -4,15 +4,15 @@ One app for the farm: systems, the schedules that keep them up, and the tasks yo
 
 ## Getting around
 
-The header shows only `Farm Manager`, centered, on a dark bar, and a small person icon on the right that opens Account. Systems, Schedules, and Tasks are a fixed bottom bar in that same dark style at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold white. Every page behind that bar is cream. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
+The header shows only `Farm Manager`, centered, on a dark bar, and a small person icon on the right. Signed in, that icon opens an account menu under the header: your initials, name, and email, then Change password, then Sign out. On a phone the menu is a full-width cream panel with a light dim over the page. On a wider screen it is a 320px dropdown with a pointer. Tap the icon again, tap outside, press Escape, or change pages to close it. Signed out, the icon goes to sign-in. Systems, Schedules, and Tasks are a fixed bottom bar in that same dark style at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold white. Every page behind that bar is cream. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
 
-`/` sends you to `/tasks`. The other routes are `/systems`, `/systems/:id`, `/systems/:id/components/:cid`, `/schedules`, `/tasks`, `/tasks/done`, `/account`, `/login`, and `/register`.
+`/` sends you to `/tasks`. The other routes are `/systems`, `/systems/:id`, `/systems/:id/components/:cid`, `/schedules`, `/tasks`, `/tasks/done`, `/login`, and `/register`. `/account` sends you to Tasks.
 
 Old `/maintenance/*` bookmarks redirect to the new pages. Retired pages (`/inbox`, `/brief`, `/people`, `/areas`, `/capture`, `/archive`, `/recurring`, `/today`, `/upcoming`) send you to Tasks or Archive.
 
 ## Sign-in
 
-Email and password. One session cookie (`aiea_session`, path `/`) covers every tab. Account shows your name and email and lets you change the password. The title is “Your account”, with no small label above it. Extra space under the password button keeps it clear of the tab bar, including the home indicator. Changing the password signs out other devices.
+Email and password. One session cookie (`aiea_session`, path `/`) covers every tab. The account menu shows your name and email and lets you change the password in place. Cancel closes that form. A successful change shows the green confirmation, then closes the form. Changing the password signs out other devices. Sign out is the red row at the bottom of the menu.
 
 ## Tasks
 

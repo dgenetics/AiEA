@@ -4,7 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
 
-export function SignOutButton({ className }: { className?: string }) {
+export function SignOutButton({
+  className,
+  iconClassName,
+}: {
+  className?: string;
+  iconClassName?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +37,7 @@ export function SignOutButton({ className }: { className?: string }) {
       }
       title="Sign out"
     >
-      <LogOut className="h-3.5 w-3.5" />
+      <LogOut className={iconClassName ?? "h-3.5 w-3.5"} />
       {loading ? "Signing out…" : "Sign out"}
     </button>
   );
