@@ -58,6 +58,15 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
   useEffect(() => {
     if (!open) return;
 
+    let pressedInside = false;
+
+    function isInside(target: EventTarget | null) {
+      return (
+        target instanceof Node &&
+        (Boolean(panelRef.current?.contains(target)) || Boolean(buttonRef.current?.contains(target)))
+      );
+    }
+
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       e.preventDefault();
@@ -65,19 +74,22 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
       setOpen(false);
     }
 
+    function onPointerDown(e: PointerEvent) {
+      pressedInside = isInside(e.target);
+    }
+
     function onClick(e: MouseEvent) {
-      const target = e.target;
-      if (!(target instanceof Node)) return;
-      if (panelRef.current?.contains(target)) return;
-      if (buttonRef.current?.contains(target)) return;
+      if (pressedInside || isInside(e.target)) return;
       setPasswordOpen(false);
       setOpen(false);
     }
 
     document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("click", onClick);
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("click", onClick);
     };
   }, [open]);

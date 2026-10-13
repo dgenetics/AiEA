@@ -26,6 +26,7 @@ assert.match(menu, /aria-label="Account"/);
 assert.match(menu, /aria-expanded=\{open\}/);
 assert.match(menu, /aria-controls="account-menu"/);
 assert.match(menu, /Escape/);
+assert.match(menu, /pointerdown/);
 assert.match(menu, /usePathname/);
 assert.match(menu, /ChangePasswordForm/);
 assert.match(menu, /SignOutButton/);
