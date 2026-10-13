@@ -44,14 +44,17 @@ assert.match(view, /md:grid-cols-2/);
 assert.match(view, /lg:grid-cols-3/);
 assert.match(view, /scheduleCardFrequency/);
 assert.match(view, /title="Edit schedule"/);
-assert.match(view, /readSchedulesCache\(\)/);
-assert.match(view, /writeSchedulesCache\(/);
-assert.match(view, /useState\(\(\) => readSchedulesCache\(\) == null\)/);
-assert.match(view, /if \(!background\) setLoading\(true\)/);
-assert.match(view, /void load\(readSchedulesCache\(\) != null\)/);
-assert.match(view, /await load\(true\)/);
-assert.doesNotMatch(view, /useState\(true\)/);
-assert.doesNotMatch(view, /await load\(\)/);
+assert.match(view, /initial\.schedules/);
+assert.match(view, /initial\.places/);
+assert.match(view, /await load\(\)/);
+assert.doesNotMatch(view, /Loading schedules/);
+assert.doesNotMatch(view, /setLoading\(true\)/);
+assert.doesNotMatch(view, /readSchedulesCache/);
+
+const page = readFileSync(join(root, "src/app/(app)/(farm)/schedules/page.tsx"), "utf8");
+assert.match(page, /loadSchedulesPage/);
+assert.match(page, /<SchedulesView initial=\{initial\}/);
+assert.match(page, /await getCurrentUser\(\)/);
 
 clearSchedulesCache();
 assert.equal(readSchedulesCache(), null);

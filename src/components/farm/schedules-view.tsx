@@ -11,35 +11,33 @@ import { scheduleCardFrequency } from "@/lib/chore-display";
 import type { ScheduleJson } from "@/lib/maintenance";
 import {
   beginSchedulesFetch,
-  readSchedulesCache,
   schedulesFetchIsCurrent,
-  writeSchedulesCache,
   type CachedOpenCard,
+  type SchedulesPageData,
 } from "@/lib/schedules-cache";
 
 type OpenCard = CachedOpenCard;
 
-export function SchedulesView() {
+export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
   const { assets } = useData();
   const params = useSearchParams();
   const focusId = params.get("id");
   const openedFocus = useRef<string | null>(null);
-  const [schedules, setSchedules] = useState<ScheduleJson[]>(
-    () => readSchedulesCache()?.schedules ?? [],
-  );
-  const [openCards, setOpenCards] = useState<OpenCard[]>(
-    () => readSchedulesCache()?.openCards ?? [],
-  );
-  const [loading, setLoading] = useState(() => readSchedulesCache() == null);
+  const [schedules, setSchedules] = useState<ScheduleJson[]>(initial.schedules);
+  const [openCards, setOpenCards] = useState<OpenCard[]>(initial.openCards);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(params.get("add") === "1");
   const [editing, setEditing] = useState<ScheduleJson | null>(null);
   const [componentId, setComponentId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  async function load(background: boolean) {
+  useEffect(() => {
+    setSchedules(initial.schedules);
+    setOpenCards(initial.openCards);
+  }, [initial]);
+
+  async function load() {
     const id = beginSchedulesFetch();
-    if (!background) setLoading(true);
     setError(null);
     try {
       const [rows, taskRes] = await Promise.all([
@@ -48,42 +46,32 @@ export function SchedulesView() {
       ]);
       if (!schedulesFetchIsCurrent(id)) return;
       const tasks = (taskRes.tasks ?? []) as OpenCard[];
-      const open = tasks.filter((t) => t.scheduleId);
-      writeSchedulesCache({ schedules: rows, openCards: open });
       setSchedules(rows);
-      setOpenCards(open);
+      setOpenCards(tasks.filter((t) => t.scheduleId));
     } catch (e) {
       if (!schedulesFetchIsCurrent(id)) return;
       setError(e instanceof Error ? e.message : "Could not load schedules");
-    } finally {
-      if (schedulesFetchIsCurrent(id)) setLoading(false);
     }
   }
 
   useEffect(() => {
-    void load(readSchedulesCache() != null);
-    // Reload once per visit. A warm cache paints first; this refreshes it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!focusId || loading) return;
+    if (!focusId) return;
     if (openedFocus.current === focusId) return;
     const row = schedules.find((s) => s.id === focusId);
     if (!row) return;
     openedFocus.current = focusId;
     setEditing(row);
-  }, [focusId, loading, schedules]);
+  }, [focusId, schedules]);
 
   const meta = useMemo(() => {
-    const byId = new Map<string, { system: string; component: string }>();
+    const byId = new Map(Object.entries(initial.places));
     for (const system of assets) {
       for (const component of system.components) {
         byId.set(component.id, { system: system.name, component: component.name });
       }
     }
     return byId;
-  }, [assets]);
+  }, [assets, initial.places]);
 
   const picks = useMemo(() => {
     const list: Array<{ id: string; label: string }> = [];
@@ -114,11 +102,7 @@ export function SchedulesView() {
       </div>
 
       {error && <p className="mb-3 text-sm text-red-800">{error}</p>}
-      {loading ? (
-        <p className="text-sm text-stone-500">Loading schedules…</p>
-      ) : (
-        <>
-          {schedules.length === 0 ? (
+      {schedules.length === 0 ? (
             <p className="rounded-2xl border border-[#ebe3d3] bg-[#fffdf8] px-4 py-8 text-center text-sm text-stone-500">
               No schedules yet.
             </p>
@@ -157,8 +141,6 @@ export function SchedulesView() {
             />
             Tinted = has an open task on Tasks
           </p>
-        </>
-      )}
 
       {editing && (
         <Modal title="Edit schedule" onClose={() => setEditing(null)}>
@@ -183,7 +165,7 @@ export function SchedulesView() {
               try {
                 await maintenanceApi.updateSchedule(editing.id, input);
                 setEditing(null);
-                await load(true);
+                await load();
               } finally {
                 setSaving(false);
               }
@@ -230,7 +212,7 @@ export function SchedulesView() {
                     await maintenanceApi.createSchedule(input);
                     setAddOpen(false);
                     setComponentId("");
-                    await load(true);
+                    await load();
                   } finally {
                     setSaving(false);
                   }

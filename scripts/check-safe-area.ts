@@ -53,4 +53,10 @@ assert.match(nav, /fixed inset-x-0 bottom-0/);
 assert.match(nav, /safe-area-inset-bottom/);
 assert.doesNotMatch(nav, /href: "\/systems"[\s\S]*lucide-react/);
 
+const account = readFileSync(join(root, "src/app/(app)/account/page.tsx"), "utf8");
+assert.match(account, /Your account/);
+assert.doesNotMatch(account, /uppercase tracking-wider/);
+assert.match(account, /pb-\[calc\(2rem\+env\(safe-area-inset-bottom,0px\)\)\]/);
+assert.match(shell, /pad-tab-bar/);
+
 console.log("safe-area: header owns the top inset; main pads the bottom tabs and home indicator");

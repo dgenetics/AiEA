@@ -71,11 +71,11 @@ export function SiteNav() {
       </header>
       <nav
         aria-label="Farm Manager"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#e7e0d0] bg-[#fbf9f4]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#12141c] pb-[env(safe-area-inset-bottom,0px)]"
       >
         {TABS.map((tab) => {
           const active = tabActive(pathname, tab.href);
-          const tone = active ? "font-bold text-[#1c1917]" : "font-medium text-[#a8a29e]";
+          const tone = active ? "font-bold text-white" : "font-medium text-zinc-400";
           return (
             <Link
               key={tab.href}
