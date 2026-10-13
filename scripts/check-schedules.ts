@@ -6,6 +6,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { scheduleCardFrequency } from "../src/lib/chore-display";
+import {
+  beginSchedulesFetch,
+  clearSchedulesCache,
+  readSchedulesCache,
+  schedulesFetchIsCurrent,
+  writeSchedulesCache,
+} from "../src/lib/schedules-cache";
 
 assert.equal(scheduleCardFrequency("7d", 7), "Every week");
 assert.equal(scheduleCardFrequency("14d", 14), "Every 2 weeks");
@@ -37,5 +44,44 @@ assert.match(view, /md:grid-cols-2/);
 assert.match(view, /lg:grid-cols-3/);
 assert.match(view, /scheduleCardFrequency/);
 assert.match(view, /title="Edit schedule"/);
+assert.match(view, /readSchedulesCache\(\)/);
+assert.match(view, /writeSchedulesCache\(/);
+assert.match(view, /useState\(\(\) => readSchedulesCache\(\) == null\)/);
+assert.match(view, /if \(!background\) setLoading\(true\)/);
+assert.match(view, /void load\(readSchedulesCache\(\) != null\)/);
+assert.match(view, /await load\(true\)/);
+assert.doesNotMatch(view, /useState\(true\)/);
+assert.doesNotMatch(view, /await load\(\)/);
+
+clearSchedulesCache();
+assert.equal(readSchedulesCache(), null);
+const older = beginSchedulesFetch();
+const newer = beginSchedulesFetch();
+assert.equal(schedulesFetchIsCurrent(older), false);
+assert.equal(schedulesFetchIsCurrent(newer), true);
+writeSchedulesCache({
+  schedules: [
+    {
+      id: "s1",
+      componentId: "c1",
+      name: "Oil",
+      description: null,
+      frequency: "90d",
+      intervalDays: 90,
+      isRecurring: true,
+      nextDueDate: "2026-10-13",
+      lastCompletedAt: null,
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    },
+  ],
+  openCards: [],
+});
+const cached = readSchedulesCache();
+assert.ok(cached);
+assert.equal(cached.schedules[0]?.name, "Oil");
+assert.equal(cached.openCards.length, 0);
+clearSchedulesCache();
+assert.equal(readSchedulesCache(), null);
 
 console.log("schedules: cards show name, place, and frequency; open tasks are tinted");

@@ -42,7 +42,7 @@ Systems is a cream grid of cards grouped by category. A card shows the system na
 
 ## Schedules
 
-Schedules is a cream grid of cards. Each card shows the schedule name, its system and component, and how often it repeats. Cards stack on a phone and sit in two columns, then three, on a wider screen. A card with an open task on Tasks is tinted amber, and a short legend explains that tint. The whole card opens that schedule’s editor, with save and cancel. “+ Add schedule” creates one. Each schedule keeps exactly one open task.
+Schedules is a cream grid of cards. Each card shows the schedule name, its system and component, and how often it repeats. Cards stack on a phone and sit in two columns, then three, on a wider screen. A card with an open task on Tasks is tinted amber, and a short legend explains that tint. The whole card opens that schedule’s editor, with save and cancel. “+ Add schedule” creates one. Each schedule keeps exactly one open task. Coming back to Schedules shows the last list at once and refreshes it in the background. Saving or adding a schedule updates that list without a loading screen.
 
 A new chore is an ordinary task. If it is overdue or due within 7 days it starts in Current. Otherwise it starts in Backlog. It is never parked in Icebox automatically. The card links back to its schedule. After you place it, later edits to the schedule update the due date and do not move the lane.
 
