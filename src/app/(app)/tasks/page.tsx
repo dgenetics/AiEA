@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Archive } from "lucide-react";
 import { getCurrentUser, getPrimaryWorkspaceId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TaskList } from "@/components/task-list";
@@ -66,19 +67,18 @@ export default async function TasksBoardPage({
     ]),
   ) as Record<BoardLane, TaskRowData[]>;
 
-  const fromSchedules = tasks.filter((t) => t.scheduleId).length;
-
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-xl font-semibold tracking-tight text-white md:text-2xl">Tasks</h1>
-        <Link href="/tasks/done" className="text-xs text-indigo-300">
-          Done ›
+        <Link
+          href="/tasks/done"
+          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-xs text-indigo-300 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 active:text-indigo-200 active:opacity-80"
+        >
+          <Archive className="h-4 w-4" aria-hidden />
+          Archive
         </Link>
       </div>
-      <p className="text-xs text-zinc-500 md:text-sm">
-        {tasks.length} open task{tasks.length === 1 ? "" : "s"} · {fromSchedules} from schedules · nothing hidden
-      </p>
 
       <TasksRefresh />
 
@@ -103,8 +103,12 @@ export default async function TasksBoardPage({
       </div>
 
       <div className="pt-2 text-center md:hidden">
-        <Link href="/tasks/done" className="text-xs text-indigo-300">
-          Done ›
+        <Link
+          href="/tasks/done"
+          className="inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-xs text-indigo-300 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 active:text-indigo-200 active:opacity-80"
+        >
+          <Archive className="h-4 w-4" aria-hidden />
+          Archive
         </Link>
       </div>
     </div>

@@ -74,6 +74,9 @@ jobs:
       - name: Unit assertions (system cards)
         run: npm run test:systems
 
+      - name: Unit assertions (Tasks Archive links)
+        run: npm run test:tasks-archive
+
       - name: Build
         run: npm run build
 
