@@ -19,7 +19,7 @@ export function StickySaveBar({
         className={cn(
           'pointer-events-none fixed inset-x-0 z-30',
           // Sit above the ~3.75rem tab bar + safe-area
-          'bottom-[env(safe-area-inset-bottom,0px)]',
+          'bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]',
           className,
         )}
       >
