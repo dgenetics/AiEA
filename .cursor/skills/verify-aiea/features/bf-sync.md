@@ -10,13 +10,13 @@ A recurring schedule creates one ordinary open task. Due today starts in Current
 ## How to get to it (user POV)
 
 - Systems → add a system and component, or use the API the drive uses.
-- Schedules → the row links to the open card on Tasks.
+- Schedules → the card shows the schedule name. Amber means it has an open task on Tasks. The card opens the schedule editor.
 
 ## Driving it with Playwright
 
 - **Create.** `node scripts/drive.mjs --feature bf-sync --base-url <url>`. `POST /api/systems` then `POST /api/schedules` with `nextDueDate` now.
 - **Board.** `/tasks` Current column contains the schedule name.
-- **Table.** `/schedules` lists the same name.
+- **Cards.** `/schedules` lists the same name.
 
 ## Gotchas
 

@@ -24,6 +24,28 @@ export function cadencePhrase(
   return null;
 }
 
+/** Card line on /schedules: “Every 3 months”, “Every month”, “Every 2 weeks”. */
+export function scheduleCardFrequency(
+  frequency: string | null | undefined,
+  intervalDays: number | null | undefined,
+): string {
+  const f = frequency?.trim().toLowerCase() || "";
+  const days =
+    intervalDays != null && Number.isFinite(intervalDays)
+      ? intervalDays
+      : intervalDaysFromFrequency(frequency);
+  if (f === "7d" || days === 7) return "Every week";
+  if (f === "14d" || days === 14) return "Every 2 weeks";
+  if (f === "30d" || days === 30) return "Every month";
+  if (f === "60d" || days === 60) return "Every 2 months";
+  if (f === "90d" || days === 90) return "Every 3 months";
+  if (f === "6mo" || days === 182) return "Every 6 months";
+  if (f === "1y" || f === "12mo" || days === 365) return "Every year";
+  if (days && days > 0) return days === 1 ? "Every day" : `Every ${days} days`;
+  if (f) return f;
+  return "—";
+}
+
 export function choreDuePresentation(
   due: Date | string | null | undefined,
   now = new Date(),
