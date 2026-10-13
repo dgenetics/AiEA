@@ -18,17 +18,12 @@ export default async function HomePage() {
           </div>
           <span className="font-semibold tracking-tight">AiEA</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm text-zinc-400 hover:text-white">
-            Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/15"
-          >
-            Get started
-          </Link>
-        </div>
+        <Link
+          href="/register"
+          className="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/15"
+        >
+          Get started
+        </Link>
       </header>
 
       <main className="relative z-10 mx-auto max-w-5xl px-6 pb-24 pt-16 text-center">
