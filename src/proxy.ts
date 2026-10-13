@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 function go(
   request: NextRequest,
   pathname: string,
-  status: 301 | 308,
+  status: 301 | 307 | 308,
   extra?: Record<string, string>,
 ) {
   const url = request.nextUrl.clone();
@@ -16,14 +16,17 @@ function go(
 }
 
 /**
- * `/` and retired AiEA pages are temporary (308). Old `/maintenance/*`
- * bookmarks are permanent (301) for one release.
+ * `/` is a temporary redirect (307). Other retired AiEA pages are 308.
+ * Old `/maintenance/*` bookmarks are permanent (301) for one release.
  */
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname.replace(/\/+$/, "") || "/";
 
+  if (path === "/") {
+    return go(request, "/tasks", 307);
+  }
+
   if (
-    path === "/" ||
     path === "/today" ||
     path.startsWith("/today/") ||
     path === "/upcoming" ||

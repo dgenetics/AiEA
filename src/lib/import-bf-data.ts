@@ -7,6 +7,11 @@
  *
  * Existing Task rows are never deleted. Open chores become ACTIVE Tasks.
  * Re-runs insert missing ids and fill schedule links; they do not overwrite edits.
+ *
+ * Call this from scripts/import-bf-data.ts only. Pass the target workspace id.
+ * Open chores for one schedule are reduced to a single open task before any
+ * Task insert or update, so Task_one_open_per_schedule cannot fail mid-import.
+ * All writes are one transaction.
  */
 import { createClient, type Client, type Row } from "@libsql/client";
 import { laneWrite } from "@/lib/board";
@@ -110,7 +115,8 @@ function isOpenBfStatus(status: string) {
   return status === "PENDING" || status === "DUE_SOON" || status === "OVERDUE";
 }
 
-export async function importBfMaintenance(opts?: {
+export async function importBfMaintenance(opts: {
+  workspaceId: string;
   sourceUrl?: string;
   sourceToken?: string;
 }): Promise<ImportReport> {
@@ -150,25 +156,46 @@ export async function importBfMaintenance(opts?: {
   }
   if (!bundle) return { ...empty, skipped: "no source" };
 
-  const workspace = await prisma.workspace.findFirst({
-    orderBy: { createdAt: "asc" },
-  });
-  if (!workspace) return { ...empty, skipped: "no workspace" };
+  const workspaceId = opts.workspaceId?.trim();
+  if (!workspaceId) {
+    return { ...empty, skipped: "workspace id is required" };
+  }
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+  if (!workspace) return { ...empty, skipped: "workspace not found" };
 
   const report: ImportReport = { ...empty, workspaceId: workspace.id };
   report.openBefore = bundle.tasks.filter((t) =>
     isOpenBfStatus(str(t, "status")),
   ).length;
 
+  await prisma.$transaction(
+    async (tx) => {
+      await writeImport(tx, workspace.id, bundle, report);
+    },
+    { maxWait: 10_000, timeout: 120_000 },
+  );
+
+  console.log("[import-bf]", JSON.stringify(report));
+  return report;
+}
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+async function writeImport(
+  tx: Tx,
+  workspaceId: string,
+  bundle: { systems: TableRow[]; components: TableRow[]; schedules: TableRow[]; tasks: TableRow[] },
+  report: ImportReport,
+) {
   for (const row of bundle.systems) {
     const id = str(row, "id");
     if (!id) continue;
-    const existing = await prisma.system.findUnique({ where: { id } });
+    const existing = await tx.system.findUnique({ where: { id } });
     if (existing) continue;
-    await prisma.system.create({
+    await tx.system.create({
       data: {
         id,
-        workspaceId: workspace.id,
+        workspaceId,
         name: str(row, "name") || "Untitled system",
         category: normalizeCategory(str(row, "category")),
         notes: str(row, "notes"),
@@ -183,16 +210,16 @@ export async function importBfMaintenance(opts?: {
     const id = str(row, "id");
     const systemId = str(row, "systemId");
     if (!id || !systemId) continue;
-    const existing = await prisma.component.findUnique({ where: { id } });
+    const existing = await tx.component.findUnique({ where: { id } });
     if (existing) continue;
-    const system = await prisma.system.findFirst({
-      where: { id: systemId, workspaceId: workspace.id },
+    const system = await tx.system.findFirst({
+      where: { id: systemId, workspaceId },
     });
     if (!system) continue;
-    await prisma.component.create({
+    await tx.component.create({
       data: {
         id,
-        workspaceId: workspace.id,
+        workspaceId,
         systemId,
         name: str(row, "name") || "Part",
         location: str(row, "location"),
@@ -221,16 +248,16 @@ export async function importBfMaintenance(opts?: {
     const componentId = str(row, "componentId");
     const nextDue = dateOrNull(row, "nextDueDate");
     if (!id || !componentId || !nextDue) continue;
-    const existing = await prisma.maintenanceSchedule.findUnique({ where: { id } });
+    const existing = await tx.maintenanceSchedule.findUnique({ where: { id } });
     if (existing) continue;
-    const component = await prisma.component.findFirst({
-      where: { id: componentId, workspaceId: workspace.id },
+    const component = await tx.component.findFirst({
+      where: { id: componentId, workspaceId },
     });
     if (!component) continue;
-    await prisma.maintenanceSchedule.create({
+    await tx.maintenanceSchedule.create({
       data: {
         id,
-        workspaceId: workspace.id,
+        workspaceId,
         componentId,
         name: str(row, "name") || "Schedule",
         description: strOrNull(row, "description"),
@@ -246,28 +273,61 @@ export async function importBfMaintenance(opts?: {
     report.schedules += 1;
   }
 
-  for (const row of bundle.tasks) {
-    const bfId = str(row, "id");
-    if (!bfId) continue;
+  // One open task per schedule is decided before any Task write.
+  const existingOpen = await tx.task.findMany({
+    where: {
+      workspaceId,
+      scheduleId: { not: null },
+      status: { in: [...OPEN_TASK_STATUSES] },
+    },
+    orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
+  const openHolder = new Map<string, string>();
+  for (const task of existingOpen) {
+    const key = task.scheduleId;
+    if (!key) continue;
+    if (openHolder.has(key)) {
+      await tx.task.update({
+        where: { id: task.id },
+        data: { status: "CANCELLED" },
+      });
+      report.duplicatesCancelled += 1;
+      continue;
+    }
+    openHolder.set(key, task.id);
+  }
+
+  const incoming = bundle.tasks
+    .map((row) => {
+      const bfId = str(row, "id");
+      const due = dateOrNull(row, "dueDate") ?? new Date();
+      return { row, bfId, due };
+    })
+    .filter((item) => item.bfId)
+    .sort((a, b) => a.due.getTime() - b.due.getTime() || a.bfId.localeCompare(b.bfId));
+
+  for (const item of incoming) {
+    const row = item.row;
+    const bfId = item.bfId;
     const externalId = `bf-task:${bfId}`;
     const statusRaw = str(row, "status");
-    const due = dateOrNull(row, "dueDate") ?? new Date();
-    const scheduleId = strOrNull(row, "scheduleId");
+    const due = item.due;
+    const scheduleKey = strOrNull(row, "scheduleId");
     const componentId = str(row, "componentId");
     const component = componentId
-      ? await prisma.component.findFirst({
-          where: { id: componentId, workspaceId: workspace.id },
+      ? await tx.component.findFirst({
+          where: { id: componentId, workspaceId },
         })
       : null;
-    const schedule = scheduleId
-      ? await prisma.maintenanceSchedule.findFirst({
-          where: { id: scheduleId, workspaceId: workspace.id },
+    const schedule = scheduleKey
+      ? await tx.maintenanceSchedule.findFirst({
+          where: { id: scheduleKey, workspaceId },
         })
       : null;
 
-    const linked = await prisma.task.findFirst({
+    const linked = await tx.task.findFirst({
       where: {
-        workspaceId: workspace.id,
+        workspaceId,
         externalSource: "bf-maintenance",
         externalId,
       },
@@ -276,29 +336,50 @@ export async function importBfMaintenance(opts?: {
     const open = isOpenBfStatus(statusRaw);
     const done = statusRaw === "COMPLETED";
     const cancelled = statusRaw === "CANCELLED";
-    const status = open ? "ACTIVE" : done ? "DONE" : cancelled ? "CANCELLED" : "ACTIVE";
-    const board = open ? boardForScheduleDue(due) : done ? "BACKLOG" : "BACKLOG";
+    const scheduleId = schedule?.id ?? null;
+    let stayOpen = false;
+    if (open && scheduleId) {
+      const holder = openHolder.get(scheduleId);
+      if (!holder || holder === linked?.id) {
+        stayOpen = true;
+        openHolder.set(scheduleId, linked?.id ?? externalId);
+      }
+    } else if (open && !scheduleId) {
+      stayOpen = true;
+    }
+    const status = stayOpen
+      ? "ACTIVE"
+      : open
+        ? "CANCELLED"
+        : done
+          ? "DONE"
+          : cancelled
+            ? "CANCELLED"
+            : "CANCELLED";
+    const board = stayOpen ? boardForScheduleDue(due) : "BACKLOG";
+    if (open && scheduleId && !stayOpen) report.duplicatesCancelled += 1;
 
     if (linked) {
       const promote = linked.status === "PROPOSED" || linked.status === "INBOX";
-      await prisma.task.update({
+      await tx.task.update({
         where: { id: linked.id },
         data: {
-          scheduleId: linked.scheduleId ?? schedule?.id ?? null,
+          scheduleId: linked.scheduleId ?? scheduleId,
           componentId: linked.componentId ?? component?.id ?? null,
           recurrenceRule: null,
-          ...(promote
+          ...(stayOpen && promote
             ? { status: "ACTIVE", ...laneWrite(boardForScheduleDue(linked.dueAt ?? due)) }
             : {}),
+          ...(!stayOpen && open ? { status: "CANCELLED" } : {}),
         },
       });
       report.tasksLinked += 1;
       continue;
     }
 
-    await prisma.task.create({
+    await tx.task.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         title: str(row, "title") || "Chore",
         notes: strOrNull(row, "completedNotes") ?? strOrNull(row, "description"),
         kind: "ONE_TIME",
@@ -309,69 +390,56 @@ export async function importBfMaintenance(opts?: {
         recurrenceRule: null,
         externalSource: "bf-maintenance",
         externalId,
-        scheduleId: schedule?.id ?? null,
+        scheduleId,
         componentId: component?.id ?? null,
       },
     });
     report.tasksCreated += 1;
   }
 
-  // Any previously imported farm tasks whose source row we just saw are linked above.
-  // Promote leftovers that never matched a MaintenanceTask id.
-  const leftovers = await prisma.task.findMany({
+  const leftovers = await tx.task.findMany({
     where: {
-      workspaceId: workspace.id,
+      workspaceId,
       externalSource: "bf-maintenance",
       status: { in: ["PROPOSED", "INBOX"] },
     },
   });
   for (const task of leftovers) {
-    await prisma.task.update({
+    const key = task.scheduleId;
+    const holder = key ? openHolder.get(key) : undefined;
+    const canOpen = !key || !holder || holder === task.id;
+    if (key && canOpen) openHolder.set(key, task.id);
+    await tx.task.update({
       where: { id: task.id },
-      data: {
-        status: "ACTIVE",
-        recurrenceRule: null,
-        ...laneWrite(boardForScheduleDue(task.dueAt ?? new Date())),
-      },
+      data: canOpen
+        ? {
+            status: "ACTIVE",
+            recurrenceRule: null,
+            ...laneWrite(boardForScheduleDue(task.dueAt ?? new Date())),
+          }
+        : { status: "CANCELLED", recurrenceRule: null },
     });
+    if (!canOpen) report.duplicatesCancelled += 1;
   }
 
-  const openTasks = await prisma.task.findMany({
-    where: {
-      workspaceId: workspace.id,
-      scheduleId: { not: null },
-      status: { in: [...OPEN_TASK_STATUSES] },
-    },
-    orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-  });
-  const seen = new Set<string>();
-  for (const task of openTasks) {
-    const key = task.scheduleId!;
-    if (!seen.has(key)) {
-      seen.add(key);
-      continue;
-    }
-    await prisma.task.update({
-      where: { id: task.id },
-      data: { status: "CANCELLED" },
-    });
-    report.duplicatesCancelled += 1;
-  }
-
-  const schedules = await prisma.maintenanceSchedule.findMany({
-    where: { workspaceId: workspace.id, isRecurring: true },
+  const schedules = await tx.maintenanceSchedule.findMany({
+    where: { workspaceId, isRecurring: true },
   });
   for (const schedule of schedules) {
-    const open = await prisma.task.findFirst({
+    if (openHolder.has(schedule.id)) continue;
+    const open = await tx.task.findFirst({
       where: {
         scheduleId: schedule.id,
         status: { in: [...OPEN_TASK_STATUSES] },
       },
     });
-    if (open) continue;
-    await prisma.task.create({
+    if (open) {
+      openHolder.set(schedule.id, open.id);
+      continue;
+    }
+    const created = await tx.task.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         scheduleId: schedule.id,
         componentId: schedule.componentId,
         title: schedule.name,
@@ -383,17 +451,15 @@ export async function importBfMaintenance(opts?: {
         ...laneWrite(boardForScheduleDue(schedule.nextDueDate)),
       },
     });
+    openHolder.set(schedule.id, created.id);
     report.materialized += 1;
   }
 
-  report.openAfter = await prisma.task.count({
+  report.openAfter = await tx.task.count({
     where: {
-      workspaceId: workspace.id,
+      workspaceId,
       scheduleId: { not: null },
       status: { in: [...OPEN_TASK_STATUSES] },
     },
   });
-
-  console.log("[import-bf]", JSON.stringify(report));
-  return report;
 }

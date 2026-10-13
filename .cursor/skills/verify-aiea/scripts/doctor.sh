@@ -31,7 +31,7 @@ echo "package_version: $PKG_VERSION"
 # 1) Port / process answering
 code=$(curl -s -D /tmp/aiea-doctor-root.hdr -o /tmp/aiea-doctor-root.html -w '%{http_code}' --max-time 10 "$BASE/" || echo "000")
 echo "GET / -> $code"
-[[ "$code" == "308" ]] || { echo "FAIL: root must 308 to /tasks (got $code)"; exit 1; }
+[[ "$code" == "307" ]] || { echo "FAIL: root must 307 to /tasks (got $code)"; exit 1; }
 if ! grep -qiE '^location: .*/tasks' /tmp/aiea-doctor-root.hdr; then
   echo "FAIL: GET / Location is not /tasks"
   exit 1

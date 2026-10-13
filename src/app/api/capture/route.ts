@@ -53,15 +53,22 @@ export async function POST(req: Request) {
       if (!capture) {
         return NextResponse.json({ ok: false, error: "Capture not found" }, { status: 404 });
       }
-      const cancelled = await prisma.task.updateMany({
-        where: { sourceCaptureId: capture.id, workspaceId, status: { not: "CANCELLED" } },
-        data: { status: "CANCELLED" },
+      const undone = await prisma.$transaction(async (tx) => {
+        const cancelled = await tx.task.updateMany({
+          where: {
+            sourceCaptureId: capture.id,
+            workspaceId,
+            status: { in: ["ACTIVE", "INBOX", "SNOOZED"] },
+          },
+          data: { status: "CANCELLED" },
+        });
+        await tx.captureBatch.update({
+          where: { id: capture.id },
+          data: { status: "UNDONE" },
+        });
+        return cancelled.count;
       });
-      await prisma.captureBatch.update({
-        where: { id: capture.id },
-        data: { status: "UNDONE" },
-      });
-      return NextResponse.json({ ok: true, undone: cancelled.count });
+      return NextResponse.json({ ok: true, undone });
     }
 
     const text = body.text?.trim() ?? "";
@@ -97,49 +104,51 @@ export async function POST(req: Request) {
       }
     }
 
-    const capture = await prisma.captureBatch.create({
-      data: {
-        workspaceId,
-        userId: user.id,
-        rawText: text,
-        status: "ACCEPTED",
-        proposals: JSON.stringify(items),
-      },
-    });
-
-    const tasks = [];
-    for (const item of items) {
-      const dueAt = parseDueDate(item.dueAt);
-      const task = await prisma.task.create({
+    const created = await prisma.$transaction(async (tx) => {
+      const capture = await tx.captureBatch.create({
         data: {
           workspaceId,
-          title: item.title.slice(0, 300),
-          notes: item.notes ?? null,
-          kind: "ONE_TIME",
-          status: "ACTIVE",
-          ...laneWrite(item.board),
-          boardReason: item.boardReason?.slice(0, 80) ?? null,
-          dueAt,
-          aiRationale: item.aiRationale ?? item.boardReason ?? null,
-          sourceCaptureId: capture.id,
+          userId: user.id,
+          rawText: text,
+          status: "ACCEPTED",
+          proposals: JSON.stringify(items),
         },
       });
-      tasks.push({
-        id: task.id,
-        title: task.title,
-        board: item.board,
-        boardReason: task.boardReason,
-        dueAt: task.dueAt?.toISOString() ?? null,
-      });
-    }
+      const tasks = [];
+      for (const item of items) {
+        const dueAt = parseDueDate(item.dueAt);
+        const task = await tx.task.create({
+          data: {
+            workspaceId,
+            title: item.title.slice(0, 300),
+            notes: item.notes ?? null,
+            kind: "ONE_TIME",
+            status: "ACTIVE",
+            ...laneWrite(item.board),
+            boardReason: item.boardReason?.slice(0, 80) ?? null,
+            dueAt,
+            aiRationale: item.aiRationale ?? item.boardReason ?? null,
+            sourceCaptureId: capture.id,
+          },
+        });
+        tasks.push({
+          id: task.id,
+          title: task.title,
+          board: item.board,
+          boardReason: task.boardReason,
+          dueAt: task.dueAt?.toISOString() ?? null,
+        });
+      }
+      return { captureId: capture.id, tasks };
+    });
 
     const laneCounts = counts(items);
     return NextResponse.json({
       ok: true,
-      captureId: capture.id,
-      tasks,
+      captureId: created.captureId,
+      tasks: created.tasks,
       counts: laneCounts,
-      total: tasks.length,
+      total: created.tasks.length,
       rawFallback,
       source,
       model,

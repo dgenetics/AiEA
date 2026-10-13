@@ -15,13 +15,7 @@ const allowed: Array<[string, string]> = [
   ["/systems", "/systems"],
   ["/schedules", "/schedules"],
   ["/tasks/done", "/tasks/done"],
-  ["/maintenance", "/maintenance"],
-  ["/maintenance/schedules", "/maintenance/schedules"],
-  ["/maintenance/assets/abc", "/maintenance/assets/abc"],
-  ["/maintenance/schedules?x=1", "/maintenance/schedules?x=1"],
-  ["/maintenance/schedules?x=1&y=2", "/maintenance/schedules?x=1&y=2"],
   ["/tasks#today", "/tasks#today"],
-  ["/maintenance/schedules?next=https://evil.com", "/maintenance/schedules?next=https://evil.com"],
   ["/", "/"],
   ["/login", "/login"],
   ["/register?foo=1", "/register?foo=1"],
@@ -104,7 +98,10 @@ for (const input of rejected) {
 
 assert.equal(safeNextPath("/tasks"), "/tasks");
 assert.equal(safeNextPath(safeNextPath("//evil.com")), FALLBACK);
-assert.equal(signedInNextPath("/maintenance/schedules"), "/maintenance/schedules");
+assert.equal(safeNextPath("/maintenance"), FALLBACK);
+assert.equal(safeNextPath("/maintenance/schedules"), FALLBACK);
+assert.equal(safeNextPath("/maintenance/schedules?x=1"), FALLBACK);
+assert.equal(signedInNextPath("/maintenance/schedules"), FALLBACK);
 assert.equal(signedInNextPath("/login"), FALLBACK);
 assert.equal(signedInNextPath("/login?next=/tasks"), FALLBACK);
 assert.equal(signedInNextPath("/register/"), FALLBACK);

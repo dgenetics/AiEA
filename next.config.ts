@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     "@libsql/client",
     "@prisma/adapter-libsql",
   ],
-  // Backup if proxy.ts is not applied. Proxy owns the 308 for these paths.
+  // Backup if proxy.ts is not applied. Proxy sends `/` to `/tasks` with 307.
   async redirects() {
     return [
       { source: "/today", destination: "/tasks", permanent: false },

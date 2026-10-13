@@ -46,7 +46,7 @@ Helpers still accept the old pair with a **WARN** and document this migration. P
 (cd .cursor/skills/verify-aiea/scripts && npm install)
 
 ./.cursor/skills/verify-aiea/scripts/launch.sh 3200
-# prints run-id; ready when GET http://127.0.0.1:3200/ answers (308 to /tasks)
+# prints run-id; ready when GET http://127.0.0.1:3200/ answers (307 to /tasks)
 ```
 
 `launch.sh` builds if needed, creates a disposable SQLite DB under the evidence run dir, clears Turso env so local verify never hits prod, starts `next start -p 3200 -H 127.0.0.1`, writes `evidence/<run-id>/server.pid`.
@@ -72,7 +72,7 @@ VERIFY_BASE_URL=… \
 
 Must pass:
 
-1. `GET /` → **308** to `/tasks` (curl does not follow redirects)
+1. `GET /` → **307** to `/tasks` (curl does not follow redirects)
 2. Wrong login → `401`/`400` on `POST /api/auth/login`
 3. Auth: **local** disposable register **or** live login via `AIEA_SMOKE_*` (legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted) → 200 + `aiea_session` cookie with **Path=/**
 4. Local gate: `GET /api/session` with no cookie → **401** JSON. A bearer secret is not a session. (Skipped on live smoke; that host may not be this revision yet.)

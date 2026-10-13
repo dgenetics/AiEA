@@ -1,37 +1,34 @@
 -- Farm Manager: one database.
+-- Apply this file only through scripts/push-turso-schema.mjs (client.migrate).
+-- That runs the whole file in one transaction with foreign_keys off, so
+-- DROP TABLE cannot cascade. Do not run it from app startup.
 -- Task rows are copied into the rebuilt table before the old table is dropped.
 -- Area, Person, and Reminder go away with the product cuts (Areas, People, Daily Brief).
 -- Schedule chores are Task rows (scheduleId / componentId), not a second chore table.
 
 -- DropIndex
-DROP INDEX "Area_workspaceId_slug_key";
+DROP INDEX IF EXISTS "Area_workspaceId_slug_key";
 
 -- DropIndex
-DROP INDEX "Area_workspaceId_idx";
+DROP INDEX IF EXISTS "Area_workspaceId_idx";
 
 -- DropIndex
-DROP INDEX "Person_workspaceId_idx";
+DROP INDEX IF EXISTS "Person_workspaceId_idx";
 
 -- DropIndex
-DROP INDEX "Reminder_fireAt_status_idx";
+DROP INDEX IF EXISTS "Reminder_fireAt_status_idx";
 
 -- DropIndex
-DROP INDEX "Reminder_workspaceId_status_fireAt_idx";
+DROP INDEX IF EXISTS "Reminder_workspaceId_status_fireAt_idx";
 
 -- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "Area";
-PRAGMA foreign_keys=on;
+DROP TABLE IF EXISTS "Area";
 
 -- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "Person";
-PRAGMA foreign_keys=on;
+DROP TABLE IF EXISTS "Person";
 
 -- DropTable
-PRAGMA foreign_keys=off;
-DROP TABLE "Reminder";
-PRAGMA foreign_keys=on;
+DROP TABLE IF EXISTS "Reminder";
 
 -- CreateTable
 CREATE TABLE "System" (
@@ -88,8 +85,7 @@ CREATE TABLE "MaintenanceSchedule" (
 );
 
 -- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
+-- foreign_keys stays off for this whole file (see push-turso-schema.mjs).
 CREATE TABLE "new_CaptureBatch" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "workspaceId" TEXT NOT NULL,
@@ -179,8 +175,6 @@ INSERT INTO "new_Workspace" ("createdAt", "id", "name", "slug", "updatedAt") SEL
 DROP TABLE "Workspace";
 ALTER TABLE "new_Workspace" RENAME TO "Workspace";
 CREATE UNIQUE INDEX "Workspace_slug_key" ON "Workspace"("slug");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
 
 -- CreateIndex
 CREATE INDEX "System_workspaceId_idx" ON "System"("workspaceId");
@@ -213,5 +207,5 @@ UPDATE "Task" SET "status" = 'ACTIVE' WHERE "status" IN ('PROPOSED', 'INBOX');
 UPDATE "Task" SET "recurrenceRule" = NULL WHERE "externalSource" = 'bf-maintenance';
 
 -- At most one open task per schedule. NULLs do not collide.
-CREATE UNIQUE INDEX "Task_one_open_per_schedule" ON "Task"("scheduleId")
+CREATE UNIQUE INDEX IF NOT EXISTS "Task_one_open_per_schedule" ON "Task"("scheduleId")
 WHERE "scheduleId" IS NOT NULL AND "status" IN ('ACTIVE', 'INBOX', 'SNOOZED');

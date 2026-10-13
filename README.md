@@ -70,12 +70,21 @@ Open [http://localhost:3000](http://localhost:3000) → **Get started** → crea
 | `DATABASE_URL` | SQLite path (`file:./dev.db`) |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Production libSQL (AiEA’s **own** Turso DB only — never share with BF Maintenance) |
 
-After any `prisma/migrations` change, run against production (and preview if it shares the DB):
+App startup does not migrate and does not import. Preview and production share one Turso database, so do not boot a preview to apply schema.
+
+Back up first (`turso db shell <db-name> ".dump"` or a Turso branch), then:
 
 ```bash
 vercel env pull .env.vercel --environment=production --yes
-node --env-file=.env.vercel scripts/push-turso-schema.mjs
-# or: npm run db:push:turso
+FARM_SCHEMA_PUSH=1 node --env-file=.env.vercel scripts/push-turso-schema.mjs
+```
+
+Import an old bf-maintenance database only after that backup, and only into a workspace id you pass:
+
+```bash
+FARM_IMPORT_ALLOW_REMOTE=1 FARM_IMPORT_WORKSPACE_ID=<id> \
+  BF_SOURCE_DATABASE_URL="libsql://..." \
+  npx tsx scripts/import-bf-data.ts
 ```
 
 | `XAI_API_KEY` | SpaceXAI / xAI key — [console.x.ai](https://console.x.ai/team/default/api-keys) |
@@ -84,7 +93,10 @@ node --env-file=.env.vercel scripts/push-turso-schema.mjs
 | `AIEA_TIMEZONE` | Optional IANA tz for AI date reasoning (e.g. `America/New_York`) |
 | `AUTH_SECRET` | Session hardening (change in prod) |
 | `CRON_SECRET` | Auth for `/api/cron/materialize-schedules` (daily 12:00 UTC) |
-| `BF_SOURCE_DATABASE_URL` | Optional existing bf-maintenance database to copy in once |
+| `BF_SOURCE_DATABASE_URL` | Old bf-maintenance database for `scripts/import-bf-data.ts` |
+| `FARM_IMPORT_WORKSPACE_ID` | Workspace that receives that import |
+| `FARM_SCHEMA_PUSH` | Set to `1` to allow `scripts/push-turso-schema.mjs` on a remote database |
+| `FARM_IMPORT_ALLOW_REMOTE` | Set to `1` to allow the import script to write to Turso |
 
 ### Wire SpaceXAI
 
