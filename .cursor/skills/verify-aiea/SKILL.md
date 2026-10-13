@@ -74,10 +74,12 @@ Must pass:
 
 1. `GET /` → 200
 2. Wrong login → `401`/`400` on `POST /api/auth/login`
-3. Auth: **local** disposable register **or** live login via `AIEA_SMOKE_*` (legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted) → 200 + `aiea_session` cookie
-4. `GET /tasks` → **200** (must not 500; falls back to `/today` only on a pre-board live deploy)
-5. `GET /api/tasks` → 200 JSON
-6. `GET /capture` → 200
+3. Auth: **local** disposable register **or** live login via `AIEA_SMOKE_*` (legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted) → 200 + `aiea_session` cookie with **Path=/**
+4. Local gate: `GET /api/session` with no cookie → **401** JSON. A bearer secret is not a session. (Skipped on live smoke; that host may not be this revision yet.)
+5. `GET /tasks` → **200** (must not 500; falls back to `/today` only on a pre-board live deploy)
+6. `GET /api/tasks` → 200 JSON
+7. `GET /capture` → 200
+8. Local gate: `GET /api/session` with the cookie → **200** `{ user: { id, email, name }, expiresAt }`, `Cache-Control: no-store`. `POST /api/auth/logout` then the same cookie → **401** (row deleted).
 
 Reports `repo_sha` + `package_version`. Compile (`npm run build`) may run separately; it is **not** a substitute for doctor.
 

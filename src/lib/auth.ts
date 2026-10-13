@@ -3,6 +3,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
+/**
+ * Host-only (no Domain) and Path=/ so the Farm Manager host sends this
+ * cookie to both / and /maintenance. The value is an opaque token;
+ * only its sha256 is stored. Sign-out deletes that one Session row.
+ */
 const SESSION_COOKIE = "aiea_session";
 const SESSION_DAYS = 30;
 
@@ -99,6 +104,38 @@ export async function getCurrentUser() {
   }
 
   return session.user;
+}
+
+/**
+ * Identity for GET /api/session. Same expiry rule as getCurrentUser:
+ * a past expiresAt is signed out, and AiEA deletes that row.
+ * Does not include passwordHash or workspace memberships.
+ */
+export async function getSessionIdentity(): Promise<{
+  user: { id: string; email: string; name: string };
+  expiresAt: Date;
+} | null> {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const session = await prisma.session.findUnique({
+    where: { token: hashToken(token) },
+    select: {
+      id: true,
+      expiresAt: true,
+      user: { select: { id: true, email: true, name: true } },
+    },
+  });
+
+  if (!session || session.expiresAt < new Date()) {
+    if (session) {
+      await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
+    }
+    return null;
+  }
+
+  return { user: session.user, expiresAt: session.expiresAt };
 }
 
 export async function requireUser() {

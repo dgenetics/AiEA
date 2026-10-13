@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 /**
  * Shared switcher for the two apps on one domain.
  * Plain <a> tags: Next <Link> would prefetch /maintenance inside AiEA,
  * and in bf-maintenance it would prefix basePath.
  * Copy into bf-maintenance and pass zone="maintenance". usePathname()
- * there omits basePath, so it cannot detect the zone on its own.
+ * there omits basePath, so Sign in's next prefixes /maintenance.
  *
- * Sessions are not shared. The Sign in / Account spot is AiEA-only.
- * In the maintenance zone it is omitted; bf-maintenance has its own gate.
+ * Both zones share aiea_session. Account goes to /account.
+ * Sign in goes to /login?next=<current path and query>.
+ * Wrap this component in <Suspense> because it reads useSearchParams().
  */
 export function SiteNav({
   zone = "tasks",
@@ -19,6 +20,9 @@ export function SiteNav({
   zone?: "tasks" | "maintenance";
 }) {
   const pathname = usePathname() || "/";
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString();
+  const query = search ? `?${search}` : "";
   const onMaintenance =
     zone === "maintenance" ||
     pathname === "/maintenance" ||
@@ -26,7 +30,6 @@ export function SiteNav({
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
-    if (zone === "maintenance") return;
     let cancelled = false;
     void fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { signedIn: false }))
@@ -39,9 +42,17 @@ export function SiteNav({
     return () => {
       cancelled = true;
     };
-  }, [zone, pathname]);
+  }, [pathname, query]);
 
-  const accountHref = signedIn ? "/account" : "/login";
+  const current =
+    pathname === "/maintenance" || pathname.startsWith("/maintenance/")
+      ? `${pathname}${query}`
+      : zone === "maintenance"
+        ? `/maintenance${pathname === "/" ? "" : pathname}${query}`
+        : `${pathname}${query}`;
+  const accountHref = signedIn
+    ? "/account"
+    : `/login?next=${encodeURIComponent(current)}`;
   const accountLabel = signedIn ? "Account" : "Sign in";
 
   return (
@@ -69,15 +80,13 @@ export function SiteNav({
         >
           Maintenance
         </a>
-        {zone !== "maintenance" && (
-          <a
-            href={accountHref}
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 px-2 text-[13px] text-zinc-400 hover:text-white"
-          >
-            <span aria-hidden="true">•</span>
-            {accountLabel}
-          </a>
-        )}
+        <a
+          href={accountHref}
+          className="ml-auto inline-flex shrink-0 items-center gap-1.5 px-2 text-[13px] text-zinc-400 hover:text-white"
+        >
+          <span aria-hidden="true">•</span>
+          {accountLabel}
+        </a>
       </nav>
     </header>
   );
