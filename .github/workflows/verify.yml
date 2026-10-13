@@ -68,7 +68,7 @@ jobs:
       - name: Unit assertions (schedule cards)
         run: npm run test:schedules
 
-      - name: Unit assertions (capture mic release)
+      - name: Unit assertions (capture has no microphone)
         run: npm run test:capture-mic
 
       - name: Unit assertions (system cards)

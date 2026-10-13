@@ -17,7 +17,7 @@ Verification source for Farm Manager (capture field, Tasks board, lanes, schedul
 
 - Harness: `node .cursor/skills/verify-aiea/scripts/drive.mjs --feature <id> --base-url <url>`.
 - Prefer ARIA roles / accessible names. Login email/password inputs are **not** labelled via `htmlFor` — use `input[type="email"]` / `input[type="password"]`.
-- Capture field: placeholder `Type or talk`, button `Add`.
+- Capture field: placeholder `Type a task`, button `Add`.
 - Board columns: `section[data-lane="CURRENT"|"BACKLOG"|"ICEBOX"]`.
 - Mutations on live: prefer local `--local` gate; on live avoid junk titles or use a clearly tagged `Verify …` prefix.
 - Never delete `evidence/` in cleanup.

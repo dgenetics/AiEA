@@ -22,9 +22,7 @@ A task can have a due date, notes, and subtasks. You can complete it, edit it, m
 
 ## Capture
 
-At the top of Tasks there is one field: “Type or talk…”. Enter sends it. Shift+Enter adds a line. `C` focuses the field when you are not already typing. Escape asks before discarding a draft.
-
-The mic uses the browser Web Speech API. If the browser has no speech recognition, the mic is hidden and the page says “Voice unavailable; type instead”. There is no paid speech service.
+At the top of Tasks there is one field: “Type a task…”. Enter sends it. Shift+Enter adds a line. `C` focuses the field when you are not already typing. Escape asks before discarding a draft. There is no microphone in the app. Dictation, if you want it, is the phone keyboard’s.
 
 The text is split into tasks with dates (America/New_York) and a lane:
 

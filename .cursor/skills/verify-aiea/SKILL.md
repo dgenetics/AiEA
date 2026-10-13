@@ -98,7 +98,7 @@ node .cursor/skills/verify-aiea/scripts/drive.mjs \
 
 Features: `capture-accept` | `tasks-board` | `board-lanes` | `bf-sync` | `live-smoke`.
 
-Stable handles: heading `Welcome back` / `Tasks` / `Systems` / `Schedules`; placeholder `Type or talk`; button `Add`; toast `Added N`. Login inputs lack `htmlFor` — use `input[type=email|password]`. Lane columns are `section[data-lane=CURRENT|BACKLOG|ICEBOX]`.
+Stable handles: heading `Welcome back` / `Tasks` / `Systems` / `Schedules`; placeholder `Type a task`; button `Add`; toast `Added N`. Login inputs lack `htmlFor` — use `input[type=email|password]`. Lane columns are `section[data-lane=CURRENT|BACKLOG|ICEBOX]`.
 
 Recipes live in `features/`. Prefer those over inventing selectors.
 
