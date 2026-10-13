@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteNav } from "@/components/site-nav";
 import "./globals.css";
@@ -47,7 +48,14 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#07070b] text-zinc-100">
-        <SiteNav />
+        {/* useSearchParams() in the shared bar — required for static rendering. */}
+        <Suspense
+          fallback={
+            <header className="site-nav sticky top-0 z-40 min-h-10 shrink-0 border-b border-white/10 bg-[#12141c] safe-top" />
+          }
+        >
+          <SiteNav />
+        </Suspense>
         {children}
       </body>
     </html>

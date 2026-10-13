@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { firstSearchParam, safeNextPath } from "@/lib/safe-next";
+import { firstSearchParam, signedInNextPath } from "@/lib/safe-next";
 import { RegisterForm } from "./register-form";
 
 export default async function RegisterPage({
@@ -10,6 +10,6 @@ export default async function RegisterPage({
 }) {
   const next = firstSearchParam((await searchParams).next);
   const user = await getCurrentUser();
-  if (user) redirect(safeNextPath(next));
+  if (user) redirect(signedInNextPath(next));
   return <RegisterForm next={next} />;
 }

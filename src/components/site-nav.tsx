@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 /**
  * Shared switcher for the two apps on one domain.
  * Plain <a> tags: Next <Link> would prefetch /maintenance inside AiEA,
  * and in bf-maintenance it would prefix basePath.
- * Copy this file into bf-maintenance and pass zone="maintenance".
- * usePathname() there omits basePath, so the zone prop is how that
- * copy knows which tab is current. The return path uses
- * window.location so /login?next= keeps the /maintenance prefix.
+ * Copy into bf-maintenance and pass zone="maintenance". usePathname()
+ * there omits basePath, so Sign in's next prefixes /maintenance.
  *
- * One suite session: aiea_session (Path=/). Both zones show Sign in
- * or Account. Sign in returns here via /login?next=. Account is /account.
- * The probe is GET /api/auth/me on this host (not under /maintenance).
+ * Both zones share aiea_session. Account goes to /account.
+ * Sign in goes to /login?next=<current path and query>.
+ * Wrap this component in <Suspense> because it reads useSearchParams().
  */
 export function SiteNav({
   zone = "tasks",
@@ -22,16 +20,14 @@ export function SiteNav({
   zone?: "tasks" | "maintenance";
 }) {
   const pathname = usePathname() || "/";
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString();
+  const query = search ? `?${search}` : "";
   const onMaintenance =
     zone === "maintenance" ||
     pathname === "/maintenance" ||
     pathname.startsWith("/maintenance/");
   const [signedIn, setSignedIn] = useState(false);
-  const returnTo = useSyncExternalStore(
-    subscribeToLocation,
-    currentReturnPath,
-    serverReturnPath,
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -46,9 +42,17 @@ export function SiteNav({
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, query]);
 
-  const accountHref = signedIn ? "/account" : `/login?next=${encodeURIComponent(returnTo)}`;
+  const current =
+    pathname === "/maintenance" || pathname.startsWith("/maintenance/")
+      ? `${pathname}${query}`
+      : zone === "maintenance"
+        ? `/maintenance${pathname === "/" ? "" : pathname}${query}`
+        : `${pathname}${query}`;
+  const accountHref = signedIn
+    ? "/account"
+    : `/login?next=${encodeURIComponent(current)}`;
   const accountLabel = signedIn ? "Account" : "Sign in";
 
   return (
@@ -86,36 +90,6 @@ export function SiteNav({
       </nav>
     </header>
   );
-}
-
-function subscribeToLocation(onChange: () => void) {
-  window.addEventListener("popstate", onChange);
-  return () => window.removeEventListener("popstate", onChange);
-}
-
-function serverReturnPath() {
-  return "/tasks";
-}
-
-/** Full browser path + query. usePathname() drops bf-maintenance's basePath. */
-function currentReturnPath(): string {
-  const path = window.location.pathname || "/";
-  const search = window.location.search || "";
-  if (path === "/login" || path === "/register") {
-    const existing = new URLSearchParams(search).get("next");
-    if (
-      existing &&
-      existing.startsWith("/") &&
-      !existing.startsWith("//") &&
-      !existing.includes("\\")
-    ) {
-      const only = existing.split(/[?#]/)[0] ?? existing;
-      const bare = only.length > 1 && only.endsWith("/") ? only.slice(0, -1) : only;
-      if (bare !== "/login" && bare !== "/register") return existing;
-    }
-    return "/tasks";
-  }
-  return `${path}${search}` || "/tasks";
 }
 
 function tabClass(active: boolean) {
