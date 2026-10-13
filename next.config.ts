@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
-/** Live bf-maintenance deployment. The only rewrite definition (not also vercel.json). */
-const BF_MAINTENANCE_ORIGIN = "https://bf-maintenance.vercel.app";
+/**
+ * bf-maintenance host rewritten at /maintenance. The only rewrite definition
+ * (not also vercel.json). Set BF_MAINTENANCE_ORIGIN for local dev
+ * (http://127.0.0.1:3100). Unset keeps the production deployment.
+ * Next loads .env before this file. Rewrites are fixed at build time.
+ */
+const BF_MAINTENANCE_ORIGIN = (
+  process.env.BF_MAINTENANCE_ORIGIN?.trim() || "https://bf-maintenance.vercel.app"
+).replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
   // Keep native/optional DB drivers external on Vercel Node

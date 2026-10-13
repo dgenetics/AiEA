@@ -57,7 +57,48 @@ const rejected = [
   "foo",
   "?/tasks",
   "\\tasks",
+  "/\t/evil.com",
+  "/\n/evil.com",
+  "/\r/evil.com",
+  "/\r\n/evil.com",
+  "/\u0000/evil.com",
+  "/\u000b/evil.com",
+  "/\u000c/evil.com",
+  "/\u007f/evil.com",
+  "/foo\t/evil.com",
+  "/\t\\evil.com",
+  "\t//evil.com",
 ];
+
+// Tab, newline, and CR are stripped by the URL parser, so these are
+// protocol-relative and leave the dummy origin. The guard must reject
+// them even if a later edit drops the control-character test.
+assert.equal(new URL("/\t/evil.com", "http://x").origin, "http://evil.com");
+assert.equal(new URL("/\n/evil.com", "http://x").origin, "http://evil.com");
+assert.equal(new URL("/\r/evil.com", "http://x").origin, "http://evil.com");
+assert.notEqual(new URL("/\t/evil.com", "http://x").origin, "http://x");
+assert.notEqual(new URL("/\n/evil.com", "http://x").origin, "http://x");
+
+// Null, VT, FF, and DEL stay on the dummy origin (they are percent-encoded).
+// Only the control-character reject catches them.
+for (const raw of ["/\u0000/evil.com", "/\u000b/evil.com", "/\u000c/evil.com", "/\u007f/evil.com", "/foo\tbar"]) {
+  assert.equal(new URL(raw, "http://x").origin, "http://x", `origin stays for ${JSON.stringify(raw)}`);
+  assert.equal(safeNextPath(raw), FALLBACK, `control ${JSON.stringify(raw)}`);
+}
+
+for (let code = 0; code <= 0x1f; code++) {
+  const ch = String.fromCharCode(code);
+  assert.equal(safeNextPath(`/${ch}/evil.com`), FALLBACK, `U+${code.toString(16)} host`);
+  assert.equal(safeNextPath(`/tasks${ch}`), FALLBACK, `U+${code.toString(16)} trailing`);
+}
+assert.equal(safeNextPath("/\u007fevil"), FALLBACK);
+
+const guardSrc = readFileSync(join(import.meta.dirname, "../src/lib/safe-next.ts"), "utf8");
+assert.match(guardSrc, /\[\\u0000-\\u001F\\u007F\]/);
+assert.match(guardSrc, /new URL\(input, "http:\/\/x"\)\.origin !== "http:\/\/x"/);
+
+const pin = readFileSync(join(import.meta.dirname, "../scripts/pins/site-nav.sha256"), "utf8");
+assert.match(pin, new RegExp(`^${SITE_NAV_SHA256}  src/components/site-nav\\.tsx\\n$`));
 
 for (const [input, expected] of allowed) {
   assert.equal(safeNextPath(input), expected, `allow ${JSON.stringify(input)}`);

@@ -2,15 +2,25 @@
 export const DEFAULT_NEXT_PATH = "/tasks";
 
 /**
- * Honor `next` only when it is a relative path: starts with `/`,
- * does not start with `//`, and contains no backslash. Otherwise `/tasks`.
- * The value is the one from the query string (already decoded once).
+ * Honor `next` only when it is a same-origin relative path.
+ * The URL parser strips tab, newline, and carriage return before parsing,
+ * so `/\t/evil.com` and `/\n/evil.com` become `//evil.com` (another host).
+ * Reject those, every other C0 control and DEL, backslash, and anything
+ * whose parsed origin is not the dummy base.
  */
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/;
+
 export function safeNextPath(input: string | null | undefined): string {
   if (typeof input !== "string") return DEFAULT_NEXT_PATH;
+  if (CONTROL_CHARS.test(input)) return DEFAULT_NEXT_PATH;
   if (!input.startsWith("/")) return DEFAULT_NEXT_PATH;
   if (input.startsWith("//")) return DEFAULT_NEXT_PATH;
   if (input.includes("\\")) return DEFAULT_NEXT_PATH;
+  try {
+    if (new URL(input, "http://x").origin !== "http://x") return DEFAULT_NEXT_PATH;
+  } catch {
+    return DEFAULT_NEXT_PATH;
+  }
   return input;
 }
 

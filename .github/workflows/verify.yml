@@ -68,6 +68,9 @@ jobs:
       - name: Unit assertions (login next guard + shared bar)
         run: npm run test:safe-next
 
+      - name: Shared site-nav sha256
+        run: sha256sum -c scripts/pins/site-nav.sha256
+
       - name: Build
         run: npm run build
 
