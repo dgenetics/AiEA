@@ -96,7 +96,7 @@ export function TaskList({
   const syncNotice = syncError ? (
     <p
       role="alert"
-      className="mb-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300"
+      className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
     >
       {syncError}
     </p>
@@ -106,8 +106,8 @@ export function TaskList({
     return (
       <>
         {syncNotice}
-        <div className="rounded-xl border border-dashed border-white/10 px-6 py-12 text-center">
-          <p className="text-sm text-zinc-500">{emptyMessage}</p>
+        <div className="rounded-xl border border-dashed border-cream-300 px-6 py-12 text-center">
+          <p className="text-sm text-muted">{emptyMessage}</p>
         </div>
       </>
     );

@@ -186,7 +186,7 @@ export function CaptureComposer({
   return (
     <div className="space-y-2">
       <form
-        className="flex items-end gap-2 rounded-2xl border border-indigo-500/30 bg-zinc-900/70 p-2 pl-3.5"
+        className="flex items-end gap-2 rounded-2xl border border-cream-300 bg-cream-50 p-2 pl-3.5 shadow-[0_1px_2px_#1c19170d] focus-within:border-forest-700"
         onSubmit={(e) => {
           e.preventDefault();
           void submit("parse");
@@ -200,7 +200,7 @@ export function CaptureComposer({
             disabled={busy}
             rows={1}
             placeholder='Type or talk… e.g. "call vet thursday, fix the fence, someday think about a greenhouse"'
-            className="max-h-36 min-h-10 w-full resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+            className="max-h-36 min-h-10 w-full resize-none bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted"
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -220,7 +220,7 @@ export function CaptureComposer({
             className={
               listening
                 ? "flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-rose-500 px-3 text-xs font-semibold text-white"
-                : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-200"
+                : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#efe8da] text-stone-700"
             }
           >
             <Mic className="h-4 w-4" />
@@ -230,26 +230,26 @@ export function CaptureComposer({
         <button
           type="submit"
           disabled={busy || !text.trim()}
-          className="h-9 shrink-0 rounded-xl bg-indigo-500 px-3.5 text-sm font-semibold text-white disabled:opacity-40"
+          className="h-9 shrink-0 rounded-xl bg-forest-900 px-3.5 text-sm font-semibold text-white hover:bg-forest-800 disabled:opacity-40"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
         </button>
       </form>
 
-      <div aria-live="polite" className="min-h-5 text-xs text-zinc-500">
+      <div aria-live="polite" className="min-h-5 text-xs text-muted">
         {supported === false && "Voice unavailable; type instead"}
         {listening && (
-          <span className="text-rose-300">
+          <span className="text-rose-700">
             Listening {seconds}s · tap to stop
-            <span className="ml-2 inline-block h-2 w-8 rounded-full bg-rose-400/70 align-middle" />
+            <span className="ml-2 inline-block h-2 w-8 rounded-full bg-rose-500/70 align-middle" />
           </span>
         )}
         {busy && "Making tasks…"}
-        {micNote && <span className="text-amber-200">{micNote}</span>}
+        {micNote && <span className="text-amber-700">{micNote}</span>}
       </div>
 
       {error && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           <span className="min-w-0 flex-1">{error}</span>
           <button type="button" className="underline" onClick={() => void submit("parse")}>
             Retry
@@ -261,16 +261,16 @@ export function CaptureComposer({
       )}
 
       {toast && (
-        <div className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-zinc-200">
+        <div className="rounded-xl border border-cream-200 bg-cream-50 px-3 py-2 text-sm text-ink">
           <div className="flex flex-wrap items-center gap-2">
             <span>
               {toast.rawFallback ? `${summary} · saved the raw text` : summary}
             </span>
-            <button type="button" className="text-indigo-300 underline" onClick={() => void undo()}>
+            <button type="button" className="text-forest-800 underline" onClick={() => void undo()}>
               Undo
             </button>
           </div>
-          <ul className="mt-1 space-y-0.5 text-xs text-zinc-400">
+          <ul className="mt-1 space-y-0.5 text-xs text-stone-600">
             {toast.tasks.map((task) => (
               <li key={task.id}>
                 <button

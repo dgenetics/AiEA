@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #07070b;
-  --foreground: #ededed;
+  --background: #f7f3eb;
+  --foreground: #1c1917;
 }
 
 @theme inline {
@@ -28,8 +28,8 @@
 
 @keyframes task-flash {
   0% {
-    box-shadow: 0 0 0 2px rgba(165, 180, 252, 0.95);
-    background-color: rgba(99, 102, 241, 0.28);
+    box-shadow: 0 0 0 2px rgba(74, 112, 94, 0.9);
+    background-color: rgba(232, 240, 235, 1);
   }
   100% {
     box-shadow: 0 0 0 0 transparent;
@@ -60,7 +60,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: #d9cfb8 transparent;
 }
 
 /**
@@ -75,12 +75,13 @@ body {
   box-sizing: border-box;
   overflow: hidden;
   border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgb(24 24 27); /* zinc-900 */
+  border: 1px solid #d9cfb8;
+  background-color: #fdfbf7;
+  color-scheme: light;
 }
 
 .date-field-shell--muted {
-  background-color: rgb(9 9 11); /* zinc-950 */
+  background-color: #f7f3eb;
 }
 
 .date-field-shell .date-field-input,
@@ -95,7 +96,8 @@ input.date-field-input[type="time"] {
   border: 0 !important;
   border-radius: 0;
   background: transparent !important;
-  color: #fff;
+  color: #1c1917;
+  color-scheme: light;
   padding: 0.5rem 0.75rem;
   /* 16px default — required to stop iOS Safari zoom-on-focus */
   font-size: 16px;

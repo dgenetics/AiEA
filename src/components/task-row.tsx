@@ -71,9 +71,9 @@ export function TaskRow({
     <div
       data-task-id={task.id}
       className={cn(
-        "rounded-xl border border-white/5 bg-zinc-900/40 transition hover:border-white/10 hover:bg-zinc-900/70",
-        nested && "border-l-2 border-l-indigo-500/30 bg-zinc-950/40",
-        fromSchedule && "border-emerald-500/15",
+        "rounded-xl border border-cream-200 bg-cream-50 shadow-[0_1px_2px_#1c19170d] transition hover:border-cream-300 hover:bg-white",
+        nested && "border-l-2 border-l-forest-600/40 bg-cream-100",
+        fromSchedule && "border-[#c9dccf]",
         task.highlight && "task-flash",
         done && "opacity-50",
       )}
@@ -85,7 +85,7 @@ export function TaskRow({
         )}
       >
         {inboxMode ? (
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-200 md:h-5 md:w-5 md:text-[9px]">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-[10px] font-semibold text-amber-800 md:h-5 md:w-5 md:text-[9px]">
             ?
           </div>
         ) : (
@@ -94,10 +94,10 @@ export function TaskRow({
             onClick={() => onComplete?.(task.id)}
             className={cn(
               // Mobile: larger hit target; desktop (md+): original size
-              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition md:h-5 md:w-5",
+              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition md:h-5 md:w-5",
               done
-                ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
-                : "border-zinc-600 text-transparent hover:border-indigo-400 hover:text-indigo-300",
+                ? "border border-forest-700 bg-forest-700 text-white"
+                : "border-[1.5px] border-stone-400 text-transparent hover:border-forest-700 hover:text-forest-700",
             )}
             aria-label={done ? "Completed" : "Mark complete"}
           >
@@ -113,30 +113,30 @@ export function TaskRow({
             disabled={!onEdit}
           >
             {task.parentTitle && (
-              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-zinc-600">
+              <p className="mb-0.5 text-[10px] uppercase tracking-wide text-muted">
                 Part of · {task.parentTitle}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-2">
               <p
                 className={cn(
-                  "text-sm font-medium text-zinc-100",
-                  done && "line-through decoration-zinc-600",
+                  "text-sm font-medium text-ink",
+                  done && "line-through text-muted decoration-stone-400",
                 )}
               >
                 {task.title}
               </p>
               {fromSchedule && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#c9dccf] bg-forest-100 px-1.5 py-0.5 text-[10px] text-forest-900">
                   <Sprout className="h-3 w-3" />
                   {task.component?.system?.name} · {task.component?.name}
                 </span>
               )}
               {cadence && (
-                <span className="text-[11px] text-indigo-300">↻ {cadence}</span>
+                <span className="text-[11px] font-medium text-forest-700">↻ {cadence}</span>
               )}
               {task.subtaskProgress && task.subtaskProgress.total > 0 && (
-                <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-300">
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-800">
                   {task.subtaskProgress.done}/{task.subtaskProgress.total} parts
                 </span>
               )}
@@ -155,7 +155,7 @@ export function TaskRow({
                 </span>
               )}
               {task.boardReason && !fromSchedule && (
-                <span className="text-zinc-600" title={task.boardReason}>
+                <span className="text-muted" title={task.boardReason}>
                   AI: {task.boardReason}
                 </span>
               )}
@@ -163,16 +163,16 @@ export function TaskRow({
                 <span
                   className={cn(
                     "inline-flex items-center gap-1 font-medium",
-                    dueState.tone === "overdue" && "text-rose-400",
-                    dueState.tone === "soon" && "text-amber-300",
-                    dueState.tone === "later" && "text-zinc-500",
+                    dueState.tone === "overdue" && "text-rose-700",
+                    dueState.tone === "soon" && "font-medium text-amber-700",
+                    dueState.tone === "later" && "text-muted",
                   )}
                 >
                   {dueState.tone === "later" && <Clock className="h-3 w-3" />}
                   {dueState.text}
                 </span>
               ) : task.dueAt ? (
-                <span className="inline-flex items-center gap-1 text-zinc-500">
+                <span className="inline-flex items-center gap-1 text-muted">
                   <Clock className="h-3 w-3" />
                   {formatRelativeDue(task.dueAt)}
                 </span>
@@ -180,25 +180,25 @@ export function TaskRow({
               {fromSchedule && task.scheduleId && (
                 <a
                   href={`/schedules?id=${task.scheduleId}`}
-                  className="text-emerald-300 underline"
+                  className="text-green-800 underline underline-offset-2"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Schedule ›
                 </a>
               )}
               {task.estimateMinutes ? (
-                <span className="text-zinc-600">· {task.estimateMinutes}m</span>
+                <span className="text-muted">· {task.estimateMinutes}m</span>
               ) : null}
             </div>
           </button>
 
           {task.notes && !dense && (
-            <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-zinc-600">
+            <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-muted">
               {task.notes.split("\n---")[0]?.trim() || task.notes}
             </p>
           )}
           {task.boardReason && fromSchedule && !dense && (
-            <p className="mt-1 text-[10px] text-zinc-600">{task.boardReason}</p>
+            <p className="mt-1 text-[10px] text-muted">{task.boardReason}</p>
           )}
         </div>
 
@@ -208,7 +208,7 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => onAccept(task.id)}
-                className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-400"
+                className="rounded-lg bg-forest-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-800"
               >
                 Accept
               </button>
@@ -217,7 +217,7 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => onDismiss(task.id)}
-                className="rounded-lg px-3 py-1.5 text-xs text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                className="rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-cream-200/60 hover:text-ink"
               >
                 Dismiss
               </button>
@@ -226,7 +226,7 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => onEdit(task)}
-                className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+                className="rounded-lg p-1.5 text-muted hover:bg-cream-200/60 hover:text-ink"
                 title="Edit"
               >
                 <Pencil className="mx-auto h-3.5 w-3.5" />
@@ -239,7 +239,7 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => onEdit(task)}
-                className="rounded-md p-2.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200 md:p-1.5"
+                className="rounded-md p-2.5 text-muted hover:bg-cream-200/60 hover:text-ink md:p-1.5"
                 title="Edit task"
               >
                 <Pencil className="h-4 w-4 md:h-3.5 md:w-3.5" />
@@ -249,7 +249,7 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => onSnooze(task.id)}
-                className="rounded-md px-2.5 py-1.5 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-zinc-300 md:px-2 md:py-1"
+                className="rounded-md px-2.5 py-1.5 text-[11px] text-muted hover:bg-cream-200/60 hover:text-ink md:px-2 md:py-1"
               >
                 Snooze
               </button>
@@ -259,8 +259,8 @@ export function TaskRow({
       </div>
 
       {openChildren.length > 0 && (
-        <div className="space-y-1.5 border-t border-white/5 px-3 py-2.5 pl-8">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+        <div className="space-y-1.5 border-t border-cream-200 px-3 py-2.5 pl-8">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted">
             Next parts
           </p>
           {openChildren.map((child) => (

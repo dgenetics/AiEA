@@ -40,8 +40,8 @@ export function BoardLanePicker({
                 ? "px-2 py-1 text-[10px]"
                 : "px-2.5 py-1.5 text-xs",
               active
-                ? cn(meta.chipClass, "ring-1 ring-white/20")
-                : "border-white/10 bg-zinc-950/40 text-zinc-500 hover:border-white/20 hover:text-zinc-300",
+                ? cn(meta.chipClass, "ring-1 ring-forest-700/40")
+                : "border-cream-300 bg-cream-50 text-stone-600 hover:border-stone-400 hover:text-ink",
             )}
           >
             {meta.label}

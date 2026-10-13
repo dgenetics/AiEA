@@ -4,7 +4,7 @@ One app for the farm: systems, the schedules that keep them up, and the tasks yo
 
 ## Getting around
 
-The header shows only `Farm Manager`, centered, and a small person icon on the right that opens Account. Systems, Schedules, and Tasks are a fixed bottom bar at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
+The header shows only `Farm Manager`, centered, on a dark bar, and a small person icon on the right that opens Account. Systems, Schedules, and Tasks are a fixed cream bottom bar at every width: plain text, no icons, a thin top border, and padding for the home indicator. The current tab is bold. Every page behind that bar is the same cream. Page content is padded so it does not sit under that bar. Login and register sit outside this chrome.
 
 `/` sends you to `/tasks`. The other routes are `/systems`, `/systems/:id`, `/systems/:id/components/:cid`, `/schedules`, `/tasks`, `/tasks/done`, `/account`, `/login`, and `/register`.
 
@@ -16,9 +16,9 @@ Email and password. One session cookie (`aiea_session`, path `/`) covers every t
 
 ## Tasks
 
-The Tasks tab is the dark board with three columns: Current, Backlog, and Icebox. On a phone the same lanes are tabs. Every open task is on the board. Nothing is filtered out, and there is no Inbox or proposed-review state.
+The Tasks tab is the cream board with three columns: Current, Backlog, and Icebox. On a phone the same lanes are tabs. Every open task is on the board. Nothing is filtered out, and there is no Inbox or proposed-review state. Cards, the capture field, and the edit sheet use the same cream and forest green as Systems and Schedules.
 
-A task can have a due date, notes, and subtasks. You can complete it, edit it, move its lane, or cancel it. Completed tasks are on Archive at `/tasks/done`. The board links there as Archive, and Archive links back to Tasks.
+A task can have a due date, notes, and subtasks. You can complete it, edit it, move its lane, or cancel it. Completed tasks are on Archive at `/tasks/done`, which is the same cream. The board links there as Archive, and Archive links back to Tasks.
 
 ## Capture
 

@@ -97,23 +97,23 @@ export function ArchiveBoard({ initial, grandTotal }: Props) {
 
   return (
     <div className="space-y-8">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         {empty
           ? "Nothing completed yet."
           : `${section.total} completed task${section.total === 1 ? "" : "s"} total · ${PAGE_SIZE} per page · click checkmark to reopen`}
       </p>
 
       {empty ? (
-        <div className="rounded-xl border border-dashed border-white/10 px-6 py-12 text-center">
-          <p className="text-sm text-zinc-500">
+        <div className="rounded-xl border border-dashed border-cream-300 px-6 py-12 text-center">
+          <p className="text-sm text-muted">
             Finish tasks on the board and they&apos;ll show up here.
           </p>
         </div>
       ) : (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">Completed</h2>
-            <span className="text-[11px] text-zinc-500">
+            <h2 className="text-sm font-semibold text-ink">Completed</h2>
+            <span className="text-[11px] text-muted">
               showing {section.tasks.length}
               {section.total > section.tasks.length ? ` of ${section.total}` : ""}
             </span>
@@ -132,7 +132,7 @@ export function ArchiveBoard({ initial, grandTotal }: Props) {
                 type="button"
                 onClick={loadMore}
                 disabled={section.loading}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-900/60 px-4 py-2 text-sm text-zinc-200 transition hover:border-white/20 hover:bg-zinc-900 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-cream-50 px-4 py-2 text-sm text-stone-700 transition hover:border-stone-400 hover:bg-white disabled:opacity-50"
               >
                 {section.loading ? (
                   <>

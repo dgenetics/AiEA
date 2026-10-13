@@ -14,17 +14,17 @@ export const BOARD_META: Record<
   ICEBOX: {
     label: "Icebox",
     hint: "Someday / parked",
-    chipClass: "text-zinc-400 bg-zinc-500/10 border-zinc-500/30",
+    chipClass: "text-stone-600 bg-[#f1ece2] border-cream-300",
   },
   BACKLOG: {
     label: "Backlog",
     hint: "Ready when you are",
-    chipClass: "text-sky-300 bg-sky-500/10 border-sky-500/30",
+    chipClass: "text-sky-800 bg-sky-50 border-sky-200",
   },
   CURRENT: {
     label: "Current",
     hint: "In play now",
-    chipClass: "text-rose-300 bg-rose-500/10 border-rose-500/30",
+    chipClass: "text-rose-800 bg-rose-50 border-rose-200",
   },
 };
 

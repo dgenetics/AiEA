@@ -206,29 +206,29 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
 
   // text-base on mobile (≥16px) prevents iOS Safari focus-zoom; denser on md+
   const fieldClass =
-    "box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-base text-white focus:border-indigo-500/50 focus:outline-none md:text-sm";
+    "box-border block w-full max-w-full min-w-0 rounded-lg border border-cream-300 bg-cream-50 px-3 py-2 text-base text-ink focus:border-forest-700 focus:outline-none md:text-sm";
 
   return (
     <div className="fixed inset-0 z-[100] flex max-w-[100vw] items-end justify-center overflow-x-hidden md:items-center md:p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative box-border flex max-h-[92dvh] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-zinc-950 shadow-2xl safe-bottom md:max-h-[90vh] md:rounded-2xl">
+      <div className="relative box-border flex max-h-[92dvh] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-2xl safe-bottom md:max-h-[90vh] md:rounded-2xl">
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 md:p-5">
           <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-white">Edit task</h2>
-              <p className="text-[11px] leading-snug text-zinc-500">
+              <h2 className="text-base font-semibold text-ink">Edit task</h2>
+              <p className="text-[11px] leading-snug text-muted">
                 Break big work into parts with their own due dates
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-white"
+              className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-cream-200/60 hover:text-ink"
             >
               <X className="h-4 w-4" />
             </button>
@@ -236,7 +236,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
 
           <div className="min-w-0 space-y-3">
             <label className="block min-w-0">
-              <span className="mb-1 block text-xs text-zinc-400">Title</span>
+              <span className="mb-1 block text-xs text-stone-600">Title</span>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -245,33 +245,33 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
             </label>
 
             <div className="block min-w-0">
-              <span className="mb-1 block text-xs text-zinc-400">Board</span>
+              <span className="mb-1 block text-xs text-stone-600">Board</span>
               <BoardLanePicker value={board} onChange={setBoard} />
             </div>
 
             <label className="block min-w-0">
-              <span className="mb-1 block text-xs text-zinc-400">
+              <span className="mb-1 block text-xs text-stone-600">
                 Overall due date (optional if you use parts)
               </span>
               <DateField value={dueAt} onChange={setDueAt} />
             </label>
 
             {task.boardReason ? (
-              <p className="text-[11px] text-zinc-500" title={task.boardReason}>
+              <p className="text-[11px] text-muted" title={task.boardReason}>
                 AI: {task.boardReason}
               </p>
             ) : null}
             {task.scheduleId ? (
               <a
                 href={`/schedules?id=${task.scheduleId}`}
-                className="text-[12px] text-emerald-300 underline"
+                className="text-[12px] text-green-800 underline underline-offset-2"
               >
                 Schedule ›
               </a>
             ) : null}
 
             <label className="block min-w-0">
-              <span className="mb-1 block text-xs text-zinc-400">Notes</span>
+              <span className="mb-1 block text-xs text-stone-600">Notes</span>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -281,30 +281,30 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
             </label>
 
             {canHaveSubtasks && (
-              <div className="min-w-0 rounded-xl border border-white/10 bg-zinc-900/50 p-3">
+              <div className="min-w-0 rounded-xl border border-cream-200 bg-cream-100 p-3">
                 <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-                  <p className="min-w-0 truncate text-xs font-semibold text-zinc-200">
+                  <p className="min-w-0 truncate text-xs font-semibold text-ink">
                     Parts / subtasks
                   </p>
-                  <span className="shrink-0 text-[10px] text-zinc-500">
+                  <span className="shrink-0 text-[10px] text-muted">
                     {subtasks.length === 0
                       ? "None yet"
                       : `${openCount} open · ${subtasks.length} total`}
                   </span>
                 </div>
-                <p className="mb-3 text-[11px] leading-snug text-zinc-500">
+                <p className="mb-3 text-[11px] leading-snug text-muted">
                   Split this into smaller steps, each with its own due date. Parts due today show
                   on Today even if the parent is later.
                 </p>
 
                 {loadingSubs ? (
-                  <p className="text-xs text-zinc-600">Loading…</p>
+                  <p className="text-xs text-muted">Loading…</p>
                 ) : (
                   <ul className="mb-3 min-w-0 space-y-1.5">
                     {subtasks.map((sub) => (
                       <li
                         key={sub.id}
-                        className="flex min-w-0 items-center gap-2 rounded-lg border border-white/5 bg-zinc-950/60 px-2 py-1.5"
+                        className="flex min-w-0 items-center gap-2 rounded-lg border border-cream-200 bg-cream-50 px-2 py-1.5"
                       >
                         <button
                           type="button"
@@ -312,8 +312,8 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                           className={cn(
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
                             sub.status === "DONE"
-                              ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-300"
-                              : "border-zinc-600",
+                              ? "border-forest-700 bg-forest-700 text-white"
+                              : "border-stone-400",
                           )}
                           aria-label={
                             sub.status === "DONE" ? "Reopen part" : "Complete part"
@@ -326,13 +326,13 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <p
                             className={cn(
-                              "truncate text-xs text-zinc-200",
-                              sub.status === "DONE" && "line-through text-zinc-500",
+                              "truncate text-xs text-ink",
+                              sub.status === "DONE" && "line-through text-muted",
                             )}
                           >
                             {sub.title}
                           </p>
-                          <p className="truncate text-[10px] text-zinc-600">
+                          <p className="truncate text-[10px] text-muted">
                             {sub.dueAt
                               ? formatRelativeDue(sub.dueAt)
                               : "No due date"}
@@ -341,7 +341,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                         <button
                           type="button"
                           onClick={() => deleteSubtask(sub.id)}
-                          className="shrink-0 rounded p-1 text-zinc-600 hover:bg-white/5 hover:text-rose-300"
+                          className="shrink-0 rounded p-1 text-muted hover:bg-cream-200/60 hover:text-rose-700"
                           title="Delete part"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -359,7 +359,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                     placeholder="e.g. Outline first draft"
                     enterKeyHint="done"
                     autoComplete="off"
-                    className="box-border block w-full max-w-full min-w-0 rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-2 text-base text-white placeholder:text-zinc-600 focus:border-indigo-500/40 focus:outline-none md:py-1.5 md:text-xs"
+                    className="box-border block w-full max-w-full min-w-0 rounded-lg border border-cream-300 bg-cream-50 px-2.5 py-2 text-base text-ink placeholder:text-muted focus:border-forest-700 focus:outline-none md:py-1.5 md:text-xs"
                   />
                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch">
                     <div className="min-w-0 w-full sm:min-w-0 sm:flex-1">
@@ -372,7 +372,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                     <button
                       type="submit"
                       disabled={addingSub || !newSubTitle.trim()}
-                      className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 sm:w-auto sm:py-2 sm:text-xs"
+                      className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-forest-900 px-2.5 py-2.5 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-50 sm:w-auto sm:py-2 sm:text-xs"
                     >
                       {addingSub ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -387,7 +387,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
             )}
 
             {error && (
-              <p className="break-words rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+              <p className="break-words rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
                 {error}
               </p>
             )}
@@ -397,7 +397,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                 type="button"
                 onClick={deleteTask}
                 disabled={deleting || saving}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/30 px-3 py-2.5 text-sm text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-50 sm:w-auto sm:py-2"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2.5 text-sm text-rose-800 transition hover:bg-rose-50 disabled:opacity-50 sm:w-auto sm:py-2"
               >
                 {deleting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -410,7 +410,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm text-zinc-400 hover:bg-white/5 sm:flex-none sm:py-2"
+                  className="min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm text-stone-600 hover:bg-cream-200/60 hover:text-ink sm:flex-none sm:py-2"
                 >
                   Cancel
                 </button>
@@ -418,7 +418,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted }: Props
                   type="button"
                   onClick={save}
                   disabled={saving || deleting || !title.trim()}
-                  className="min-w-0 flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 sm:flex-none sm:py-2"
+                  className="min-w-0 flex-1 rounded-lg bg-forest-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-forest-800 disabled:opacity-50 sm:flex-none sm:py-2"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
