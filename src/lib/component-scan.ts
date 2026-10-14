@@ -319,6 +319,12 @@ const EVERY_UNIT: Record<string, ScanEveryUnit> = {
   annually: "year",
 };
 
+function statesNoInterval(text: string): boolean {
+  return /maintenance[-\s]?free|no (?:regular |scheduled |routine )?maintenance|does not require (?:regular |any )?maintenance|no maintenance interval/i.test(
+    text,
+  );
+}
+
 function cadenceFromPhrase(phrase: string): { count: number; unit: ScanEveryUnit } | null {
   const text = phrase.trim().toLowerCase();
   if (!text) return null;
@@ -338,7 +344,7 @@ function parseSchedule(value: unknown): ScanSchedule | null {
   if (typeof value === "string") {
     const cadence = cadenceFromPhrase(value);
     const name = clip(value.replace(/\b(every|once|annually|yearly|annual|monthly|weekly|daily)\b[\s\S]*$/i, ""), 160);
-    if (!cadence || !name) return null;
+    if (!cadence || !name || statesNoInterval(value)) return null;
     return { name, everyCount: cadence.count, everyUnit: cadence.unit, note: "per the manual" };
   }
   const record = asRecord(value);
@@ -353,6 +359,7 @@ function parseSchedule(value: unknown): ScanSchedule | null {
     : cadenceFromPhrase(phrase || textOf(record.everyUnit) || textOf(record.note));
   if (!name || !loose) return null;
   const note = clip(textOf(record.note), 80) || "per the manual";
+  if (statesNoInterval(`${name} ${note}`)) return null;
   return { name, everyCount: loose.count, everyUnit: loose.unit, note };
 }
 
@@ -500,7 +507,10 @@ export function describeScheduleLookup(text: string): { lookup: ManualLookup | n
     : typeof raw === "string"
       ? raw
       : "";
-  if (!rawName.trim()) return { lookup, scheduleNote: "manual did not include a maintenance interval" };
+  const rawText = typeof raw === "string" ? raw : JSON.stringify(raw);
+  if (!rawName.trim() || statesNoInterval(rawText)) {
+    return { lookup, scheduleNote: "manual did not include a maintenance interval" };
+  }
   return { lookup, scheduleNote: `could not read the interval: ${JSON.stringify(raw).slice(0, 240)}` };
 }
 

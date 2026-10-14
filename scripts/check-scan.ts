@@ -255,6 +255,24 @@ const unreadable = describeScheduleLookup(
 assert.equal(unreadable.lookup?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
 assert.equal(unreadable.lookup?.schedule, null);
 assert.match(unreadable.scheduleNote, /could not read the interval/);
+const maintenanceFree = describeScheduleLookup(
+  JSON.stringify({
+    manual: {
+      url: "https://api.grundfos.com/literature/Grundfosliterature-144823.pdf",
+      title: "SQ, SQE",
+      kind: "PDF",
+    },
+    schedule: {
+      name: "The pumps are normally maintenance-free",
+      everyCount: 1,
+      everyUnit: "year",
+      note: "per the manual",
+    },
+  }),
+);
+assert.equal(maintenanceFree.lookup?.schedule, null);
+assert.match(maintenanceFree.lookup?.manualUrl ?? "", /api\.grundfos\.com/);
+assert.equal(maintenanceFree.scheduleNote, "manual did not include a maintenance interval");
 
 const genericName = await interpretComponentScan({
   bytes: jpeg(64),
