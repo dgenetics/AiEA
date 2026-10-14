@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "@prisma/adapter-better-sqlite3",
     "@libsql/client",
     "@prisma/adapter-libsql",
+    "sharp",
   ],
   // Backup if proxy.ts is not applied. Proxy sends `/` to `/tasks` with 307.
   async redirects() {

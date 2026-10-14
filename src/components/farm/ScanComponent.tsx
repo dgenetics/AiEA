@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Zap } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/farm/Modal";
-import { useLockBodyScroll } from "@/components/use-keyboard-frame";
 import {
   SCAN_IMAGE_MAX_BYTES,
   SCAN_READ_ERROR,
-  firstBarcodeValue,
+  applyManualLookup,
   editMakeAndModel,
   editTaggedField,
   joinMakeAndModel,
@@ -16,49 +14,17 @@ import {
   scanScheduleDraft,
   scheduleSuggestionText,
   type ComponentScanReview,
+  type ManualLookup,
   type ScanScheduleDraft,
   type ScanTag,
 } from "@/lib/component-scan";
 import type { SystemComponentInput } from "@/lib/farm-types";
 
-type Detector = {
-  detect: (source: CanvasImageSource) => Promise<Array<{ rawValue?: string }>>;
-};
-
-type DetectorCtor = new (options?: { formats?: string[] }) => Detector;
-
 type ZxingReader = {
   decodeFromCanvas: (canvas: HTMLCanvasElement) => { getText: () => string };
 };
 
-const FORMATS = [
-  "qr_code",
-  "code_128",
-  "code_39",
-  "ean_13",
-  "ean_8",
-  "upc_a",
-  "upc_e",
-  "data_matrix",
-  "pdf417",
-  "itf",
-  "codabar",
-  "aztec",
-];
-
-function createDetector(): Detector | null {
-  const Ctor = (window as Window & { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
-  if (!Ctor) return null;
-  try {
-    return new Ctor({ formats: FORMATS });
-  } catch {
-    try {
-      return new Ctor();
-    } catch {
-      return null;
-    }
-  }
-}
+const UPLOAD_EDGE = 1024;
 
 let zxingReader: Promise<ZxingReader> | null = null;
 
@@ -67,31 +33,7 @@ function getZxingReader(): Promise<ZxingReader> {
   return zxingReader;
 }
 
-async function readCode(canvas: HTMLCanvasElement, detector: Detector | null): Promise<string | null> {
-  if (detector) {
-    try {
-      const found = await detector.detect(canvas);
-      const code = firstBarcodeValue(found);
-      if (code) return code;
-    } catch {
-      /* The native detector can reject a frame. ZXing still gets a turn. */
-    }
-  }
-  try {
-    const reader = await getZxingReader();
-    const text = reader.decodeFromCanvas(canvas).getText().trim();
-    return text ? text.slice(0, 500) : null;
-  } catch {
-    return null;
-  }
-}
-
-function drawFrame(
-  source: CanvasImageSource,
-  width: number,
-  height: number,
-): HTMLCanvasElement {
-  const maxEdge = 1600;
+function drawFrame(source: CanvasImageSource, width: number, height: number, maxEdge: number): HTMLCanvasElement {
   const scale = Math.min(1, maxEdge / Math.max(width, height, 1));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(width * scale));
@@ -100,6 +42,16 @@ function drawFrame(
   if (!ctx) return canvas;
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
   return canvas;
+}
+
+async function readCode(canvas: HTMLCanvasElement): Promise<string | null> {
+  try {
+    const reader = await getZxingReader();
+    const text = reader.decodeFromCanvas(canvas).getText().trim();
+    return text ? text.slice(0, 500) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function canvasJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -131,7 +83,7 @@ async function postScan(blob: Blob, code: string | null): Promise<ComponentScanR
       method: "POST",
       body,
       credentials: "include",
-      signal: AbortSignal.timeout(70_000),
+      signal: AbortSignal.timeout(45_000),
     });
   } catch {
     throw new Error(SCAN_READ_ERROR);
@@ -190,160 +142,101 @@ function TaggedInput({
 
 export function ScanComponent({
   systemName,
+  file,
   onClose,
   onTypeInstead,
   onSave,
 }: {
   systemName: string;
+  file: File;
   onClose: () => void;
   onTypeInstead: () => void;
   onSave: (input: SystemComponentInput, schedule: ScanScheduleDraft | null) => Promise<void>;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const sending = useRef(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [torchOn, setTorchOn] = useState(false);
-  const [torchAvailable, setTorchAvailable] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [reading, setReading] = useState(false);
   const [review, setReview] = useState<ComponentScanReview | null>(null);
+  const [readId, setReadId] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [lookupPending, setLookupPending] = useState(false);
   const [scheduleAdded, setScheduleAdded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  useLockBodyScroll(true);
 
   useEffect(() => {
     let cancelled = false;
-    let active: MediaStream | null = null;
-    async function open() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        if (!cancelled) setCameraError("Couldn't open the camera. Use Photo of label or type it in.");
-        return;
-      }
+    async function run() {
+      setError(null);
+      setReview(null);
       try {
-        const next = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: "environment" } },
-        });
-        if (cancelled) {
-          next.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        active = next;
-        setStream(next);
-        const track = next.getVideoTracks()[0];
-        const caps = track?.getCapabilities?.() as { torch?: boolean } | undefined;
-        setTorchAvailable(Boolean(caps?.torch));
-      } catch {
-        if (!cancelled) setCameraError("Couldn't open the camera. Use Photo of label or type it in.");
+        const bitmap = await createImageBitmap(file);
+        const decoded = drawFrame(bitmap, bitmap.width, bitmap.height, 1600);
+        const code = await readCode(decoded);
+        const upload =
+          decoded.width <= UPLOAD_EDGE && decoded.height <= UPLOAD_EDGE
+            ? decoded
+            : drawFrame(decoded, decoded.width, decoded.height, UPLOAD_EDGE);
+        bitmap.close();
+        const blob = await canvasJpeg(upload);
+        const result = await postScan(blob, code);
+        if (cancelled) return;
+        setScheduleAdded(false);
+        setReview(result);
+        setReadId((id) => id + 1);
+      } catch (caught) {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : SCAN_READ_ERROR);
       }
     }
-    void open();
+    void run();
     return () => {
       cancelled = true;
-      active?.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  }, [file]);
 
   useEffect(() => {
-    if (!review) return;
-    stream?.getTracks().forEach((track) => track.stop());
-  }, [review, stream]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !stream || review) return;
-    video.srcObject = stream;
-    void video.play().catch(() => undefined);
-    const detector = createDetector();
-    let stopped = false;
-    let frameBusy = false;
-    const timer = window.setInterval(() => {
-      if (stopped || sending.current || frameBusy || video.readyState < 2) return;
-      const canvas = drawFrame(video, video.videoWidth, video.videoHeight);
-      if (canvas.width < 2) return;
-      frameBusy = true;
-      void readCode(canvas, detector)
-        .then((code) => {
-          if (!code || stopped || sending.current) return;
-          void submit(canvas, code);
-        })
-        .finally(() => {
-          frameBusy = false;
+    if (readId === 0 || !review) return;
+    const manufacturer = review.manufacturer.value.trim();
+    const modelNumber = review.modelNumber.value.trim();
+    const productNumber = review.productNumber.value.trim();
+    if ((!manufacturer && !modelNumber && !productNumber) || review.userManual.value.trim()) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    setLookupPending(true);
+    void (async () => {
+      try {
+        const response = await fetch("/api/components/scan/lookup", {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            manufacturer,
+            modelNumber,
+            productNumber,
+            name: review.name.value.trim(),
+          }),
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(90_000)]),
         });
-    }, 800);
+        const payload = (await response.json().catch(() => ({}))) as { result?: ManualLookup | null };
+        if (cancelled || !response.ok || !payload.result) return;
+        const found = payload.result;
+        setReview((current) => (current ? applyManualLookup(current, found) : current));
+      } catch {
+        /* The label fields are already on screen. The manual is optional. */
+      } finally {
+        if (!cancelled) setLookupPending(false);
+      }
+    })();
     return () => {
-      stopped = true;
-      window.clearInterval(timer);
-      video.srcObject = null;
+      cancelled = true;
+      controller.abort();
     };
-    // submit is stable enough for the life of the stream; review closes the loop.
+    // One lookup per label read. Editing a field must not start another.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stream, review]);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape" && !review) onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, review]);
-
-  async function submit(canvas: HTMLCanvasElement, code: string | null, alreadyHeld = false) {
-    if (sending.current && !alreadyHeld) return;
-    sending.current = true;
-    setReading(true);
-    setError(null);
-    try {
-      const blob = await canvasJpeg(canvas);
-      const result = await postScan(blob, code);
-      setScheduleAdded(false);
-      setReview(result);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : SCAN_READ_ERROR);
-    } finally {
-      sending.current = false;
-      setReading(false);
-    }
-  }
-
-  async function onPhoto(file: File | undefined) {
-    if (!file || sending.current) return;
-    sending.current = true;
-    setError(null);
-    setReading(true);
-    try {
-      const bitmap = await createImageBitmap(file);
-      const canvas = drawFrame(bitmap, bitmap.width, bitmap.height);
-      bitmap.close();
-      const code = await readCode(canvas, createDetector());
-      await submit(canvas, code, true);
-    } catch {
-      sending.current = false;
-      setReading(false);
-      setError(SCAN_READ_ERROR);
-    }
-  }
-
-  async function toggleTorch() {
-    const track = stream?.getVideoTracks()[0];
-    if (!track) return;
-    const next = !torchOn;
-    try {
-      await track.applyConstraints({ advanced: [{ torch: next }] } as unknown as MediaTrackConstraints);
-      setTorchOn(next);
-    } catch {
-      setTorchAvailable(false);
-    }
-  }
+  }, [readId]);
 
   async function save() {
     if (!review || saving) return;
     const input = reviewToComponentInput(review);
     if (!input.name.trim()) return;
-    const schedule =
-      scheduleAdded && review.schedule ? scanScheduleDraft(review.schedule) : null;
+    const schedule = scheduleAdded && review.schedule ? scanScheduleDraft(review.schedule) : null;
     setSaving(true);
     setSaveError(null);
     try {
@@ -367,17 +260,20 @@ export function ScanComponent({
           value={review.name.value}
           placeholder="Component name"
           tag={review.name.value ? review.name.tag : null}
-          onChange={(value) => setReview({ ...review, name: editTaggedField(review.name, value) })}
+          onChange={(value) =>
+            setReview((current) => (current ? { ...current, name: editTaggedField(current.name, value) } : current))
+          }
         />
         {makeModel || review.manufacturer.value || review.modelNumber.value ? (
           <TaggedInput
             label="Make and model"
             value={makeModel}
             tag={makeTag}
-            onChange={(value) => {
-              const next = editMakeAndModel(review.manufacturer, review.modelNumber, value);
-              setReview({ ...review, ...next });
-            }}
+            onChange={(value) =>
+              setReview((current) =>
+                current ? { ...current, ...editMakeAndModel(current.manufacturer, current.modelNumber, value) } : current,
+              )
+            }
           />
         ) : null}
         {review.serialNumber.value ? (
@@ -386,7 +282,9 @@ export function ScanComponent({
             value={review.serialNumber.value}
             tag={review.serialNumber.tag}
             onChange={(value) =>
-              setReview({ ...review, serialNumber: editTaggedField(review.serialNumber, value) })
+              setReview((current) =>
+                current ? { ...current, serialNumber: editTaggedField(current.serialNumber, value) } : current,
+              )
             }
           />
         ) : null}
@@ -396,7 +294,9 @@ export function ScanComponent({
             value={review.productNumber.value}
             tag={review.productNumber.tag}
             onChange={(value) =>
-              setReview({ ...review, productNumber: editTaggedField(review.productNumber, value) })
+              setReview((current) =>
+                current ? { ...current, productNumber: editTaggedField(current.productNumber, value) } : current,
+              )
             }
           />
         ) : null}
@@ -407,7 +307,9 @@ export function ScanComponent({
             value={review.warrantyInfo.value}
             tag={review.warrantyInfo.tag}
             onChange={(value) =>
-              setReview({ ...review, warrantyInfo: editTaggedField(review.warrantyInfo, value) })
+              setReview((current) =>
+                current ? { ...current, warrantyInfo: editTaggedField(current.warrantyInfo, value) } : current,
+              )
             }
           />
         ) : null}
@@ -417,7 +319,9 @@ export function ScanComponent({
             value={review.vendorName.value}
             tag={review.vendorName.tag}
             onChange={(value) =>
-              setReview({ ...review, vendorName: editTaggedField(review.vendorName, value) })
+              setReview((current) =>
+                current ? { ...current, vendorName: editTaggedField(current.vendorName, value) } : current,
+              )
             }
           />
         ) : null}
@@ -437,10 +341,11 @@ export function ScanComponent({
                 aria-label="Manual link"
                 value={review.userManual.value}
                 onChange={(event) =>
-                  setReview({
-                    ...review,
-                    userManual: editTaggedField(review.userManual, event.target.value),
-                  })
+                  setReview((current) =>
+                    current
+                      ? { ...current, userManual: editTaggedField(current.userManual, event.target.value) }
+                      : current,
+                  )
                 }
                 className="mt-1 w-full bg-transparent text-[13px] text-[#a8a29e] outline-none"
               />
@@ -451,6 +356,8 @@ export function ScanComponent({
               ) : null}
             </div>
           </div>
+        ) : lookupPending ? (
+          <p className="mt-3.5 text-[13px] text-[#a8a29e]">Looking up the manual…</p>
         ) : null}
         {review.schedule && scheduleText ? (
           <div className="mt-3.5">
@@ -483,64 +390,24 @@ export function ScanComponent({
     );
   }
 
-  const hint = reading ? "Reading the label…" : "Point at the nameplate, barcode, or QR code";
-
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#1d1b19] text-white" role="dialog" aria-label="Scan component">
-      <div className="flex items-center justify-between px-3 pt-[max(12px,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center text-[22px]"
-        >
-          ×
-        </button>
-        <p className="text-[17px]">Scan component</p>
-        {torchAvailable ? (
+    <Modal variant="sheet" title="Scan component" onClose={onClose}>
+      {error ? (
+        <>
+          <p className="text-[15px] text-[#b91c1c]" role="alert">
+            {error}
+          </p>
           <button
             type="button"
-            aria-label={torchOn ? "Turn flash off" : "Turn flash on"}
-            aria-pressed={torchOn}
-            onClick={() => void toggleTorch()}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center ${torchOn ? "text-[#facc15]" : "text-white"}`}
+            onClick={onTypeInstead}
+            className="mt-4 inline-flex min-h-11 items-center text-[15px] font-medium text-[#166534]"
           >
-            <Zap className="size-5" aria-hidden />
+            Type it in
           </button>
-        ) : (
-          <span className="inline-flex min-h-11 min-w-11" />
-        )}
-      </div>
-      <div className="relative min-h-0 flex-1">
-        <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" playsInline autoPlay muted />
-        <div className="pointer-events-none absolute top-1/2 left-1/2 h-[220px] w-[min(310px,calc(100%-48px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border-[3px] border-white shadow-[0_0_0_2000px_rgba(0,0,0,0.45)]" />
-      </div>
-      <p className="px-6 text-center text-[16px]">{hint}</p>
-      {cameraError ? <p className="mt-2 px-6 text-center text-[14px] text-[#fecaca]">{cameraError}</p> : null}
-      {error ? (
-        <p className="mt-2 px-6 text-center text-[14px] text-[#fecaca]" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className="flex items-center justify-center gap-7 px-5 pt-4 pb-[max(24px,env(safe-area-inset-bottom))] text-[15px] text-[#e7e5e4]">
-        <label className="inline-flex min-h-11 cursor-pointer items-center">
-          Photo of label
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="sr-only"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              void onPhoto(file);
-            }}
-          />
-        </label>
-        <button type="button" onClick={onTypeInstead} className="inline-flex min-h-11 items-center">
-          Type it in
-        </button>
-      </div>
-    </div>
+        </>
+      ) : (
+        <p className="text-[15px] text-[#44403c]">Reading the label…</p>
+      )}
+    </Modal>
   );
 }

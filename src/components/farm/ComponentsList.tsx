@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { ExternalLink } from 'lucide-react'
 import { useData } from "@/components/farm/data-context"
@@ -362,6 +362,7 @@ export function ComponentsList({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
+  const [scanFile, setScanFile] = useState<File | null>(null)
   const [scanNote, setScanNote] = useState<string | null>(null)
   const formRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<SystemComponentInput>(() =>
@@ -450,8 +451,19 @@ export function ComponentsList({
     setShowForm(false)
   }
 
+  function onScanPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    setShowForm(false)
+    setScanNote(null)
+    setScanFile(file)
+    setScanOpen(true)
+  }
+
   function openManual() {
     setScanOpen(false)
+    setScanFile(null)
     setScanNote(null)
     setShowForm(true)
     window.setTimeout(() => {
@@ -475,6 +487,7 @@ export function ComponentsList({
       }
     }
     setScanOpen(false)
+    setScanFile(null)
     setShowForm(false)
     setDraft(emptyComponentInput())
   }
@@ -556,19 +569,29 @@ export function ComponentsList({
   return (
     <>
       {readMode ? (
-        <div className="mt-4 flex items-center justify-start gap-7">
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm(false)
-              setScanNote(null)
-              setScanOpen(true)
-            }}
-            className="inline-flex min-h-11 items-center gap-1.5 text-left text-[13px] font-semibold text-[#166534]"
-          >
+        <div className="mt-4 flex flex-wrap items-center justify-start gap-7">
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-left text-[13px] font-semibold text-[#166534]">
             <ScanFrameIcon />
             Scan Component
-          </button>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              aria-label="Take a photo of the label"
+              className="sr-only"
+              onChange={onScanPhoto}
+            />
+          </label>
+          <label className="inline-flex min-h-11 cursor-pointer items-center text-left text-[13px] font-semibold text-[#166534]">
+            Photo library
+            <input
+              type="file"
+              accept="image/*"
+              aria-label="Choose a photo from the library"
+              className="sr-only"
+              onChange={onScanPhoto}
+            />
+          </label>
           <button
             type="button"
             onClick={openManual}
@@ -915,10 +938,15 @@ export function ComponentsList({
         </Modal>
       ) : null}
 
-      {scanOpen ? (
+      {scanOpen && scanFile ? (
         <ScanComponent
+          key={`${scanFile.name}-${scanFile.size}-${scanFile.lastModified}`}
           systemName={systemName}
-          onClose={() => setScanOpen(false)}
+          file={scanFile}
+          onClose={() => {
+            setScanOpen(false)
+            setScanFile(null)
+          }}
           onTypeInstead={openManual}
           onSave={saveScanned}
         />

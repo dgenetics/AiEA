@@ -11,10 +11,11 @@ import {
   sniffScanImage,
   takeScanSlot,
 } from "@/lib/component-scan";
+import { downscaleScanImage } from "@/lib/scan-image";
 import { requireWorkspace } from "@/lib/require-workspace";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const auth = await requireWorkspace();
@@ -59,10 +60,12 @@ export async function POST(req: Request) {
     );
   }
 
+  const prepared = await downscaleScanImage(bytes, mediaType);
+
   try {
     const outcome = await interpretComponentScan({
-      bytes,
-      mediaType,
+      bytes: prepared.bytes,
+      mediaType: prepared.mediaType,
       decodedCode,
       configured: config.configured,
       readModel: config.configured ? (args) => readComponentLabel(args, config) : undefined,

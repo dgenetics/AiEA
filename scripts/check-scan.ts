@@ -6,14 +6,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { componentIdentityRows } from "../src/lib/component-identity";
+import { SCAN_IMAGE_EDGE, downscaleScanImage } from "../src/lib/scan-image";
+import sharp from "sharp";
 import { emptyComponentInput } from "../src/lib/farm-money";
 import { getComponentScanConfig } from "../src/lib/component-scan-ai";
 import {
   SCAN_READ_ERROR,
   SCAN_TOO_LARGE,
+  applyManualLookup,
   editMakeAndModel,
   editTaggedField,
   firstBarcodeValue,
+  manualLookupFromText,
   interpretComponentScan,
   joinMakeAndModel,
   makeModelTag,
@@ -252,21 +256,30 @@ assert.match(list, /min-h-11/);
 assert.match(list, /ScanFrameIcon/);
 assert.doesNotMatch(list, /\+ Add Manually/);
 assert.match(list, /\{!readMode \? \([\s\S]*\+ Add component/);
-assert.match(scanUi, /Point at the nameplate, barcode, or QR code/);
-assert.match(scanUi, /Photo of label/);
+assert.match(list, /capture="environment"/);
+assert.match(list, /accept="image\/\*"/);
+assert.match(list, /aria-label="Take a photo of the label"/);
+assert.match(list, /aria-label="Choose a photo from the library"/);
+assert.match(list, /Photo library/);
+const libraryAt = list.indexOf("Choose a photo from the library");
+assert.ok(libraryAt > scanAt && libraryAt < manualAt);
+assert.doesNotMatch(list.slice(libraryAt - 90, libraryAt), /capture=/);
 assert.match(scanUi, /Type it in/);
+assert.match(scanUi, /Reading the label…/);
+assert.doesNotMatch(scanUi, /getUserMedia/);
+assert.doesNotMatch(scanUi, /BarcodeDetector/);
+assert.doesNotMatch(scanUi, /Read label/);
+assert.doesNotMatch(scanUi, /<video/);
+assert.match(scanUi, /@zxing\/browser/);
+assert.match(scanUi, /UPLOAD_EDGE = 1024/);
 assert.equal(SCAN_READ_ERROR, "Couldn't read that, try again or type it in");
 assert.match(scanUi, /SCAN_READ_ERROR/);
 assert.match(scanLib, /Couldn't read that, try again or type it in/);
-assert.match(scanUi, /facingMode: \{ ideal: "environment" \}/);
-assert.match(scanUi, /capture="environment"/);
-assert.match(scanUi, /BarcodeDetector/);
-assert.match(scanUi, /@zxing\/browser/);
 assert.match(scanUi, /\+ Add this schedule/);
 assert.match(scanLib, /"from label"/);
 assert.match(scanUi, /where you started/);
 assert.match(scanUi, /Make and model/);
-assert.match(scanUi, /editTaggedField\(review\.name, value\)/);
+assert.match(scanUi, /editTaggedField\(current\.name, value\)/);
 assert.doesNotMatch(scanUi, /tag: review\.name\.tag \?\? "suggested"/);
 assert.deepEqual(editTaggedField({ value: "", tag: null }, "Well Pump"), {
   value: "Well Pump",
@@ -329,11 +342,67 @@ assert.match(features, /Changing it removes the tag/);
 assert.match(route, /requireWorkspace/);
 assert.match(route, /takeScanSlot/);
 assert.match(route, /SCAN_IMAGE_MAX_BYTES/);
+assert.match(route, /maxDuration = 300/);
+assert.match(route, /downscaleScanImage/);
+const lookupRoute = readFileSync(join(root, "src/app/api/components/scan/lookup/route.ts"), "utf8");
+assert.match(lookupRoute, /maxDuration = 300/);
+assert.match(lookupRoute, /lookupComponentManual/);
+assert.equal(SCAN_IMAGE_EDGE, 1024);
+const labelFn = ai.slice(
+  ai.indexOf("export async function readComponentLabel"),
+  ai.indexOf("export async function lookupComponentManual"),
+);
+assert.match(labelFn, /detail: "low"/);
+assert.doesNotMatch(labelFn, /web_search/);
+assert.doesNotMatch(labelFn, /detail: "high"/);
+const lookupFn = ai.slice(ai.indexOf("export async function lookupComponentManual"));
+assert.match(lookupFn, /web_search/);
+assert.doesNotMatch(lookupFn, /input_image/);
 assert.match(ai, /COMPONENT_SCAN_API_KEY/);
 assert.match(ai, /grok-4\.7/);
-assert.match(ai, /web_search/);
 assert.match(ai, /store: false/);
 assert.match(ai, /Do not invent URLs/);
+assert.match(features, /low detail/);
+assert.match(features, /Photo library/);
+const barcodeOnly = reviewFromCode("96510192");
+assert.ok(barcodeOnly);
+const typed = applyManualLookup(
+  { ...barcodeOnly, name: { value: "Well Pump", tag: null } },
+  {
+    manualUrl: "https://www.grundfos.com/manuals/sq.pdf",
+    manualTitle: "SQ manual",
+    manualKind: "PDF",
+    schedule: { name: "Check seals", everyCount: 1, everyUnit: "year", note: "per the manual" },
+  },
+);
+assert.equal(typed.name.value, "Well Pump");
+assert.equal(typed.name.tag, null);
+assert.equal(typed.userManual.tag, "found online");
+assert.equal(typed.userManual.value, "https://www.grundfos.com/manuals/sq.pdf");
+assert.equal(typed.schedule?.name, "Check seals");
+const keptManual = applyManualLookup(
+  { ...typed, userManual: { value: "https://example.com/mine", tag: null } },
+  {
+    manualUrl: "https://www.grundfos.com/manuals/sq.pdf",
+    manualTitle: "SQ manual",
+    manualKind: "PDF",
+    schedule: null,
+  },
+);
+assert.equal(keptManual.userManual.value, "https://example.com/mine");
+assert.equal(keptManual.userManual.tag, null);
+assert.equal(
+  manualLookupFromText('{"name":"Suggested pump","manual":{"url":"https://example.com/m.pdf","title":"M","kind":"PDF"}}')
+    ?.manualUrl,
+  "https://example.com/m.pdf",
+);
+const wide = await sharp({
+  create: { width: 2000, height: 800, channels: 3, background: "#ffffff" },
+}).jpeg().toBuffer();
+const scaled = await downscaleScanImage(new Uint8Array(wide), "image/jpeg");
+const scaledMeta = await sharp(scaled.bytes).metadata();
+assert.equal(Math.max(scaledMeta.width ?? 0, scaledMeta.height ?? 0), 1024);
+assert.equal(scaled.mediaType, "image/jpeg");
 assert.match(envExample, /COMPONENT_SCAN_API_KEY=""/);
 assert.doesNotMatch(envExample, /COMPONENT_SCAN_API_KEY="xai-/);
 assert.match(features, /Scan Component/);

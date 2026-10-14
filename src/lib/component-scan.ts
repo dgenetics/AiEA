@@ -417,6 +417,43 @@ export function reviewFromCode(decodedCode: string): ComponentScanReview | null 
   return reviewHasFinding(review) ? review : null;
 }
 
+export type ManualLookup = {
+  manualUrl: string;
+  manualTitle: string;
+  manualKind: string;
+  schedule: ScanSchedule | null;
+};
+
+/** Manual URL and schedule from the follow-up. Ignores a suggested name. */
+export function manualLookupFromText(text: string): ManualLookup | null {
+  const parsed = parseScanModelText(text);
+  if (!parsed) return null;
+  if (!parsed.userManual.value && !parsed.schedule) return null;
+  return {
+    manualUrl: parsed.userManual.value,
+    manualTitle: parsed.manualTitle,
+    manualKind: parsed.manualKind,
+    schedule: parsed.schedule,
+  };
+}
+
+/** Fill an empty manual, and a schedule only when the sheet does not have one yet. */
+export function applyManualLookup(review: ComponentScanReview, lookup: ManualLookup): ComponentScanReview {
+  let next = review;
+  const url = httpUrl(lookup.manualUrl);
+  if (!review.userManual.value.trim() && url) {
+    const pdf = lookup.manualKind === "PDF" || /\.pdf($|\?)/i.test(url);
+    next = {
+      ...next,
+      userManual: { value: url, tag: "found online" },
+      manualTitle: clip(lookup.manualTitle, 200),
+      manualKind: pdf ? "PDF" : "page",
+    };
+  }
+  if (!next.schedule && lookup.schedule) next = { ...next, schedule: lookup.schedule };
+  return next === review ? review : withIntro(next);
+}
+
 function toDataUrl(bytes: Uint8Array, mediaType: "image/jpeg" | "image/png"): string {
   let binary = "";
   const chunk = 0x8000;
