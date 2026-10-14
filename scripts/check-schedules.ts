@@ -54,6 +54,10 @@ assert.match(view, /scheduleCardFrequency/);
 assert.match(view, /title="Edit schedule"/);
 assert.match(view, /deleteSchedule/);
 assert.match(view, /onDelete=/);
+assert.match(view, /removedIds/);
+assert.match(view, /router\.refresh\(\)/);
+assert.match(view, /row\.id !== id/);
+assert.match(view, /cache: "no-store"/);
 assert.match(view, /<Toast/);
 assert.doesNotMatch(view, /confirm\(/);
 assert.equal(

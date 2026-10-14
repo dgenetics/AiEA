@@ -71,7 +71,7 @@ export type CreateScheduleInput = {
 export const maintenanceApi = {
   listSchedules: (componentId?: string) => {
     const q = componentId ? `?componentId=${encodeURIComponent(componentId)}` : "";
-    return request<ScheduleJson[]>(`/api/schedules${q}`);
+    return request<ScheduleJson[]>(`/api/schedules${q}`, { cache: "no-store" });
   },
   createSchedule: (input: CreateScheduleInput) =>
     request<ScheduleJson>("/api/schedules", { method: "POST", body: JSON.stringify(input) }),
