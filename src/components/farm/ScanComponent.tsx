@@ -257,15 +257,21 @@ export function ScanComponent({
     void video.play().catch(() => undefined);
     const detector = createDetector();
     let stopped = false;
+    let frameBusy = false;
     const timer = window.setInterval(() => {
-      if (stopped || sending.current || video.readyState < 2) return;
+      if (stopped || sending.current || frameBusy || video.readyState < 2) return;
       const canvas = drawFrame(video, video.videoWidth, video.videoHeight);
       if (canvas.width < 2) return;
-      void readCode(canvas, detector).then((code) => {
-        if (!code || stopped || sending.current) return;
-        void submit(canvas, code);
-      });
-    }, 700);
+      frameBusy = true;
+      void readCode(canvas, detector)
+        .then((code) => {
+          if (!code || stopped || sending.current) return;
+          void submit(canvas, code);
+        })
+        .finally(() => {
+          frameBusy = false;
+        });
+    }, 800);
     return () => {
       stopped = true;
       window.clearInterval(timer);
@@ -283,8 +289,8 @@ export function ScanComponent({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, review]);
 
-  async function submit(canvas: HTMLCanvasElement, code: string | null) {
-    if (sending.current) return;
+  async function submit(canvas: HTMLCanvasElement, code: string | null, alreadyHeld = false) {
+    if (sending.current && !alreadyHeld) return;
     sending.current = true;
     setReading(true);
     setError(null);
@@ -303,13 +309,15 @@ export function ScanComponent({
 
   async function onPhoto(file: File | undefined) {
     if (!file || sending.current) return;
+    sending.current = true;
     setError(null);
+    setReading(true);
     try {
       const bitmap = await createImageBitmap(file);
       const canvas = drawFrame(bitmap, bitmap.width, bitmap.height);
       bitmap.close();
       const code = await readCode(canvas, createDetector());
-      await submit(canvas, code);
+      await submit(canvas, code, true);
     } catch {
       sending.current = false;
       setReading(false);
