@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useData } from "@/components/farm/data-context";
 import { Modal } from "@/components/farm/Modal";
 import { ScheduleForm } from "@/components/farm/ScheduleForm";
-import { Button } from "@/components/farm/ui";
 import { maintenanceApi } from "@/lib/farm-api";
 import { scheduleCardFrequency } from "@/lib/chore-display";
 import type { ScheduleJson } from "@/lib/maintenance";
@@ -77,7 +76,7 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
     const list: Array<{ id: string; label: string }> = [];
     for (const system of assets) {
       for (const component of system.components) {
-        list.push({ id: component.id, label: `${system.name} / ${component.name}` });
+        list.push({ id: component.id, label: `${system.name} · ${component.name}` });
       }
     }
     return list.sort((a, b) => a.label.localeCompare(b.label));
@@ -143,7 +142,12 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
           </p>
 
       {editing && (
-        <Modal title="Edit schedule" onClose={() => setEditing(null)}>
+        <Modal
+          variant="sheet"
+          title="Edit schedule"
+          subtitle={meta.get(editing.componentId)?.component}
+          onClose={() => setEditing(null)}
+        >
           <ScheduleForm
             key={editing.id}
             componentId={editing.componentId}
@@ -156,10 +160,7 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
               nextDueDate: editing.nextDueDate,
             }}
             busy={saving}
-            embedActions
             formId="schedule-edit-form"
-            submitLabel="Save"
-            onCancel={() => setEditing(null)}
             onSubmit={async (input) => {
               setSaving(true);
               try {
@@ -176,52 +177,30 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
 
       {addOpen && (
         <Modal
+          variant="sheet"
           title="Add schedule"
-          onClose={() => setAddOpen(false)}
-          footer={
-            <Button type="button" variant="secondary" onClick={() => setAddOpen(false)}>
-              Close
-            </Button>
-          }
+          onClose={() => {
+            setAddOpen(false);
+            setComponentId("");
+          }}
         >
-          <div className="space-y-3">
-            <label className="block text-sm text-stone-700">
-              Component
-              <select
-                className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
-                value={componentId}
-                onChange={(e) => setComponentId(e.target.value)}
-              >
-                <option value="">Choose a component</option>
-                {picks.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {componentId ? (
-              <ScheduleForm
-                componentId={componentId}
-                busy={saving}
-                embedActions
-                onCancel={() => setAddOpen(false)}
-                onSubmit={async (input) => {
-                  setSaving(true);
-                  try {
-                    await maintenanceApi.createSchedule(input);
-                    setAddOpen(false);
-                    setComponentId("");
-                    await load();
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-              />
-            ) : (
-              <p className="text-xs text-stone-500">Schedules belong to a component.</p>
-            )}
-          </div>
+          <ScheduleForm
+            componentId={componentId}
+            components={picks}
+            onComponentChange={setComponentId}
+            busy={saving}
+            onSubmit={async (input) => {
+              setSaving(true);
+              try {
+                await maintenanceApi.createSchedule(input);
+                setAddOpen(false);
+                setComponentId("");
+                await load();
+              } finally {
+                setSaving(false);
+              }
+            }}
+          />
         </Modal>
       )}
     </div>

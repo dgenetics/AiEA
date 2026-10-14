@@ -819,7 +819,6 @@ export function ComponentsList({
         >
             <ScheduleForm
               key={schedulePart.id}
-              variant="sheet"
               error={scheduleError}
               formId="system-part-schedule-add-form"
               componentId={schedulePart.id}
