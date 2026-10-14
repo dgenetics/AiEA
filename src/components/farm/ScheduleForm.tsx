@@ -5,6 +5,7 @@ import type { CreateScheduleInput } from "@/lib/farm-api";
 import { ComponentPicker, ComponentPickerField } from "@/components/farm/ComponentPicker";
 import type { ComponentPickerOption } from "@/lib/component-picker";
 import { sheetRepeatFromSchedule, sheetRepeatToInput, type RepeatUnit } from "@/lib/schedule-sheet";
+import { InlineDelete, scheduleDeleteMessage } from "@/components/farm/InlineDelete";
 import { Input, Select, Textarea } from "@/components/farm/ui";
 
 const selectChevron =
@@ -32,6 +33,7 @@ export function ScheduleForm({
   componentId,
   initial,
   onSubmit,
+  onDelete,
   busy,
   formId = "schedule-form",
   error: errorProp = null,
@@ -43,6 +45,8 @@ export function ScheduleForm({
   componentId: string;
   initial?: ScheduleFormInitial;
   onSubmit: (input: CreateScheduleInput) => Promise<void> | void;
+  /** Present only while editing a saved schedule. Add leaves this unset. */
+  onDelete?: () => Promise<void> | void;
   busy?: boolean;
   formId?: string;
   error?: string | null;
@@ -203,6 +207,14 @@ export function ScheduleForm({
       >
         {busy ? "Saving…" : "Save"}
       </button>
+      {onDelete ? (
+        <InlineDelete
+          label="Delete schedule"
+          disabled={busy}
+          message={scheduleDeleteMessage(initial?.name?.trim() || name)}
+          onConfirm={onDelete}
+        />
+      ) : null}
     </form>
   );
 }

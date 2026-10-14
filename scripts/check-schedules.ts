@@ -12,6 +12,7 @@ import {
   filterComponentPicks,
   highlightParts,
 } from "../src/lib/component-picker";
+import { scheduleDeleteMessage } from "../src/components/farm/InlineDelete";
 import { sheetRepeatFromSchedule, sheetRepeatToInput } from "../src/lib/schedule-sheet";
 import {
   beginSchedulesFetch,
@@ -51,6 +52,14 @@ assert.match(view, /md:grid-cols-2/);
 assert.match(view, /lg:grid-cols-3/);
 assert.match(view, /scheduleCardFrequency/);
 assert.match(view, /title="Edit schedule"/);
+assert.match(view, /deleteSchedule/);
+assert.match(view, /onDelete=/);
+assert.match(view, /<Toast/);
+assert.doesNotMatch(view, /confirm\(/);
+assert.equal(
+  scheduleDeleteMessage("Change engine oil"),
+  "Delete 'Change engine oil'? This also deletes all its tasks, including completed ones.",
+);
 assert.match(view, /"Add schedule"/);
 assert.match(view, /variant="sheet"/);
 assert.match(view, /subtitle=\{meta\.get\(editing\.componentId\)\?\.component\}/);
@@ -63,6 +72,7 @@ assert.doesNotMatch(view, /\$\{system\.name\} \/ \$\{component\.name\}/);
 assert.doesNotMatch(view, /<select/);
 const addBlock = view.slice(view.indexOf("{addOpen && ("));
 assert.doesNotMatch(addBlock, /subtitle=/);
+assert.doesNotMatch(addBlock, /onDelete/);
 assert.doesNotMatch(view, /embedActions/);
 assert.doesNotMatch(view, /onCancel/);
 assert.match(view, /initial\.schedules/);
@@ -212,6 +222,13 @@ assert.match(form, /components\?: ComponentPickerOption\[\]/);
 assert.doesNotMatch(form, /<select[\s>]/);
 assert.doesNotMatch(form, /Choose a component/);
 assert.doesNotMatch(form, /Cancel/);
+assert.match(form, /Delete schedule/);
+assert.match(form, /onDelete\?: \(\) => Promise<void> \| void/);
+assert.match(form, /scheduleDeleteMessage/);
+assert.match(form, /<InlineDelete/);
+assert.doesNotMatch(form, /confirm\(/);
+assert.doesNotMatch(form, /Trash2/);
+assert.ok(form.indexOf("Save") < form.indexOf("Delete schedule"));
 assert.doesNotMatch(form, /Recurring \(create next task/);
 assert.doesNotMatch(form, /Frequency/);
 assert.doesNotMatch(form, /Save schedule/);
@@ -235,9 +252,26 @@ assert.match(detail, /variant="sheet"/);
 assert.match(detail, /title="Add schedule"/);
 assert.match(detail, /subtitle=\{component\.name\}/);
 assert.match(detail, /deleteSchedule/);
+assert.match(detail, /scheduleDeleteMessage/);
+assert.match(detail, /<DeleteConfirm/);
+assert.doesNotMatch(detail, /confirm\(/);
 assert.doesNotMatch(detail, /embedActions/);
 assert.doesNotMatch(detail, /onCancel/);
 assert.doesNotMatch(detail, /components=/);
+
+const scheduleRoute = readFileSync(join(root, "src/app/api/schedules/[id]/route.ts"), "utf8");
+const deleteHandler = scheduleRoute.slice(scheduleRoute.indexOf("export async function DELETE"));
+assert.match(deleteHandler, /prisma\.\$transaction/);
+assert.match(deleteHandler, /task\.deleteMany/);
+assert.match(deleteHandler, /scheduleId: id/);
+assert.match(deleteHandler, /workspaceId: auth\.workspaceId/);
+assert.match(deleteHandler, /maintenanceSchedule\.delete/);
+assert.ok(deleteHandler.indexOf("task.deleteMany") < deleteHandler.indexOf("maintenanceSchedule.delete"));
+const inline = readFileSync(join(root, "src/components/farm/InlineDelete.tsx"), "utf8");
+assert.match(inline, /\n\s+Cancel\n/);
+assert.match(inline, /Deleting…/);
+assert.doesNotMatch(inline, /Undo/);
+assert.doesNotMatch(inline, /confirm\(/);
 
 const modal = readFileSync(join(root, "src/components/farm/Modal.tsx"), "utf8");
 assert.match(modal, /subtitle\?: string/);

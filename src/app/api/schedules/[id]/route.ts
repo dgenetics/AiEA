@@ -116,6 +116,11 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     where: { id, workspaceId: auth.workspaceId },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await prisma.maintenanceSchedule.delete({ where: { id } });
+  await prisma.$transaction([
+    prisma.task.deleteMany({
+      where: { scheduleId: id, workspaceId: auth.workspaceId },
+    }),
+    prisma.maintenanceSchedule.delete({ where: { id } }),
+  ]);
   return new NextResponse(null, { status: 204 });
 }

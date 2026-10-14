@@ -22,6 +22,7 @@ import {
   hasOtherSystemsToMoveTo,
   MoveComponentSheet,
 } from "@/components/farm/MoveComponentSheet"
+import { DeleteConfirm } from "@/components/farm/InlineDelete"
 import { ScheduleForm } from "@/components/farm/ScheduleForm"
 import { ScanComponent } from "@/components/farm/ScanComponent"
 import { Modal } from "@/components/farm/Modal"
@@ -386,6 +387,7 @@ export function ComponentsList({
   const [schedules, setSchedules] = useState<ScheduleJson[]>([])
   const [tasks, setTasks] = useState<BoardTask[]>([])
   const [editingPart, setEditingPart] = useState<SystemComponent | null>(null)
+  const [confirmPartId, setConfirmPartId] = useState<string | null>(null)
   const partRowRefs = useRef<Record<string, HTMLLIElement | null>>({})
   const [relatedTick, setRelatedTick] = useState(0)
   const componentKey = components.map((part) => part.id).join(',')
@@ -788,8 +790,9 @@ export function ComponentsList({
             return (
               <li
                 key={part.id}
-                className="flex items-start gap-2.5 rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-2.5 py-2"
+                className="rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-2.5 py-2"
               >
+                <div className="flex items-start gap-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-sm font-semibold text-stone-900">{displayName}</p>
                   {line ? (
@@ -835,15 +838,20 @@ export function ComponentsList({
                     title="Remove"
                     aria-label={`Delete ${displayName}`}
                     className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg text-sm text-[#b91c1c]"
-                    onClick={() => {
-                      if (confirm(`Remove ${displayName} from this system?`)) {
-                        void onDelete(part.id)
-                      }
-                    }}
+                    onClick={() => setConfirmPartId(part.id)}
                   >
                     ✕
                   </button>
                 </div>
+                </div>
+                {confirmPartId === part.id ? (
+                  <DeleteConfirm
+                    className="mt-2"
+                    message={`Remove '${displayName}' from this system?`}
+                    onDismiss={() => setConfirmPartId(null)}
+                    onConfirm={() => onDelete(part.id)}
+                  />
+                ) : null}
               </li>
             )
           })}

@@ -18,7 +18,9 @@ import {
 import { useData } from "@/components/farm/data-context";
 import { maintenanceApi } from "@/lib/farm-api";
 import type { ScheduleJson } from "@/lib/maintenance";
+import { DeleteConfirm, scheduleDeleteMessage } from "@/components/farm/InlineDelete";
 import { ScheduleForm } from "@/components/farm/ScheduleForm";
+import { Toast } from "@/components/farm/Toast";
 import { Modal } from "@/components/farm/Modal";
 import {
   hasOtherSystemsToMoveTo,
@@ -44,6 +46,8 @@ export function ComponentDetail({
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
+  const [confirmScheduleId, setConfirmScheduleId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -228,36 +232,42 @@ export function ComponentDetail({
         ) : (
           <ul className="divide-y divide-cream-200">
             {schedules.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-start justify-between gap-2 py-3 first:pt-0 last:pb-0"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-ink">{s.name}</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Next due{" "}
-                    {format(parseISO(s.nextDueDate), "MMM d, yyyy")}
-                    {s.frequency ? ` · ${s.frequency}` : ""}
-                    {s.isRecurring ? " · recurring" : " · one-off"}
-                  </p>
-                  {s.description && (
-                    <p className="mt-1 text-sm text-muted">{s.description}</p>
-                  )}
+              <li key={s.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">{s.name}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Next due{" "}
+                      {format(parseISO(s.nextDueDate), "MMM d, yyyy")}
+                      {s.frequency ? ` · ${s.frequency}` : ""}
+                      {s.isRecurring ? " · recurring" : " · one-off"}
+                    </p>
+                    {s.description && (
+                      <p className="mt-1 text-sm text-muted">{s.description}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-muted hover:text-red-700"
+                    aria-label={`Delete ${s.name}`}
+                    onClick={() => setConfirmScheduleId(s.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="text-muted hover:text-red-700"
-                  aria-label={`Delete ${s.name}`}
-                  onClick={() => {
-                    if (!confirm(`Delete schedule “${s.name}”?`)) return;
-                    void maintenanceApi
-                      .deleteSchedule(s.id)
-                      .then(() => load())
-                      .catch((e: Error) => setError(e.message));
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {confirmScheduleId === s.id ? (
+                  <DeleteConfirm
+                    className="mt-2"
+                    message={scheduleDeleteMessage(s.name)}
+                    onDismiss={() => setConfirmScheduleId(null)}
+                    onConfirm={async () => {
+                      await maintenanceApi.deleteSchedule(s.id);
+                      setConfirmScheduleId(null);
+                      setToast(`Deleted '${s.name.trim() || "Schedule"}'.`);
+                      await load();
+                    }}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -296,6 +306,7 @@ export function ComponentDetail({
           }}
         />
       )}
+      {toast ? <Toast message={toast} onDone={() => setToast(null)} /> : null}
     </div>
   );
 }

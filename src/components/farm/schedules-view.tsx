@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useData } from "@/components/farm/data-context";
 import { Modal } from "@/components/farm/Modal";
 import { ScheduleForm } from "@/components/farm/ScheduleForm";
+import { Toast } from "@/components/farm/Toast";
 import { maintenanceApi } from "@/lib/farm-api";
 import { scheduleCardFrequency } from "@/lib/chore-display";
 import type { ScheduleJson } from "@/lib/maintenance";
@@ -30,6 +31,7 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
   const [componentId, setComponentId] = useState("");
   const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     setSchedules(initial.schedules);
@@ -164,6 +166,18 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
             }}
             busy={saving}
             formId="schedule-edit-form"
+            onDelete={async () => {
+              setSaving(true);
+              try {
+                await maintenanceApi.deleteSchedule(editing.id);
+                const deleted = editing.name.trim() || "Schedule";
+                setEditing(null);
+                setToast(`Deleted '${deleted}'.`);
+                await load();
+              } finally {
+                setSaving(false);
+              }
+            }}
             onSubmit={async (input) => {
               setSaving(true);
               try {
@@ -177,6 +191,8 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
           />
         </Modal>
       )}
+
+      {toast ? <Toast message={toast} onDone={() => setToast(null)} /> : null}
 
       {addOpen && (
         <Modal
