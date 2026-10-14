@@ -474,6 +474,7 @@ export function ComponentsList({
             })
           : "",
       },
+      { label: "Location", value: part.location.trim() },
       {
         label: "Purchase",
         value: part.purchaseCost != null ? formatMoney(part.purchaseCost) : "",
@@ -509,21 +510,18 @@ export function ComponentsList({
 
   return (
     <>
-      <h2 className="mt-5 flex items-baseline justify-between border-b border-[#e7e0d0] pb-1 text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase">
+      <h2 className="mt-[22px] text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase">
         Components
-        <span className="text-xs font-normal tracking-normal text-[#78716c] normal-case">
-          {components.length}
-        </span>
       </h2>
 
-      {readMode && components.length > 4 && (
-        <label className="mt-2 flex h-[38px] items-center gap-2 rounded-[10px] border border-[#d9cfb8] bg-[#fffdf8] px-2.5">
+      {readMode && (
+        <label className="mt-3.5 flex h-[46px] items-center gap-2 rounded-[10px] border border-[#d9cfb8] bg-[#fffdf8] px-3">
           <svg
             width="16"
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#78716c"
+            stroke="#a8a29e"
             strokeWidth="2"
             aria-hidden
           >
@@ -551,69 +549,65 @@ export function ComponentsList({
       ) : null}
 
       {readMode && visible.length > 0 ? (
-        <ul className="mt-2 grid grid-cols-1 gap-2 min-[900px]:grid-cols-2">
+        <ul className="mt-5 flex flex-col gap-3.5">
           {visible.map((part) => {
             const open = expandedId === part.id
             const displayName = liveNames[part.id] ?? part.name
-            const line = componentBubbleLine(part.modelNumber, part.location)
             const hasOpenTask = tasks.some((task) => taskComponentId(task) === part.id)
             const badge = componentBubbleBadge(duesFor(part.id))
+            const overdue = badge?.tone === "overdue"
             const partSchedules = schedules.filter((schedule) => schedule.componentId === part.id)
             const rows = rowsFor(part)
+            const actionClass =
+              "min-h-8 rounded-lg px-0.5 py-1.5 text-sm font-medium text-stone-600 hover:text-stone-900 hover:underline underline-offset-[3px] focus-visible:outline-2 focus-visible:outline-stone-800"
             return (
               <li
                 key={part.id}
                 ref={(el) => {
                   partRowRefs.current[part.id] = el
                 }}
-                className={`min-w-0 rounded-xl border px-[11px] py-[9px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
-                  open ? "min-[900px]:col-span-2" : ""
+                className={`min-w-0 border shadow-sm ${
+                  open ? "rounded-[20px]" : "rounded-[25px]"
                 } ${
-                  hasOpenTask
-                    ? "border-[#f3d79a] bg-[#fdf0d5]"
-                    : "border-[#ebe3d3] bg-[#fffdf8]"
+                  overdue
+                    ? "border-[#f5c2c2] bg-[#fdecec]"
+                    : hasOpenTask
+                      ? "border-[#f3d79a] bg-[#fdf0d5]"
+                      : "border-[#e6dcc8] bg-[#fffdf8]"
                 }`}
               >
                 <button
                   type="button"
                   aria-expanded={open}
+                  aria-controls={`part-details-${part.id}`}
                   onClick={() => togglePart(part.id)}
-                  className="w-full text-left"
+                  className="block min-h-[50px] w-full rounded-[inherit] px-5 py-3.5 text-left text-base leading-[1.3] font-semibold text-stone-900 [overflow-wrap:anywhere]"
                 >
-                  <div className="flex items-start gap-2">
-                    <span className="min-w-0 flex-1 break-words text-sm font-semibold text-stone-900">
-                      {displayName}
-                    </span>
-                    {badge ? (
-                      <span
-                        className={`shrink-0 rounded-full px-[7px] py-0.5 text-[11px] font-semibold whitespace-nowrap ${
-                          badge.tone === "overdue"
-                            ? "bg-[#fee2e2] text-[#b91c1c]"
-                            : "border border-[#f3d79a] bg-[#fdf0d5] text-[#92400e]"
-                        }`}
-                      >
-                        {badge.text}
-                      </span>
-                    ) : null}
-                  </div>
-                  {line ? (
-                    <div
-                      className={`mt-px text-xs text-[#78716c] ${
-                        open ? "" : "truncate"
-                      }`}
-                    >
-                      {line}
-                    </div>
-                  ) : null}
+                  {displayName}
                 </button>
                 {open ? (
-                  <div
-                    className={`mt-2 border-t pt-1.5 ${
-                      hasOpenTask ? "border-[#f3d79a]" : "border-[#ebe3d3]"
-                    }`}
-                  >
+                  <div id={`part-details-${part.id}`} className="px-5 pb-5">
+                    <div className="-mt-2 -ml-0.5 flex justify-start gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScheduleError(null)
+                          setSchedulePart(part)
+                        }}
+                        className={actionClass}
+                      >
+                        Add schedule
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPart(part)}
+                        className={actionClass}
+                      >
+                        Edit Component
+                      </button>
+                    </div>
                     {rows.length > 0 ? (
-                      <dl className="grid grid-cols-[96px_1fr] gap-x-2.5 gap-y-1 text-[13px]">
+                      <dl className="mt-3 grid grid-cols-[104px_1fr] gap-x-3 gap-y-[9px] text-sm">
                         {rows.map((row) => (
                           <div key={row.label} className="contents">
                             <dt className="pt-px text-xs text-[#78716c]">{row.label}</dt>
@@ -637,15 +631,15 @@ export function ComponentsList({
                       </dl>
                     ) : null}
                     {partSchedules.length > 0 ? (
-                      <div className="mt-2">
+                      <div className="mt-5">
                         <p className="text-xs text-[#78716c]">Schedules</p>
-                        <div className="mt-1 flex flex-col gap-1">
+                        <div className="mt-2 flex flex-col gap-[9px]">
                           {partSchedules.map((schedule) => {
                             const cadence = scheduleCadence(schedule, part.id)
                             return (
                               <div
                                 key={schedule.id}
-                                className="flex items-baseline justify-between gap-2 text-[13px]"
+                                className="flex items-baseline justify-between gap-2 text-sm"
                               >
                                 <span className="min-w-0 text-stone-900">
                                   {schedule.name}
@@ -668,19 +662,25 @@ export function ComponentsList({
                         </div>
                       </div>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => setEditingPart(part)}
-                      className="mt-1.5 text-[13px] font-semibold text-[#166534]"
-                    >
-                      Edit component
-                    </button>
                   </div>
                 ) : null}
               </li>
             )
           })}
         </ul>
+      ) : null}
+
+      {readMode ? (
+        <p className="mt-8 flex flex-wrap gap-3.5 text-xs text-stone-500">
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="size-3 rounded border border-[#f3d79a] bg-[#fdf0d5]" />
+            Amber = has an open task
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="size-3 rounded border border-[#f5c2c2] bg-[#fdecec]" />
+            Red = overdue
+          </span>
+        </p>
       ) : null}
 
       {!readMode && visible.length > 0 ? (
