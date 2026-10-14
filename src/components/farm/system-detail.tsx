@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { Pencil } from "lucide-react";
 import { useData } from "@/components/farm/data-context";
+import { maintenanceApi } from "@/lib/farm-api";
 import type { Asset, AssetInput, SystemComponentInput } from "@/lib/farm-types";
 import { normalizeCategory } from "@/lib/farm-types";
 import { systemCardLocation } from "@/lib/system-cards";
 import { AssetFormFields } from "@/components/farm/AssetFormFields";
 import { ComponentsList } from "@/components/farm/ComponentsList";
-import { DeleteConfirm, InlineDelete } from "@/components/farm/InlineDelete";
+import { DeleteConfirm, InlineDelete, systemDeleteMessage } from "@/components/farm/InlineDelete";
 import { StickySaveBar } from "@/components/farm/StickySaveBar";
 import { Button } from "@/components/farm/ui";
 
@@ -36,7 +37,9 @@ export function SystemDetail({ id }: { id: string }) {
   const [draft, setDraft] = useState<AssetInput | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [scheduleTotal, setScheduleTotal] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const componentIdsKey = asset?.components.map((component) => component.id).join(",") ?? "";
 
   const handleUpdateComponent = useCallback(
     (componentId: string, patch: Partial<SystemComponentInput>) =>
@@ -59,6 +62,24 @@ export function SystemDetail({ id }: { id: string }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!asset) return;
+    let cancelled = false;
+    const ids = new Set(componentIdsKey ? componentIdsKey.split(",") : []);
+    void maintenanceApi
+      .listSchedules()
+      .then((rows) => {
+        if (cancelled) return;
+        setScheduleTotal(rows.filter((row) => ids.has(row.componentId)).length);
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleTotal(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [asset, componentIdsKey]);
 
   if (!asset) {
     return (
@@ -97,6 +118,14 @@ export function SystemDetail({ id }: { id: string }) {
 
   const place = systemCardLocation(asset);
   const subtitle = [normalizeCategory(asset.category), place].filter(Boolean).join(" · ");
+  const deleteMessage =
+    scheduleTotal === null
+      ? null
+      : systemDeleteMessage(
+          (editing && draft?.name.trim()) || asset.name,
+          asset.components.length,
+          scheduleTotal,
+        );
 
   if (editing && draft) {
     return (
@@ -141,7 +170,8 @@ export function SystemDetail({ id }: { id: string }) {
         <div className="mt-6 border-t border-[#e7e0d0] pt-1">
           <InlineDelete
             label="Delete system…"
-            message={`Delete '${asset.name}'? This cannot be undone.`}
+            disabled={deleteMessage === null}
+            message={deleteMessage ?? systemDeleteMessage(asset.name, asset.components.length, 0)}
             onConfirm={deleteSystem}
           />
         </div>
@@ -209,10 +239,10 @@ export function SystemDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {confirmDelete ? (
+      {confirmDelete && deleteMessage ? (
         <DeleteConfirm
           className="mt-4"
-          message={`Delete '${asset.name}'? This cannot be undone.`}
+          message={deleteMessage}
           onDismiss={() => setConfirmDelete(false)}
           onConfirm={deleteSystem}
         />

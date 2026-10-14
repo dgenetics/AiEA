@@ -22,7 +22,8 @@ import {
   hasOtherSystemsToMoveTo,
   MoveComponentSheet,
 } from "@/components/farm/MoveComponentSheet"
-import { DeleteConfirm } from "@/components/farm/InlineDelete"
+import { InlineDelete, componentDeleteMessage } from "@/components/farm/InlineDelete"
+import { Toast } from "@/components/farm/Toast"
 import { ScheduleForm } from "@/components/farm/ScheduleForm"
 import { ScanComponent } from "@/components/farm/ScanComponent"
 import { Modal } from "@/components/farm/Modal"
@@ -387,9 +388,10 @@ export function ComponentsList({
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [schedules, setSchedules] = useState<ScheduleJson[]>([])
+  const [schedulesReady, setSchedulesReady] = useState(false)
   const [tasks, setTasks] = useState<BoardTask[]>([])
   const [editingPart, setEditingPart] = useState<SystemComponent | null>(null)
-  const [confirmPartId, setConfirmPartId] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const partRowRefs = useRef<Record<string, HTMLLIElement | null>>({})
   const [relatedTick, setRelatedTick] = useState(0)
   const componentKey = components.map((part) => part.id).join(',')
@@ -399,13 +401,16 @@ export function ComponentsList({
     const ids = new Set(componentKey ? componentKey.split(',') : [])
     void (async () => {
       const [allSchedules, taskRes] = await Promise.all([
-        maintenanceApi.listSchedules().catch(() => [] as ScheduleJson[]),
+        maintenanceApi.listSchedules().catch(() => null),
         fetch('/api/tasks?view=board', { credentials: 'include' })
           .then((response) => response.json())
           .catch(() => ({ tasks: [] as BoardTask[] })),
       ])
       if (cancelled) return
-      setSchedules(allSchedules.filter((schedule) => ids.has(schedule.componentId)))
+      if (allSchedules) {
+        setSchedules(allSchedules.filter((schedule) => ids.has(schedule.componentId)))
+        setSchedulesReady(true)
+      }
       const listed = (taskRes.tasks ?? []) as BoardTask[]
       setTasks(listed.filter((task) => {
         const id = taskComponentId(task)
@@ -792,9 +797,8 @@ export function ComponentsList({
             return (
               <li
                 key={part.id}
-                className="rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-2.5 py-2"
+                className="flex items-start gap-2.5 rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-2.5 py-2"
               >
-                <div className="flex items-start gap-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-sm font-semibold text-stone-900">{displayName}</p>
                   {line ? (
@@ -835,25 +839,7 @@ export function ComponentsList({
                   >
                     ⧉
                   </button>
-                  <button
-                    type="button"
-                    title="Remove"
-                    aria-label={`Delete ${displayName}`}
-                    className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg text-sm text-[#b91c1c]"
-                    onClick={() => setConfirmPartId(part.id)}
-                  >
-                    ✕
-                  </button>
                 </div>
-                </div>
-                {confirmPartId === part.id ? (
-                  <DeleteConfirm
-                    className="mt-2"
-                    message={`Remove '${displayName}' from this system?`}
-                    onDismiss={() => setConfirmPartId(null)}
-                    onConfirm={() => onDelete(part.id)}
-                  />
-                ) : null}
               </li>
             )
           })}
@@ -966,7 +952,7 @@ export function ComponentsList({
       ) : null}
 
       {sheetPart ? (
-        <Modal title="Edit component" onClose={() => setEditingPart(null)}>
+        <Modal variant="sheet" title="Edit component" onClose={() => setEditingPart(null)}>
           <EditableComponent
             key={sheetPart.id}
             part={sheetPart}
@@ -985,8 +971,31 @@ export function ComponentsList({
           >
             Add schedule
           </button>
+          <InlineDelete
+            label="Delete component"
+            disabled={!schedulesReady}
+            message={componentDeleteMessage(
+              liveNames[sheetPart.id] ?? sheetPart.name,
+              schedules.filter((schedule) => schedule.componentId === sheetPart.id).length,
+            )}
+            onConfirm={async () => {
+              const id = sheetPart.id
+              const name = (liveNames[id] ?? sheetPart.name).trim() || "Component"
+              await onDelete(id)
+              setEditingPart(null)
+              setExpandedId((current) => (current === id ? null : current))
+              setLiveNames((names) => {
+                const next = { ...names }
+                delete next[id]
+                return next
+              })
+              setToast(`Deleted '${name}'.`)
+            }}
+          />
         </Modal>
       ) : null}
+
+      {toast ? <Toast message={toast} onDone={() => setToast(null)} /> : null}
     </>
   )
 }

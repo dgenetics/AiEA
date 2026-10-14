@@ -21,6 +21,7 @@
     "test:capture-mic": "tsx scripts/check-capture-mic.ts",
     "test:capture-review": "tsx scripts/check-capture-review.ts",
     "test:systems": "tsx scripts/check-systems.ts",
+    "test:delete-cascade": "tsx scripts/check-delete-cascade.ts",
     "test:scan": "tsx scripts/check-scan.ts",
     "test:keyboard-inset": "tsx scripts/check-keyboard-inset.ts",
     "test:tasks-archive": "tsx scripts/check-tasks-archive.ts",
