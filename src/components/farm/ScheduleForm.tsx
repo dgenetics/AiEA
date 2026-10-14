@@ -101,7 +101,6 @@ export function ScheduleForm({
           <label className="block text-[13px] text-[#78716c]">
             Component
             <Select
-              autoFocus
               required
               value={componentId}
               onChange={(e) => onComponentChange?.(e.target.value)}
@@ -121,7 +120,7 @@ export function ScheduleForm({
       <label className="block text-[13px] text-[#78716c]">
         Name
         <Input
-          autoFocus={!components?.length}
+          autoFocus
           required
           value={name}
           onChange={(e) => setName(e.target.value)}

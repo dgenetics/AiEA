@@ -196,6 +196,8 @@ assert.match(form, /disabled=\{unit === "once"\}/);
 assert.match(form, /disabled=\{!canSave\}/);
 assert.match(form, /Choose a component/);
 assert.ok(form.indexOf("Choose a component") < form.indexOf("e.g. Backflush filter"));
+assert.ok(form.indexOf("autoFocus") > form.indexOf("Choose a component"));
+assert.equal((form.match(/autoFocus/g) ?? []).length, 1);
 assert.match(form, /!needsComponent \|\| componentId/);
 assert.match(form, /components\?: \{ id: string; label: string \}\[\]/);
 assert.doesNotMatch(form, /Cancel/);
