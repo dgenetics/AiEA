@@ -21,6 +21,7 @@
     "test:capture-mic": "tsx scripts/check-capture-mic.ts",
     "test:capture-review": "tsx scripts/check-capture-review.ts",
     "test:systems": "tsx scripts/check-systems.ts",
+    "test:scan": "tsx scripts/check-scan.ts",
     "test:keyboard-inset": "tsx scripts/check-keyboard-inset.ts",
     "test:tasks-archive": "tsx scripts/check-tasks-archive.ts",
     "test:tasks-cream": "tsx scripts/check-tasks-cream.ts",
@@ -31,6 +32,7 @@
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/adapter-libsql": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@zxing/browser": "^0.2.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "clsx": "^2.1.1",
@@ -43,6 +45,7 @@
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
