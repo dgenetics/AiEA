@@ -5,10 +5,59 @@ import { Field, Input, Select, Textarea } from "@/components/farm/ui"
 export function AssetFormFields({
   value,
   onChange,
+  plain = false,
 }: {
   value: AssetInput
   onChange: (patch: Partial<AssetInput>) => void
+  /** Edit-system page: no section headers, short hint. */
+  plain?: boolean
 }) {
+  if (plain) {
+    return (
+      <div>
+        <label htmlFor="name" className="mt-3 block text-xs font-medium text-stone-600">
+          Name
+          <Input
+            id="name"
+            className="mt-1"
+            value={value.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            placeholder="e.g. Main heat pump"
+            required
+          />
+        </label>
+        <label htmlFor="category" className="mt-3 block text-xs font-medium text-stone-600">
+          Category
+          <Select
+            id="category"
+            className="mt-1"
+            value={normalizeCategory(value.category)}
+            onChange={(e) => onChange({ category: normalizeCategory(e.target.value) })}
+          >
+            {ASSET_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label htmlFor="notes" className="mt-3 block text-xs font-medium text-stone-600">
+          Notes
+          <Textarea
+            id="notes"
+            className="mt-1"
+            rows={4}
+            value={value.notes}
+            onChange={(e) => onChange({ notes: e.target.value })}
+          />
+        </label>
+        <p className="mt-2 text-xs text-[#78716c]">
+          Location, model, vendor, warranty and costs live on each component.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
       <section className="space-y-3">

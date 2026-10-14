@@ -111,6 +111,7 @@ export function SystemDetail({ id }: { id: string }) {
         </div>
         <div className="mt-1">
           <AssetFormFields
+            plain
             value={draft}
             onChange={(patch) => setDraft((prev) => ({ ...prev!, ...patch }))}
           />
