@@ -32,9 +32,10 @@ export function Modal({
   useEffect(() => {
     if (variant !== "sheet") return;
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      if (onBack) onBack();
-      else onClose();
+      if (event.key === "Escape") {
+        if (onBack) onBack();
+        else onClose();
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
