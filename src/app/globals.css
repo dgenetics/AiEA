@@ -43,9 +43,39 @@
 html {
   max-width: 100%;
   overflow-x: hidden;
-  /* Reduce accidental double-tap / pinch zoom (viewport also locks scale) */
+  /* Reduce accidental double-tap / pinch zoom (viewport also locks scale).
+     An open sheet sets touch-action: none on html so the page behind cannot pan. */
   touch-action: pan-x pan-y;
   -ms-touch-action: pan-x pan-y;
+}
+
+/**
+ * Every slide-up sheet scrolls on this element.
+ * overflow-y: auto would otherwise compute overflow-x to auto, and iOS then
+ * pans the sheet sideways when any child is a pixel too wide.
+ */
+.sheet-scroll {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  overflow-wrap: anywhere;
+}
+
+.sheet-scroll :where(form, label, div, p, h2, h3, ul, li, span, input, select, textarea, button) {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.clip-x {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 body {

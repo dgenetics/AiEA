@@ -31,6 +31,8 @@ export function BrowserChromeInset() {
         layoutHeight,
         height: viewport?.height ?? layoutHeight,
         offsetTop: viewport?.offsetTop ?? 0,
+        offsetLeft: viewport?.offsetLeft ?? 0,
+        width: viewport?.width ?? window.innerWidth,
         scale: viewport?.scale ?? 1,
         textFocused: textFieldIsFocused(document.activeElement),
       };
@@ -59,7 +61,7 @@ export function BrowserChromeInset() {
       window.removeEventListener("resize", apply);
       document.removeEventListener("focusin", apply);
       document.removeEventListener("focusout", applyAfterFocus);
-      publishKeyboardFrame({ open: false, bottom: 0, height: 0 });
+      publishKeyboardFrame({ open: false, bottom: 0, height: 0, offsetLeft: 0, width: 0 });
     };
   }, []);
 

@@ -126,7 +126,7 @@ function TaggedInput({
   return (
     <label className="mt-3.5 block text-[13px] text-[#78716c]">
       {label}
-      <span className="mt-1.5 flex min-h-12 items-center gap-2 rounded-[14px] border border-[#e7dfd0] bg-[#fffdf8] px-3.5 py-3">
+      <span className="mt-1.5 flex min-h-12 w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-[14px] border border-[#e7dfd0] bg-[#fffdf8] px-3.5 py-3">
         <input
           value={value}
           readOnly={readOnly}

@@ -14,6 +14,10 @@ export type ViewportSample = {
   layoutHeight: number;
   height: number;
   offsetTop: number;
+  /** Horizontal pan of the visual viewport. iOS sets this when a focused field is recentered. */
+  offsetLeft: number;
+  /** Visual viewport width. 0 when the sample has not been measured yet. */
+  width: number;
   scale: number;
   textFocused: boolean;
 };
@@ -25,9 +29,13 @@ export type KeyboardFrame = {
   bottom: number;
   /** Cap `max-height` at the visual viewport height. 0 when the keyboard is closed. */
   height: number;
+  /** Pin `left` so a fixed sheet stays on screen when iOS pans sideways. */
+  offsetLeft: number;
+  /** Visual viewport width. 0 means the overlay should use 100% of its containing block. */
+  width: number;
 };
 
-const CLOSED_FRAME: KeyboardFrame = { open: false, bottom: 0, height: 0 };
+const CLOSED_FRAME: KeyboardFrame = { open: false, bottom: 0, height: 0, offsetLeft: 0, width: 0 };
 
 export function layoutViewportGap(layoutHeight: number, height: number, offsetTop: number): number {
   return Math.max(0, Math.round(layoutHeight - (height + offsetTop)));
@@ -68,20 +76,69 @@ export function browserChromeBottom(sample: ViewportSample): number | null {
   return Math.min(MAX_BROWSER_CHROME_BOTTOM, covered);
 }
 
-/** Lift fixed UI by the keyboard gap and cap it to the visible height. */
-export function keyboardFrame(sample: ViewportSample): KeyboardFrame {
-  if (sample.scale !== 1) return CLOSED_FRAME;
-  const bottom = layoutViewportGap(sample.layoutHeight, sample.height, sample.offsetTop);
-  if (bottom <= MAX_BROWSER_CHROME_BOTTOM) return CLOSED_FRAME;
-  return { open: true, bottom, height: sample.height };
+function viewportBox(sample: ViewportSample): { offsetLeft: number; width: number } {
+  return {
+    offsetLeft: Math.max(0, Math.round(sample.offsetLeft || 0)),
+    width: Math.max(0, Math.round(sample.width || 0)),
+  };
 }
 
-/** Inline style for a fixed overlay so it fills the visual viewport. */
-export function fixedViewportStyle(frame: KeyboardFrame):
-  | { top: "auto"; bottom: number; height: number; maxHeight: number }
-  | undefined {
-  if (!frame.open) return undefined;
-  return { top: "auto", bottom: frame.bottom, height: frame.height, maxHeight: frame.height };
+/** Lift fixed UI by the keyboard gap and cap it to the visible height. */
+export function keyboardFrame(sample: ViewportSample): KeyboardFrame {
+  const box = viewportBox(sample);
+  if (sample.scale !== 1) return { ...CLOSED_FRAME, ...box };
+  const bottom = layoutViewportGap(sample.layoutHeight, sample.height, sample.offsetTop);
+  if (bottom <= MAX_BROWSER_CHROME_BOTTOM) return { ...CLOSED_FRAME, ...box };
+  return { open: true, bottom, height: sample.height, ...box };
+}
+
+/**
+ * Inline style for every fixed overlay.
+ * The horizontal lock is always on, so a sheet cannot grow past the screen
+ * or follow a sideways pan. The keyboard lift is added only while it is open.
+ * Width is the visual viewport when measured; otherwise 100% (not 100vw,
+ * which is wider than the screen once padding is added).
+ */
+export function fixedViewportStyle(frame: KeyboardFrame): {
+  overflowX: "hidden";
+  maxWidth: "100vw";
+  overscrollBehavior: "contain";
+  boxSizing: "border-box";
+  left: number;
+  right: "auto";
+  width: number | "100%";
+  top?: "auto";
+  bottom?: number;
+  height?: number;
+  maxHeight?: number;
+} {
+  const style: {
+    overflowX: "hidden";
+    maxWidth: "100vw";
+    overscrollBehavior: "contain";
+    boxSizing: "border-box";
+    left: number;
+    right: "auto";
+    width: number | "100%";
+    top?: "auto";
+    bottom?: number;
+    height?: number;
+    maxHeight?: number;
+  } = {
+    overflowX: "hidden",
+    maxWidth: "100vw",
+    overscrollBehavior: "contain",
+    boxSizing: "border-box",
+    left: frame.offsetLeft,
+    right: "auto",
+    width: frame.width > 0 ? frame.width : "100%",
+  };
+  if (!frame.open) return style;
+  style.top = "auto";
+  style.bottom = frame.bottom;
+  style.height = frame.height;
+  style.maxHeight = frame.height;
+  return style;
 }
 
 type Listener = () => void;
@@ -106,7 +163,9 @@ export function publishKeyboardFrame(next: KeyboardFrame) {
   if (
     next.open === currentFrame.open &&
     next.bottom === currentFrame.bottom &&
-    next.height === currentFrame.height
+    next.height === currentFrame.height &&
+    next.offsetLeft === currentFrame.offsetLeft &&
+    next.width === currentFrame.width
   ) {
     return;
   }

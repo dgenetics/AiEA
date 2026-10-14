@@ -218,7 +218,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted, aiBoard
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex max-w-[100vw] items-end justify-center overflow-x-hidden md:items-center md:p-4"
+      className="fixed inset-0 z-[100] box-border flex max-w-full items-end justify-center overflow-x-hidden md:items-center md:p-4"
       style={viewportStyle}
     >
       <button
@@ -234,7 +234,7 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted, aiBoard
         )}
         style={frame.open ? { maxHeight: frame.height } : undefined}
       >
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 md:p-5">
+        <div data-sheet-scroll className="sheet-scroll min-h-0 min-w-0 max-w-full flex-1 p-4 md:p-5">
           <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <h2 className="text-base font-semibold text-ink">Edit task</h2>

@@ -88,8 +88,8 @@ export function ComponentPicker({
   }, []);
 
   return (
-    <div className="mt-3.5 flex flex-col">
-      <label className="flex h-12 items-center gap-2.5 rounded-[14px] border-[1.5px] border-stone-600 bg-[#fffdf8] px-3.5">
+    <div className="mt-3.5 flex min-w-0 max-w-full flex-col">
+      <label className="flex h-12 min-w-0 max-w-full items-center gap-2.5 rounded-[14px] border-[1.5px] border-stone-600 bg-[#fffdf8] px-3.5">
         <svg
           width="16"
           height="16"
@@ -130,7 +130,8 @@ export function ComponentPicker({
       <div
         role="listbox"
         aria-label="Components"
-        className="mt-1 min-h-0 overflow-y-auto pb-6"
+        data-sheet-scroll
+        className="sheet-scroll mt-1 min-h-0 min-w-0 max-w-full overflow-y-auto pb-6"
         style={
           frame.open
             ? { maxHeight: Math.max(160, frame.height - 196) }

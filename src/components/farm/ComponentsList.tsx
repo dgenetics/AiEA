@@ -204,18 +204,20 @@ function ComponentFields({
       </p>
       <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
         <Field label="Purchase date">
-          <Input
-            type="date"
-            value={dateToInput(value.purchaseDate)}
-            onChange={(e) =>
-              onChange({
-                purchaseDate: e.target.value
-                  ? new Date(e.target.value + 'T12:00:00').toISOString()
-                  : null,
-              })
-            }
-            onBlur={onBlurSave}
-          />
+          <div className="clip-x">
+            <Input
+              type="date"
+              value={dateToInput(value.purchaseDate)}
+              onChange={(e) =>
+                onChange({
+                  purchaseDate: e.target.value
+                    ? new Date(e.target.value + 'T12:00:00').toISOString()
+                    : null,
+                })
+              }
+              onBlur={onBlurSave}
+            />
+          </div>
         </Field>
         <Field label="Purchase cost">
           <Input
