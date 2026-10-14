@@ -1,5 +1,5 @@
 import { Field, Input, Select, Textarea } from "@/components/farm/ui"
-import { ASSET_CATEGORIES, isAssetCategory, normalizeCategory } from "@/lib/farm-types"
+import { ASSET_CATEGORIES, normalizeCategory } from "@/lib/farm-types"
 
 export type AssetFormValue = {
   name: string
@@ -39,12 +39,12 @@ export function AssetFormFields({
           Category
           <Select
             required
-            value={isAssetCategory(value.category) ? value.category : ""}
+            value={value.category.trim() ? normalizeCategory(value.category) : ""}
             onChange={(e) => onChange({ category: e.target.value })}
             className="mt-1.5 h-12 appearance-none bg-[#fffdf8] bg-[length:16px_16px] bg-[position:right_14px_center] bg-no-repeat pr-10 text-base focus:border-stone-600 focus:ring-stone-600/12"
             style={{ backgroundImage: selectChevron }}
           >
-            <option value="" disabled={isAssetCategory(value.category)}>
+            <option value="" disabled={value.category.trim() !== ""}>
               Choose a category
             </option>
             {ASSET_CATEGORIES.map((c) => (
