@@ -6,6 +6,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  componentBubbleBadge,
+  componentBubbleLine,
+  componentMatchesFilter,
+} from "../src/lib/component-bubbles";
+import {
   groupSystemsByCategory,
   systemCardLocation,
   systemCardSubtitle,
@@ -168,5 +173,77 @@ assert.match(view, /event\.key !== "Escape"/);
 assert.match(view, /rounded-xl/);
 assert.match(view, /tracking-\[0\.14em\]/);
 assert.match(view, /uppercase/);
+
+assert.equal(componentBubbleLine("7043", "Equipment shed"), "7043 · Equipment shed");
+assert.equal(componentBubbleLine("  ", "Barn"), "Barn");
+assert.equal(componentBubbleLine("", "  "), "");
+assert.equal(
+  componentMatchesFilter(
+    { name: "Battery", location: "Shed", modelNumber: "26R", vendorName: "Shenandoah" },
+    "shen",
+  ),
+  true,
+);
+assert.equal(
+  componentMatchesFilter({ name: "Battery", modelNumber: "26R" }, "26r"),
+  true,
+);
+assert.equal(componentMatchesFilter({ name: "Battery" }, "propane"), false);
+assert.equal(componentMatchesFilter({ name: "Battery" }, "   "), true);
+
+const badgeNow = new Date("2026-10-14T16:00:00Z");
+assert.deepEqual(
+  componentBubbleBadge(
+    [
+      { kind: "schedule", due: "2026-10-01" },
+      { kind: "task", due: "2026-10-10" },
+    ],
+    badgeNow,
+  ),
+  { text: "Overdue Oct 1", tone: "overdue" },
+);
+assert.deepEqual(
+  componentBubbleBadge([{ kind: "task", due: "2026-10-10" }], badgeNow),
+  { text: "Task overdue", tone: "overdue" },
+);
+assert.deepEqual(
+  componentBubbleBadge([{ kind: "schedule", due: "2026-10-20" }], badgeNow),
+  { text: "Due Oct 20", tone: "soon" },
+);
+assert.equal(
+  componentBubbleBadge([{ kind: "schedule", due: "2026-12-01" }], badgeNow),
+  null,
+);
+assert.equal(componentBubbleBadge([{ kind: "task", due: null }], badgeNow), null);
+
+const detail = readFileSync(join(root, "src/components/farm/system-detail.tsx"), "utf8");
+const list = readFileSync(join(root, "src/components/farm/ComponentsList.tsx"), "utf8");
+const types = readFileSync(join(root, "src/lib/farm-types.ts"), "utf8");
+assert.match(detail, /‹ Systems/);
+assert.match(detail, /Delete system…/);
+assert.match(detail, /mode="read"/);
+assert.match(detail, /plain/);
+const fields = readFileSync(join(root, "src/components/farm/AssetFormFields.tsx"), "utf8");
+assert.match(fields, /Location, model, vendor, warranty and costs live on each component./);
+assert.match(detail, /mode="edit"/);
+assert.match(detail, /System notes/);
+assert.doesNotMatch(detail, /Purchase total/);
+assert.doesNotMatch(detail, /Replacement total/);
+assert.doesNotMatch(detail, /systemPurchaseTotal/);
+assert.doesNotMatch(detail, /Duplicate system/);
+assert.match(list, /Find a component/);
+assert.match(list, /Edit component/);
+assert.match(list, /No components match/);
+assert.match(list, /components\.length > 4/);
+assert.match(list, /min-\[900px\]:grid-cols-2/);
+assert.match(list, /componentBubbleBadge/);
+assert.doesNotMatch(list, /ChevronRight/);
+assert.doesNotMatch(list, /PartRowMenu/);
+assert.match(list, /BOARD_STATUSES/);
+assert.match(list, /OPEN_TASK_STATUSES\.has\(task\.status\)/);
+assert.match(list, /break-words text-sm font-semibold/);
+assert.doesNotMatch(list, /truncate text-sm font-semibold/);
+assert.match(types, /function systemPurchaseTotal/);
+assert.match(types, /function systemReplacementTotal/);
 
 console.log("systems: cards group by category; open tasks are tinted");
