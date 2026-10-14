@@ -83,7 +83,7 @@ async function postScan(blob: Blob, code: string | null): Promise<ComponentScanR
       method: "POST",
       body,
       credentials: "include",
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(25_000),
     });
   } catch {
     throw new Error(SCAN_READ_ERROR);
@@ -196,7 +196,9 @@ export function ScanComponent({
     const manufacturer = review.manufacturer.value.trim();
     const modelNumber = review.modelNumber.value.trim();
     const productNumber = review.productNumber.value.trim();
-    if ((!manufacturer && !modelNumber && !productNumber) || review.userManual.value.trim()) return;
+    const needsManual = !review.userManual.value.trim();
+    const needsSchedule = !review.schedule;
+    if ((!manufacturer && !modelNumber && !productNumber) || (!needsManual && !needsSchedule)) return;
     const controller = new AbortController();
     let cancelled = false;
     setLookupPending(true);
@@ -212,7 +214,7 @@ export function ScanComponent({
             productNumber,
             name: review.name.value.trim(),
           }),
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(90_000)]),
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(150_000)]),
         });
         const payload = (await response.json().catch(() => ({}))) as { result?: ManualLookup | null };
         if (cancelled || !response.ok || !payload.result) return;

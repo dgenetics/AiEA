@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getComponentScanConfig, lookupComponentManual } from "@/lib/component-scan-ai";
-import { manualLookupFromText, takeScanSlot } from "@/lib/component-scan";
+import { describeScheduleLookup, takeScanSlot } from "@/lib/component-scan";
 import { requireWorkspace } from "@/lib/require-workspace";
 
 export const runtime = "nodejs";
@@ -36,7 +36,16 @@ export async function POST(req: Request) {
 
   try {
     const raw = await lookupComponentManual({ manufacturer, modelNumber, productNumber, name }, config);
-    return NextResponse.json({ result: manualLookupFromText(raw) });
+    const described = describeScheduleLookup(raw);
+    const found = described.lookup?.schedule;
+    if (found) {
+      console.info("schedule lookup: interval", found.everyCount, found.everyUnit);
+    } else if (described.scheduleNote === "manual did not include a maintenance interval") {
+      console.warn("schedule lookup:", described.scheduleNote);
+    } else if (described.scheduleNote) {
+      console.error("schedule lookup:", described.scheduleNote);
+    }
+    return NextResponse.json({ result: described.lookup });
   } catch (error) {
     console.error("manual lookup failed", error instanceof Error ? error.message : "unknown");
     return NextResponse.json({ result: null });

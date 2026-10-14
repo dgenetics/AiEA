@@ -14,6 +14,7 @@ import {
   SCAN_READ_ERROR,
   SCAN_TOO_LARGE,
   applyManualLookup,
+  describeScheduleLookup,
   editMakeAndModel,
   editTaggedField,
   firstBarcodeValue,
@@ -96,17 +97,13 @@ assert.equal(outcome.result.manufacturer.tag, "from label");
 assert.equal(outcome.result.serialNumber.value, "0342 1187");
 assert.equal(outcome.result.productNumber.value, "96510192");
 assert.equal(outcome.result.productNumber.tag, "from label");
-assert.equal(outcome.result.userManual.value, "https://www.grundfos.com/manuals/sq-sqe.pdf");
-assert.equal(outcome.result.userManual.tag, "found online");
-assert.equal(outcome.result.manualKind, "PDF");
+assert.equal(outcome.result.userManual.value, "");
+assert.equal(outcome.result.userManual.tag, null);
+assert.equal(outcome.result.manualKind, "");
+assert.equal(outcome.result.schedule, null);
 assert.equal(outcome.result.warrantyInfo.value, "2 years from install");
 assert.equal(outcome.result.vendorName.value, "Pond Supply Co");
-assert.equal(outcome.result.schedule?.everyUnit, "year");
 assert.equal(outcome.result.intro, "Found it from the label. Check it over, then save.");
-assert.deepEqual(scheduleSuggestionText(outcome.result.schedule!), {
-  name: "Check pressure and amp draw",
-  rest: "every 1 year, per the manual",
-});
 
 const input = reviewToComponentInput(outcome.result);
 const allowed = new Set(Object.keys(emptyComponentInput()));
@@ -115,7 +112,7 @@ assert.equal(input.manufacturer, "Grundfos");
 assert.equal(input.modelNumber, "SQ 3-65");
 assert.equal(input.productNumber, "96510192");
 assert.equal(input.serialNumber, "0342 1187");
-assert.equal(input.userManual, "https://www.grundfos.com/manuals/sq-sqe.pdf");
+assert.equal(input.userManual, "");
 assert.equal(input.warrantyInfo, "2 years from install");
 assert.equal(input.vendorName, "Pond Supply Co");
 assert.equal(input.name, "Well Pump");
@@ -130,8 +127,21 @@ assert.deepEqual(splitMakeAndModel("Acme Jet", "Grundfos"), {
 });
 assert.equal(makeModelTag(outcome.result.manufacturer, outcome.result.modelNumber), "from label");
 
+const lookedUp = manualLookupFromText(JSON.stringify(grundfos));
+assert.equal(lookedUp?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
+assert.equal(lookedUp?.manualKind, "PDF");
+assert.equal(lookedUp?.schedule?.everyUnit, "year");
+const withManual = applyManualLookup(outcome.result, lookedUp!);
+assert.equal(withManual.userManual.value, "https://www.grundfos.com/manuals/sq-sqe.pdf");
+assert.equal(withManual.userManual.tag, "found online");
+assert.equal(withManual.name.tag, "suggested");
+assert.deepEqual(scheduleSuggestionText(withManual.schedule!), {
+  name: "Check pressure and amp draw",
+  rest: "every 1 year, per the manual",
+});
+
 const now = new Date(2026, 9, 14, 15, 0, 0);
-const draft = scanScheduleDraft(outcome.result.schedule!, now);
+const draft = scanScheduleDraft(withManual.schedule!, now);
 assert.equal(draft?.frequency, "1y");
 assert.equal(draft?.intervalDays, 365);
 assert.equal(draft?.isRecurring, true);
@@ -202,6 +212,64 @@ const unsafe = parseScanModelText(
 );
 assert.equal(unsafe?.userManual.value, "");
 
+const annual = manualLookupFromText(
+  JSON.stringify({
+    manual: { url: "https://www.grundfos.com/manuals/sq-sqe.pdf", title: "SQ", kind: "PDF" },
+    schedule: { name: "Check the motor", everyCount: 1, everyUnit: "annually" },
+  }),
+);
+assert.equal(annual?.schedule?.everyCount, 1);
+assert.equal(annual?.schedule?.everyUnit, "year");
+const sixMonths = manualLookupFromText(
+  JSON.stringify({
+    manual: { url: "https://www.grundfos.com/manuals/sq-sqe.pdf", title: "SQ", kind: "PDF" },
+    schedule: { task: "Change the oil", interval: "every 6 months" },
+  }),
+);
+assert.equal(sixMonths?.schedule?.name, "Change the oil");
+assert.equal(sixMonths?.schedule?.everyCount, 6);
+assert.equal(sixMonths?.schedule?.everyUnit, "month");
+const yearlyPhrase = parseScanModelText(
+  JSON.stringify({
+    manual: { url: "https://example.com/m.pdf", kind: "PDF" },
+    schedule: "Check the motor annually",
+  }),
+);
+assert.equal(yearlyPhrase?.schedule?.name, "Check the motor");
+assert.equal(yearlyPhrase?.schedule?.everyUnit, "year");
+const noInterval = describeScheduleLookup(
+  JSON.stringify({
+    manual: { url: "https://www.grundfos.com/manuals/sq-sqe.pdf", title: "SQ", kind: "PDF" },
+    schedule: { name: "", everyCount: 1, everyUnit: "year" },
+  }),
+);
+assert.equal(noInterval.lookup?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
+assert.equal(noInterval.lookup?.schedule, null);
+assert.equal(noInterval.scheduleNote, "manual did not include a maintenance interval");
+const unreadable = describeScheduleLookup(
+  JSON.stringify({
+    manual: { url: "https://www.grundfos.com/manuals/sq-sqe.pdf", title: "SQ", kind: "PDF" },
+    schedule: { name: "Check seals", everyUnit: "sometimes" },
+  }),
+);
+assert.equal(unreadable.lookup?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
+assert.equal(unreadable.lookup?.schedule, null);
+assert.match(unreadable.scheduleNote, /could not read the interval/);
+
+const genericName = await interpretComponentScan({
+  bytes: jpeg(64),
+  mediaType: "image/jpeg",
+  decodedCode: null,
+  configured: true,
+  readModel: async () => JSON.stringify({ name: "Pump", manufacturer: "Grundfos", modelNumber: "SQ 3-65" }),
+});
+assert.equal(genericName.ok, true);
+if (!genericName.ok) throw new Error("generic name failed");
+assert.equal(genericName.result.name.value, "Grundfos SQ 3-65 Pump");
+assert.equal(genericName.result.name.tag, "suggested");
+assert.equal(genericName.result.userManual.value, "");
+assert.equal(genericName.result.schedule, null);
+
 assert.equal(sniffScanImage(jpeg(40)), "image/jpeg");
 assert.equal(sniffScanImage(png(40)), "image/png");
 assert.equal(sniffScanImage(new Uint8Array(40)), null);
@@ -224,18 +292,25 @@ assert.equal(firstBarcodeValue([]), null);
 
 const savedKey = process.env.COMPONENT_SCAN_API_KEY;
 const savedModel = process.env.COMPONENT_SCAN_MODEL;
+const savedLabelModel = process.env.COMPONENT_SCAN_LABEL_MODEL;
 delete process.env.COMPONENT_SCAN_API_KEY;
 delete process.env.COMPONENT_SCAN_MODEL;
+delete process.env.COMPONENT_SCAN_LABEL_MODEL;
 assert.equal(getComponentScanConfig().configured, false);
 assert.equal(getComponentScanConfig().model, "grok-4.7");
+assert.equal(getComponentScanConfig().labelModel, "grok-4.3");
 process.env.COMPONENT_SCAN_API_KEY = "scan-test-key";
 process.env.COMPONENT_SCAN_MODEL = "grok-test";
+process.env.COMPONENT_SCAN_LABEL_MODEL = "grok-label-test";
 assert.equal(getComponentScanConfig().configured, true);
 assert.equal(getComponentScanConfig().model, "grok-test");
+assert.equal(getComponentScanConfig().labelModel, "grok-label-test");
 if (savedKey === undefined) delete process.env.COMPONENT_SCAN_API_KEY;
 else process.env.COMPONENT_SCAN_API_KEY = savedKey;
 if (savedModel === undefined) delete process.env.COMPONENT_SCAN_MODEL;
 else process.env.COMPONENT_SCAN_MODEL = savedModel;
+if (savedLabelModel === undefined) delete process.env.COMPONENT_SCAN_LABEL_MODEL;
+else process.env.COMPONENT_SCAN_LABEL_MODEL = savedLabelModel;
 
 const list = readFileSync(join(root, "src/components/farm/ComponentsList.tsx"), "utf8");
 const scanUi = readFileSync(join(root, "src/components/farm/ScanComponent.tsx"), "utf8");
@@ -347,22 +422,34 @@ assert.match(route, /downscaleScanImage/);
 const lookupRoute = readFileSync(join(root, "src/app/api/components/scan/lookup/route.ts"), "utf8");
 assert.match(lookupRoute, /maxDuration = 300/);
 assert.match(lookupRoute, /lookupComponentManual/);
+assert.match(lookupRoute, /console\.error\("schedule lookup:"/);
+assert.match(lookupRoute, /console\.warn\("schedule lookup:"/);
+assert.match(scanUi, /needsSchedule/);
+assert.match(scanUi, /AbortSignal\.timeout\(25_000\)/);
+assert.match(scanUi, /AbortSignal\.timeout\(150_000\)/);
 assert.equal(SCAN_IMAGE_EDGE, 1024);
 const labelFn = ai.slice(
   ai.indexOf("export async function readComponentLabel"),
   ai.indexOf("export async function lookupComponentManual"),
 );
 assert.match(labelFn, /detail: "low"/);
+assert.match(labelFn, /config\.labelModel/);
+assert.match(labelFn, /effort: "none"/);
 assert.doesNotMatch(labelFn, /web_search/);
 assert.doesNotMatch(labelFn, /detail: "high"/);
 const lookupFn = ai.slice(ai.indexOf("export async function lookupComponentManual"));
 assert.match(lookupFn, /web_search/);
+assert.match(lookupFn, /effort: "low"/);
 assert.doesNotMatch(lookupFn, /input_image/);
 assert.match(ai, /COMPONENT_SCAN_API_KEY/);
+assert.match(ai, /grok-4\.3/);
 assert.match(ai, /grok-4\.7/);
 assert.match(ai, /store: false/);
 assert.match(ai, /Do not invent URLs/);
 assert.match(features, /low detail/);
+assert.match(features, /grok-4\.3/);
+assert.match(features, /Grundfos SQ 3-65 Pump/);
+assert.match(envExample, /COMPONENT_SCAN_LABEL_MODEL/);
 assert.match(features, /Photo library/);
 const barcodeOnly = reviewFromCode("96510192");
 assert.ok(barcodeOnly);

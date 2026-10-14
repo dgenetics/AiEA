@@ -215,6 +215,21 @@ export function emptyScanReview(configured: boolean, decodedCode: string | null)
   };
 }
 
+const GENERIC_EQUIPMENT =
+  /^(the\s+)?(pump|motor|valve|filter|heater|fan|compressor|tank|controller|sensor|unit|equipment)$/i;
+
+/** "Pump" plus a printed make or model becomes "Grundfos SQ 3-65 Pump". */
+export function specificScanName(name: string, manufacturer: string, modelNumber: string): string {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  const make = manufacturer.trim();
+  const model = modelNumber.trim();
+  const generic = trimmed.match(GENERIC_EQUIPMENT);
+  if (!generic || (!make && !model)) return trimmed;
+  const noun = generic[2] ?? trimmed;
+  const titled = noun.charAt(0).toUpperCase() + noun.slice(1);
+  return [make, model, titled].filter(Boolean).join(" ");
+}
+
 function reviewHasFinding(review: ComponentScanReview): boolean {
   return Boolean(
     review.name.value ||
@@ -290,23 +305,55 @@ function extractJson(text: string): unknown {
 const EVERY_UNIT: Record<string, ScanEveryUnit> = {
   day: "day",
   days: "day",
+  daily: "day",
   week: "week",
   weeks: "week",
+  weekly: "week",
   month: "month",
   months: "month",
+  monthly: "month",
   year: "year",
   years: "year",
+  yearly: "year",
+  annual: "year",
+  annually: "year",
 };
 
+function cadenceFromPhrase(phrase: string): { count: number; unit: ScanEveryUnit } | null {
+  const text = phrase.trim().toLowerCase();
+  if (!text) return null;
+  if (/\b(annually|yearly|annual|once a year|every year)\b/.test(text)) return { count: 1, unit: "year" };
+  if (/\b(monthly|once a month|every month)\b/.test(text)) return { count: 1, unit: "month" };
+  if (/\b(weekly|once a week|every week)\b/.test(text)) return { count: 1, unit: "week" };
+  if (/\b(daily|once a day|every day)\b/.test(text)) return { count: 1, unit: "day" };
+  const counted = text.match(/\b(?:every\s+)?(\d+)\s+(day|week|month|year)s?\b/);
+  if (!counted) return null;
+  const count = Number(counted[1]);
+  const unit = EVERY_UNIT[counted[2]];
+  if (!unit || !Number.isInteger(count) || count <= 0 || count > 120) return null;
+  return { count, unit };
+}
+
 function parseSchedule(value: unknown): ScanSchedule | null {
+  if (typeof value === "string") {
+    const cadence = cadenceFromPhrase(value);
+    const name = clip(value.replace(/\b(every|once|annually|yearly|annual|monthly|weekly|daily)\b[\s\S]*$/i, ""), 160);
+    if (!cadence || !name) return null;
+    return { name, everyCount: cadence.count, everyUnit: cadence.unit, note: "per the manual" };
+  }
   const record = asRecord(value);
   if (!record) return null;
-  const name = clip(textOf(record.name), 160);
-  const unit = EVERY_UNIT[textOf(record.everyUnit).trim().toLowerCase()];
+  const name = clip(textOf(record.name) || textOf(record.task) || textOf(record.title), 160);
+  const direct = EVERY_UNIT[textOf(record.everyUnit).trim().toLowerCase()];
   const count = Number(record.everyCount);
-  if (!name || !unit || !Number.isInteger(count) || count <= 0 || count > 120) return null;
+  const phrase = [textOf(record.every), textOf(record.interval), textOf(record.frequency), textOf(record.cadence)]
+    .find((item) => item.trim());
+  const loose = direct && Number.isInteger(count) && count > 0 && count <= 120
+    ? { count, unit: direct }
+    : cadenceFromPhrase(phrase || textOf(record.everyUnit) || textOf(record.note));
+  if (!name || !loose) return null;
   const note = clip(textOf(record.note), 80) || "per the manual";
-  return { name, everyCount: count, everyUnit: unit, note };
+  return { name, everyCount: loose.count, everyUnit: loose.unit, note };
 }
 
 /** Turn the model JSON into review fields. Null when the payload is not usable JSON. */
@@ -426,15 +473,35 @@ export type ManualLookup = {
 
 /** Manual URL and schedule from the follow-up. Ignores a suggested name. */
 export function manualLookupFromText(text: string): ManualLookup | null {
+  const described = describeScheduleLookup(text);
+  return described.lookup;
+}
+
+/** Why the follow-up did not yield a schedule. Empty when one was read. */
+export function describeScheduleLookup(text: string): { lookup: ManualLookup | null; scheduleNote: string } {
   const parsed = parseScanModelText(text);
-  if (!parsed) return null;
-  if (!parsed.userManual.value && !parsed.schedule) return null;
-  return {
-    manualUrl: parsed.userManual.value,
-    manualTitle: parsed.manualTitle,
-    manualKind: parsed.manualKind,
-    schedule: parsed.schedule,
-  };
+  if (!parsed) return { lookup: null, scheduleNote: "model output was not usable JSON" };
+  const lookup: ManualLookup | null =
+    parsed.userManual.value || parsed.schedule
+      ? {
+          manualUrl: parsed.userManual.value,
+          manualTitle: parsed.manualTitle,
+          manualKind: parsed.manualKind,
+          schedule: parsed.schedule,
+        }
+      : null;
+  if (parsed.schedule) return { lookup, scheduleNote: "" };
+  const record = asRecord(extractJson(text));
+  const raw = record?.schedule;
+  if (raw == null || raw === "") return { lookup, scheduleNote: "manual did not include a maintenance interval" };
+  const rawRecord = asRecord(raw);
+  const rawName = rawRecord
+    ? textOf(rawRecord.name) || textOf(rawRecord.task) || textOf(rawRecord.title)
+    : typeof raw === "string"
+      ? raw
+      : "";
+  if (!rawName.trim()) return { lookup, scheduleNote: "manual did not include a maintenance interval" };
+  return { lookup, scheduleNote: `could not read the interval: ${JSON.stringify(raw).slice(0, 240)}` };
 }
 
 /** Fill an empty manual, and a schedule only when the sheet does not have one yet. */
@@ -479,7 +546,12 @@ export async function interpretComponentScan(input: {
         decodedCode: input.decodedCode,
       });
       const vision = parseScanModelText(text);
-      if (vision) review = mergeVision(review, vision);
+      if (vision) {
+        // The manual and its interval come from the follow-up request, not this read.
+        review = mergeVision(review, { ...vision, userManual: blank(), manualTitle: "", manualKind: "", schedule: null });
+        const named = specificScanName(review.name.value, review.manufacturer.value, review.modelNumber.value);
+        if (named !== review.name.value) review = { ...review, name: { value: clip(named), tag: review.name.tag } };
+      }
     } catch {
       if (!reviewHasFinding(review)) {
         return { ok: false, status: 502, error: SCAN_READ_ERROR };
