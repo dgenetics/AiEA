@@ -10,6 +10,7 @@ import { maintenanceApi, type CreateScheduleInput } from "@/lib/farm-api"
 import type { ScheduleJson } from "@/lib/maintenance"
 import { scheduleCardFrequency } from "@/lib/chore-display"
 import { calendarDayDiff, formatCalendarDate } from "@/lib/calendar"
+import { BOARD_STATUSES } from "@/lib/board"
 import {
   componentBubbleBadge,
   componentBubbleLine,
@@ -307,11 +308,14 @@ function EditableComponent({
 type BoardTask = {
   id: string
   title: string
+  status?: string
   dueAt: string | null
   componentId: string | null
   scheduleId: string | null
   component?: { id?: string | null } | null
 }
+
+const OPEN_TASK_STATUSES = new Set<string>(BOARD_STATUSES)
 
 function taskComponentId(task: BoardTask): string | null {
   return task.componentId || task.component?.id || null
@@ -376,10 +380,12 @@ export function ComponentsList({
       ])
       if (cancelled) return
       setSchedules(allSchedules.filter((schedule) => ids.has(schedule.componentId)))
-      const open = (taskRes.tasks ?? []) as BoardTask[]
-      setTasks(open.filter((task) => {
+      const listed = (taskRes.tasks ?? []) as BoardTask[]
+      setTasks(listed.filter((task) => {
         const id = taskComponentId(task)
-        return id != null && ids.has(id)
+        if (id == null || !ids.has(id)) return false
+        // view=board is already open-only. Drop DONE/CANCELLED if a payload includes them.
+        return !task.status || OPEN_TASK_STATUSES.has(task.status)
       }))
     })()
     return () => {
@@ -574,8 +580,8 @@ export function ComponentsList({
                   onClick={() => togglePart(part.id)}
                   className="w-full text-left"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-stone-900">
+                  <div className="flex items-start gap-2">
+                    <span className="min-w-0 flex-1 break-words text-sm font-semibold text-stone-900">
                       {displayName}
                     </span>
                     {badge ? (
@@ -685,10 +691,10 @@ export function ComponentsList({
             return (
               <li
                 key={part.id}
-                className="flex items-center gap-2.5 rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-2.5 py-2"
+                className="flex items-start gap-2.5 rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-2.5 py-2"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-stone-900">{displayName}</p>
+                  <p className="break-words text-sm font-semibold text-stone-900">{displayName}</p>
                   {line ? (
                     <p className="truncate text-xs text-[#78716c]">{line}</p>
                   ) : null}

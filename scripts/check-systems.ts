@@ -239,6 +239,10 @@ assert.match(list, /min-\[900px\]:grid-cols-2/);
 assert.match(list, /componentBubbleBadge/);
 assert.doesNotMatch(list, /ChevronRight/);
 assert.doesNotMatch(list, /PartRowMenu/);
+assert.match(list, /BOARD_STATUSES/);
+assert.match(list, /OPEN_TASK_STATUSES\.has\(task\.status\)/);
+assert.match(list, /break-words text-sm font-semibold/);
+assert.doesNotMatch(list, /truncate text-sm font-semibold/);
 assert.match(types, /function systemPurchaseTotal/);
 assert.match(types, /function systemReplacementTotal/);
 
