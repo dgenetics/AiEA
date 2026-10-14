@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   groupSystemsByCategory,
+  systemCardLocation,
   systemCardSubtitle,
   systemComponentCountLabel,
   systemIdsWithOpenTasks,
@@ -57,9 +58,36 @@ assert.equal(
   }),
   "",
 );
-assert.equal(systemComponentCountLabel(0), "0 components ›");
-assert.equal(systemComponentCountLabel(1), "1 component ›");
-assert.equal(systemComponentCountLabel(5), "5 components ›");
+assert.equal(systemComponentCountLabel(0), "0 components");
+assert.equal(systemComponentCountLabel(1), "1 component");
+assert.equal(systemComponentCountLabel(5), "5 components");
+
+assert.equal(
+  systemCardLocation({ components: [{ location: "  Pond  " }] }),
+  "Pond",
+);
+assert.equal(
+  systemCardLocation({
+    components: [
+      { location: "Barn kitchen" },
+      { location: "Barn kitchen" },
+      { location: "Main house" },
+    ],
+  }),
+  "Barn kitchen",
+);
+assert.equal(
+  systemCardLocation({
+    components: [{ location: "Barn kitchen" }, { location: "Main house" }],
+  }),
+  "Multiple locations",
+);
+assert.equal(
+  systemCardLocation({
+    components: [{ location: "" }, { location: null }, {}],
+  }),
+  "",
+);
 
 const groups = groupSystemsByCategory([
   { name: "Well pump", category: "Water" },
@@ -103,11 +131,21 @@ assert.doesNotMatch(view, /open ›/);
 assert.doesNotMatch(view, /Components:/);
 assert.match(view, /Tinted = has an open task on Tasks/);
 assert.match(view, /href=\{`\/systems\/\$\{asset\.id\}`\}/);
-assert.match(view, /grid-cols-1/);
-assert.match(view, /min-\[700px\]:grid-cols-3/);
+assert.match(view, /grid-cols-2/);
+assert.match(view, /minmax\(168px,1fr\)/);
+assert.doesNotMatch(view, /grid-cols-1/);
+assert.doesNotMatch(view, /systemCardSubtitle/);
+assert.doesNotMatch(view, /›/);
 assert.match(view, /bg-\[#fdf0d5\]/);
 assert.match(view, /groupSystemsByCategory/);
-assert.match(view, /systemCardSubtitle/);
+assert.match(view, /systemCardLocation/);
+assert.match(view, /aria-label="Search systems"/);
+assert.match(view, /aria-label="Close search"/);
+assert.match(view, /Search title, location, category/);
+assert.match(view, /No systems match/);
+assert.match(view, /No systems yet/);
+assert.match(view, /event\.key !== "Escape"/);
+assert.match(view, /rounded-xl/);
 assert.match(view, /tracking-\[0\.14em\]/);
 assert.match(view, /uppercase/);
 

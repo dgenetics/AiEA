@@ -24,8 +24,36 @@ export function systemCardSubtitle(asset: {
 
 export function systemComponentCountLabel(count: number): string {
   const n = Number.isFinite(count) && count > 0 ? Math.trunc(count) : 0;
-  if (n === 1) return "1 component ›";
-  return `${n} components ›`;
+  if (n === 1) return "1 component";
+  return `${n} components`;
+}
+
+/**
+ * Location line for a compact system tile.
+ * The most common component location, "Multiple locations" when several tie,
+ * or "" when no component has a location.
+ */
+export function systemCardLocation(asset: { components: CardComponent[] }): string {
+  const counts = new Map<string, number>();
+  for (const component of asset.components) {
+    const location = (component.location ?? "").trim();
+    if (!location) continue;
+    counts.set(location, (counts.get(location) ?? 0) + 1);
+  }
+  let best = "";
+  let bestCount = 0;
+  let tied = false;
+  for (const [location, count] of counts) {
+    if (count > bestCount) {
+      best = location;
+      bestCount = count;
+      tied = false;
+    } else if (count === bestCount) {
+      tied = true;
+    }
+  }
+  if (!best) return "";
+  return tied ? "Multiple locations" : best;
 }
 
 export function groupSystemsByCategory<T extends { name: string; category: string }>(
