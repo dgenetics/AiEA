@@ -209,6 +209,24 @@ assert.match(formFields, /Anything worth remembering/);
 assert.match(formFields, /autoFocus/);
 assert.match(formFields, /variant === "compact"/);
 assert.match(formFields, /plain \|\| variant === "plain"/);
+assert.match(formFields, /Choose a category/);
+assert.match(formFields, /disabled=\{isAssetCategory\(value\.category\)\}/);
+assert.match(formFields, /isAssetCategory\(value\.category\) \? value\.category : ""/);
+const compactFields = formFields.slice(
+  formFields.indexOf('variant === "compact"'),
+  formFields.indexOf("plain || variant"),
+);
+assert.match(compactFields, /Choose a category/);
+assert.doesNotMatch(compactFields, /normalizeCategory/);
+const plainFields = formFields.slice(formFields.indexOf("plain || variant"));
+assert.doesNotMatch(plainFields, /Choose a category/);
+assert.match(plainFields, /normalizeCategory\(value\.category\)/);
+assert.match(view, /function blankSystem\(\)/);
+assert.match(view, /category: ""/);
+assert.match(view, /!isAssetCategory\(value\.category\)/);
+assert.match(view, /disabled=\{!value\.name\.trim\(\) \|\| !isAssetCategory\(value\.category\) \|\| saving\}/);
+const money = readFileSync(join(root, "src/lib/farm-money.ts"), "utf8");
+assert.match(money, /category: "Other"/);
 
 assert.equal(componentBubbleLine("7043", "Equipment shed"), "7043 · Equipment shed");
 assert.equal(componentBubbleLine("  ", "Barn"), "Barn");

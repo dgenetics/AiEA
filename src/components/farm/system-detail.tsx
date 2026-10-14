@@ -113,7 +113,17 @@ export function SystemDetail({ id }: { id: string }) {
           <AssetFormFields
             plain
             value={draft}
-            onChange={(patch) => setDraft((prev) => ({ ...prev!, ...patch }))}
+            onChange={(patch) =>
+              setDraft((prev) => {
+                if (!prev) return prev;
+                const { category, ...rest } = patch;
+                return {
+                  ...prev,
+                  ...rest,
+                  ...(category !== undefined ? { category: normalizeCategory(category) } : {}),
+                };
+              })
+            }
           />
         </div>
         <ComponentsList

@@ -21,6 +21,7 @@
     "test:capture-mic": "tsx scripts/check-capture-mic.ts",
     "test:capture-review": "tsx scripts/check-capture-review.ts",
     "test:systems": "tsx scripts/check-systems.ts",
+    "test:keyboard-inset": "tsx scripts/check-keyboard-inset.ts",
     "test:tasks-archive": "tsx scripts/check-tasks-archive.ts",
     "test:tasks-cream": "tsx scripts/check-tasks-cream.ts",
     "test:account-menu": "tsx scripts/check-account-menu.ts"

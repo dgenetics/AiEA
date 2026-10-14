@@ -7,12 +7,16 @@ import { useData } from "@/components/farm/data-context";
 import { AssetFormFields } from "@/components/farm/AssetFormFields";
 import { Modal } from "@/components/farm/Modal";
 import { emptyAssetInput } from "@/lib/farm-money";
-import type { AssetInput } from "@/lib/farm-types";
+import { isAssetCategory } from "@/lib/farm-types";
 import {
   groupSystemsByCategory,
   systemIdsWithOpenTasks,
   systemMatchesSearch,
 } from "@/lib/system-cards";
+
+function blankSystem() {
+  return { name: "", category: "", notes: "" };
+}
 
 type OpenTask = {
   componentId?: string | null;
@@ -24,7 +28,7 @@ export function SystemsList() {
   const router = useRouter();
   const params = useSearchParams();
   const [addOpen, setAddOpen] = useState(params.get("add") === "1");
-  const [value, setValue] = useState<AssetInput>(() => emptyAssetInput());
+  const [value, setValue] = useState(() => blankSystem());
   const [saving, setSaving] = useState(false);
   const [openTasks, setOpenTasks] = useState<OpenTask[]>([]);
   const [query, setQuery] = useState("");
@@ -68,10 +72,15 @@ export function SystemsList() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!value.name.trim() || saving) return;
+    if (!value.name.trim() || !isAssetCategory(value.category) || saving) return;
     setSaving(true);
     try {
-      const asset = await addAsset({ ...value, name: value.name.trim() });
+      const asset = await addAsset({
+        ...emptyAssetInput(),
+        name: value.name.trim(),
+        category: value.category,
+        notes: value.notes,
+      });
       setAddOpen(false);
       router.push(`/systems/${asset.id}`);
     } finally {
@@ -86,7 +95,7 @@ export function SystemsList() {
         <button
           type="button"
           onClick={() => {
-            setValue(emptyAssetInput());
+            setValue(blankSystem());
             setAddOpen(true);
           }}
           className="text-[13px] font-semibold text-green-800"
@@ -202,7 +211,7 @@ export function SystemsList() {
             />
             <button
               type="submit"
-              disabled={!value.name.trim() || saving}
+              disabled={!value.name.trim() || !isAssetCategory(value.category) || saving}
               className="mt-1.5 h-[50px] w-full rounded-[14px] bg-stone-900 text-base font-semibold text-[#f7f3eb] disabled:opacity-40"
             >
               {saving ? "Saving…" : "Save"}

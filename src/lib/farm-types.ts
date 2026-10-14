@@ -58,10 +58,14 @@ const LEGACY_CATEGORY_MAP: Record<string, AssetCategory> = {
   Outdoor: "Farm Equipment",
 };
 
+export function isAssetCategory(s: string): s is AssetCategory {
+  return (ASSET_CATEGORIES as readonly string[]).includes(s);
+}
+
 export function normalizeCategory(s: string): AssetCategory {
   const trimmed = (s ?? "").trim();
   if (!trimmed) return "Other";
-  if ((ASSET_CATEGORIES as readonly string[]).includes(trimmed)) {
+  if (isAssetCategory(trimmed)) {
     return trimmed as AssetCategory;
   }
   if (Object.prototype.hasOwnProperty.call(LEGACY_CATEGORY_MAP, trimmed)) {

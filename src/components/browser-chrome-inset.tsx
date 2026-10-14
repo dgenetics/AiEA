@@ -1,29 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-
-const MAX_BROWSER_CHROME_BOTTOM = 100;
-
-function textFieldIsFocused(): boolean {
-  const el = document.activeElement;
-  if (!el || el === document.body || el === document.documentElement) return false;
-  if (el instanceof HTMLTextAreaElement) return true;
-  if (el instanceof HTMLElement && el.isContentEditable) return true;
-  if (!(el instanceof HTMLInputElement)) return false;
-  const nonText = new Set([
-    "button",
-    "checkbox",
-    "color",
-    "file",
-    "hidden",
-    "image",
-    "radio",
-    "range",
-    "reset",
-    "submit",
-  ]);
-  return !nonText.has(el.type);
-}
+import {
+  browserChromeBottom,
+  keyboardFrame,
+  publishKeyboardFrame,
+  textFieldIsFocused,
+} from "@/lib/visual-viewport";
 
 /**
  * iOS Safari parks the layout viewport behind its floating toolbar, while a
@@ -31,32 +14,52 @@ function textFieldIsFocused(): boolean {
  * covered strip is not safe-area-inset-bottom (that is the home indicator).
  * Publish its height so the page can scroll the last line clear of the footer.
  *
- * The keyboard and pinch-zoom shrink visualViewport the same way. Skip those
- * updates, and never publish more than 100px, so the spacer stays a toolbar
- * gap instead of growing by the keyboard.
+ * The same listener publishes the keyboard frame used by sheets and other
+ * fixed inputs. The toolbar spacer never grows by the keyboard: a focused
+ * field, pinch-zoom, or a gap taller than the toolbar leaves the spacer as it
+ * was.
  */
 export function BrowserChromeInset() {
   useEffect(() => {
     const root = document.documentElement;
+    let focusFrame = 0;
 
     function apply() {
       const viewport = window.visualViewport;
-      if (!viewport || viewport.scale !== 1 || textFieldIsFocused()) return;
-      const covered = Math.max(0, window.innerHeight - viewport.offsetTop - viewport.height);
-      root.style.setProperty(
-        "--browser-chrome-bottom",
-        `${Math.min(MAX_BROWSER_CHROME_BOTTOM, covered)}px`,
-      );
+      const layoutHeight = window.innerHeight;
+      const sample = {
+        layoutHeight,
+        height: viewport?.height ?? layoutHeight,
+        offsetTop: viewport?.offsetTop ?? 0,
+        scale: viewport?.scale ?? 1,
+        textFocused: textFieldIsFocused(document.activeElement),
+      };
+      const chrome = browserChromeBottom(sample);
+      if (chrome !== null) {
+        root.style.setProperty("--browser-chrome-bottom", `${chrome}px`);
+      }
+      publishKeyboardFrame(keyboardFrame(sample));
+    }
+
+    function applyAfterFocus() {
+      cancelAnimationFrame(focusFrame);
+      focusFrame = requestAnimationFrame(apply);
     }
 
     apply();
     window.visualViewport?.addEventListener("resize", apply);
     window.visualViewport?.addEventListener("scroll", apply);
     window.addEventListener("resize", apply);
+    document.addEventListener("focusin", apply);
+    document.addEventListener("focusout", applyAfterFocus);
     return () => {
+      cancelAnimationFrame(focusFrame);
       window.visualViewport?.removeEventListener("resize", apply);
       window.visualViewport?.removeEventListener("scroll", apply);
       window.removeEventListener("resize", apply);
+      document.removeEventListener("focusin", apply);
+      document.removeEventListener("focusout", applyAfterFocus);
+      publishKeyboardFrame({ open: false, bottom: 0, height: 0 });
     };
   }, []);
 
