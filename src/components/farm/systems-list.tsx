@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useData } from "@/components/farm/data-context";
 import { AssetFormFields } from "@/components/farm/AssetFormFields";
 import { Modal } from "@/components/farm/Modal";
-import { Button } from "@/components/farm/ui";
 import { emptyAssetInput } from "@/lib/farm-money";
 import type { AssetInput } from "@/lib/farm-types";
 import {
@@ -194,25 +193,20 @@ export function SystemsList() {
       )}
 
       {addOpen && (
-        <Modal
-          title="Add system"
-          onClose={() => setAddOpen(false)}
-          footer={
-            <>
-              <Button type="button" variant="secondary" onClick={() => setAddOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" form="asset-new-form" disabled={!value.name.trim() || saving}>
-                Save
-              </Button>
-            </>
-          }
-        >
-          <form id="asset-new-form" onSubmit={handleSubmit} className="space-y-4">
+        <Modal variant="sheet" title="Add system" onClose={() => setAddOpen(false)}>
+          <form id="asset-new-form" onSubmit={handleSubmit} className="mt-3.5 flex flex-col gap-4">
             <AssetFormFields
+              variant="compact"
               value={value}
               onChange={(patch) => setValue((prev) => ({ ...prev, ...patch }))}
             />
+            <button
+              type="submit"
+              disabled={!value.name.trim() || saving}
+              className="mt-1.5 h-[50px] w-full rounded-[14px] bg-stone-900 text-base font-semibold text-[#f7f3eb] disabled:opacity-40"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
           </form>
         </Modal>
       )}
