@@ -2,17 +2,64 @@ import type { AssetInput } from "@/lib/farm-types"
 import { ASSET_CATEGORIES, normalizeCategory } from "@/lib/farm-types"
 import { Field, Input, Select, Textarea } from "@/components/farm/ui"
 
+const selectChevron =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")"
+
 export function AssetFormFields({
   value,
   onChange,
   plain = false,
+  variant = "default",
 }: {
   value: AssetInput
   onChange: (patch: Partial<AssetInput>) => void
   /** Edit-system page: no section headers, short hint. */
   plain?: boolean
+  variant?: "default" | "plain" | "compact"
 }) {
-  if (plain) {
+  if (!plain && variant === "compact") {
+    return (
+      <>
+        <label className="block text-[13px] text-[#78716c]">
+          Name
+          <Input
+            autoFocus
+            required
+            value={value.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            className="mt-1.5 h-12 bg-[#fffdf8] text-base focus:border-stone-600 focus:ring-stone-600/12"
+          />
+        </label>
+        <label className="block text-[13px] text-[#78716c]">
+          Category
+          <Select
+            value={normalizeCategory(value.category)}
+            onChange={(e) => onChange({ category: normalizeCategory(e.target.value) })}
+            className="mt-1.5 h-12 appearance-none bg-[#fffdf8] bg-[length:16px_16px] bg-[position:right_14px_center] bg-no-repeat pr-10 text-base focus:border-stone-600 focus:ring-stone-600/12"
+            style={{ backgroundImage: selectChevron }}
+          >
+            {ASSET_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="block text-[13px] text-[#78716c]">
+          Notes (optional)
+          <Textarea
+            rows={2}
+            value={value.notes}
+            placeholder="Anything worth remembering"
+            onChange={(e) => onChange({ notes: e.target.value })}
+            className="mt-1.5 min-h-[76px] bg-[#fffdf8] text-[15px] focus:border-stone-600 focus:ring-stone-600/12"
+          />
+        </label>
+      </>
+    )
+  }
+
+  if (plain || variant === "plain") {
     return (
       <div>
         <label htmlFor="name" className="mt-3 block text-xs font-medium text-stone-600">

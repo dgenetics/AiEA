@@ -1,17 +1,65 @@
+"use client";
+
+import { useEffect } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/farm/ui";
 
-/** Vertically centered modal overlay (not a bottom sheet). */
+/** Centered dialog by default. `sheet` is a bottom sheet on a phone and a 440px dialog from 700px up. */
 export function Modal({
   title,
   onClose,
   children,
   footer,
+  variant = "default",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  variant?: "default" | "sheet";
 }) {
+  useEffect(() => {
+    if (variant !== "sheet") return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, variant]);
+
+  if (variant === "sheet") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center min-[700px]:items-center min-[700px]:p-4">
+        <button
+          type="button"
+          aria-label="Close"
+          className="absolute inset-0 bg-stone-900/40"
+          onClick={onClose}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className="relative z-10 max-h-[90dvh] w-full overflow-y-auto rounded-t-[22px] bg-[#fbf8f2] px-5 pt-2 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-2xl min-[700px]:max-w-[440px] min-[700px]:rounded-[20px] min-[700px]:px-6 min-[700px]:pt-5 min-[700px]:pb-6"
+        >
+          <div aria-hidden className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-[#d6cdbb] min-[700px]:hidden" />
+          <div className="flex min-h-10 items-center justify-between">
+            <h2 className="text-[19px] font-semibold tracking-tight text-stone-900">{title}</h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="-mr-2.5 flex size-10 items-center justify-center rounded-full text-stone-500"
+            >
+              <X className="size-5" aria-hidden />
+            </button>
+          </div>
+          <div className="break-words">{children}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
