@@ -9,12 +9,14 @@ import { fixedViewportStyle } from "@/lib/visual-viewport";
 /** Centered dialog by default. `sheet` is a bottom sheet on a phone and a 440px dialog from 700px up. */
 export function Modal({
   title,
+  subtitle,
   onClose,
   children,
   footer,
   variant = "default",
 }: {
   title: string;
+  subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -57,8 +59,13 @@ export function Modal({
           style={frame.open ? { maxHeight: frame.height } : undefined}
         >
           <div aria-hidden className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-[#d6cdbb] min-[700px]:hidden" />
-          <div className="flex min-h-10 items-center justify-between">
-            <h2 className="text-[19px] font-semibold tracking-tight text-stone-900">{title}</h2>
+          <div className="flex min-h-10 items-start justify-between">
+            <div className="min-w-0 pt-2">
+              <h2 className="text-[19px] font-semibold tracking-tight text-stone-900">{title}</h2>
+              {subtitle ? (
+                <p className="mt-0.5 text-[13px] text-[#78716c] [overflow-wrap:anywhere]">{subtitle}</p>
+              ) : null}
+            </div>
             <button
               type="button"
               aria-label="Close"

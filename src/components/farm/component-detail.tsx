@@ -19,6 +19,7 @@ import { useData } from "@/components/farm/data-context";
 import { maintenanceApi } from "@/lib/farm-api";
 import type { ScheduleJson } from "@/lib/maintenance";
 import { ScheduleForm } from "@/components/farm/ScheduleForm";
+import { Modal } from "@/components/farm/Modal";
 import {
   hasOtherSystemsToMoveTo,
   MoveComponentSheet,
@@ -189,12 +190,18 @@ export function ComponentDetail({
         </div>
 
         {showForm && (
-          <div className="mb-4 rounded-xl border border-forest-600/20 bg-forest-50/40 p-3">
+          <Modal
+            variant="sheet"
+            title="Add schedule"
+            subtitle={component.name}
+            onClose={() => {
+              if (saving) return;
+              setShowForm(false);
+            }}
+          >
             <ScheduleForm
               componentId={componentId}
               busy={saving}
-              embedActions
-              onCancel={() => setShowForm(false)}
               onSubmit={async (input) => {
                 setSaving(true);
                 setError(null);
@@ -209,7 +216,7 @@ export function ComponentDetail({
                 }
               }}
             />
-          </div>
+          </Modal>
         )}
 
         {loading ? (

@@ -808,33 +808,21 @@ export function ComponentsList({
 
       {schedulePart ? (
         <Modal
+          variant="sheet"
           title="Add schedule"
+          subtitle={liveNames[schedulePart.id] ?? schedulePart.name}
           onClose={() => {
             if (scheduleSaving) return
             setSchedulePart(null)
             setScheduleError(null)
           }}
         >
-          <div className="space-y-4">
-            <p className="text-xs text-muted">
-              {liveNames[schedulePart.id] ?? schedulePart.name}
-            </p>
-            {scheduleError ? (
-              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
-                {scheduleError}
-              </p>
-            ) : null}
             <ScheduleForm
               key={schedulePart.id}
+              error={scheduleError}
               formId="system-part-schedule-add-form"
               componentId={schedulePart.id}
               busy={scheduleSaving}
-              embedActions
-              onCancel={() => {
-                if (scheduleSaving) return
-                setSchedulePart(null)
-                setScheduleError(null)
-              }}
               onSubmit={async (input: CreateScheduleInput) => {
                 setScheduleSaving(true)
                 setScheduleError(null)
@@ -851,7 +839,6 @@ export function ComponentsList({
                 }
               }}
             />
-          </div>
         </Modal>
       ) : null}
 
