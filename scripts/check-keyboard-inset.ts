@@ -22,12 +22,28 @@ const toolbar: ViewportSample = {
   layoutHeight: 800,
   height: 760,
   offsetTop: 0,
+  offsetLeft: 0,
+  width: 390,
   scale: 1,
   textFocused: false,
 };
 assert.equal(browserChromeBottom(toolbar), 40);
-assert.deepEqual(keyboardFrame(toolbar), { open: false, bottom: 0, height: 0 });
-assert.equal(fixedViewportStyle(keyboardFrame(toolbar)), undefined);
+assert.deepEqual(keyboardFrame(toolbar), {
+  open: false,
+  bottom: 0,
+  height: 0,
+  offsetLeft: 0,
+  width: 390,
+});
+assert.deepEqual(fixedViewportStyle(keyboardFrame(toolbar)), {
+  overflowX: "hidden",
+  maxWidth: "100vw",
+  overscrollBehavior: "contain",
+  boxSizing: "border-box",
+  left: 0,
+  right: "auto",
+  width: 390,
+});
 
 const typingToolbar: ViewportSample = { ...toolbar, textFocused: true };
 assert.equal(browserChromeBottom(typingToolbar), null);
@@ -37,6 +53,8 @@ const zoom: ViewportSample = {
   layoutHeight: 800,
   height: 400,
   offsetTop: 0,
+  offsetLeft: 0,
+  width: 400,
   scale: 1.5,
   textFocused: false,
 };
@@ -47,12 +65,27 @@ const keyboard: ViewportSample = {
   layoutHeight: 844,
   height: 430,
   offsetTop: 20,
+  offsetLeft: 18,
+  width: 390,
   scale: 1,
   textFocused: true,
 };
 assert.equal(browserChromeBottom(keyboard), null);
-assert.deepEqual(keyboardFrame(keyboard), { open: true, bottom: 394, height: 430 });
+assert.deepEqual(keyboardFrame(keyboard), {
+  open: true,
+  bottom: 394,
+  height: 430,
+  offsetLeft: 18,
+  width: 390,
+});
 assert.deepEqual(fixedViewportStyle(keyboardFrame(keyboard)), {
+  overflowX: "hidden",
+  maxWidth: "100vw",
+  overscrollBehavior: "contain",
+  boxSizing: "border-box",
+  left: 18,
+  right: "auto",
+  width: 390,
   top: "auto",
   bottom: 394,
   height: 430,
@@ -94,6 +127,44 @@ assert.match(modal, /style=\{viewportStyle\}/);
 assert.match(modal, /pb-5/);
 assert.match(modal, /pb-\[calc\(20px\+env\(safe-area-inset-bottom\)\)\]/);
 assert.match(modal, /maxHeight: frame\.height/);
+assert.match(modal, /sheet-scroll/);
+assert.match(modal, /data-sheet-scroll/);
+assert.match(modal, /min-w-0/);
+assert.doesNotMatch(modal, /-mr-2\.5/);
+assert.doesNotMatch(modal, /-ml-1/);
+assert.doesNotMatch(modal, /100vw/);
+
+const css = source("src/app/globals.css");
+assert.match(css, /\.sheet-scroll/);
+assert.match(css, /overflow-x: hidden/);
+assert.match(css, /touch-action: pan-y/);
+assert.match(css, /overscroll-behavior: contain/);
+assert.match(css, /\.clip-x/);
+
+const lock = source("src/components/use-keyboard-frame.ts");
+assert.match(lock, /touchAction = "none"/);
+assert.match(lock, /overscrollBehavior = "none"/);
+assert.match(lock, /blockBackgroundPan/);
+assert.match(lock, /data-sheet-scroll/);
+
+const viewport = source("src/lib/visual-viewport.ts");
+assert.match(viewport, /overflowX: "hidden"/);
+assert.match(viewport, /maxWidth: "100vw"/);
+assert.match(viewport, /overscrollBehavior: "contain"/);
+assert.match(viewport, /boxSizing: "border-box"/);
+assert.match(viewport, /offsetLeft/);
+
+for (const path of [
+  "src/components/task-edit-modal.tsx",
+  "src/components/farm/MoveComponentSheet.tsx",
+  "src/components/account-menu.tsx",
+  "src/components/farm/ComponentPicker.tsx",
+]) {
+  const file = source(path);
+  assert.match(file, /data-sheet-scroll/);
+  assert.match(file, /sheet-scroll/);
+  assert.doesNotMatch(file, /100vw/);
+}
 
 for (const path of [
   "src/components/task-edit-modal.tsx",

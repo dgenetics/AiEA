@@ -141,7 +141,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
           id="account-menu"
           role="dialog"
           aria-label="Account"
-          className="absolute inset-x-0 top-full z-10 rounded-b-[20px] border-b border-cream-200 bg-cream-50 shadow-[0_12px_32px_#1c191726] md:inset-x-auto md:right-3 md:top-[calc(100%+6px)] md:w-80 md:rounded-2xl md:border"
+          className="absolute inset-x-0 top-full z-10 box-border min-w-0 max-w-full overflow-x-hidden overscroll-contain rounded-b-[20px] border-b border-cream-200 bg-cream-50 shadow-[0_12px_32px_#1c191726] md:inset-x-auto md:right-3 md:top-[calc(100%+6px)] md:w-80 md:rounded-2xl md:border"
         >
           <span
             aria-hidden="true"
@@ -149,11 +149,12 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
           />
           <div
             className={cn(
-              "overflow-y-auto pb-2 pt-1.5",
+              "sheet-scroll min-w-0 max-w-full pb-2 pt-1.5",
               !frame.open &&
                 "max-h-[calc(100dvh-2.5rem-3.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))]",
             )}
             style={frame.open ? { maxHeight: Math.max(160, frame.height - 64) } : undefined}
+            data-sheet-scroll
           >
           <div className="flex items-center gap-3 border-b border-cream-200 px-4 pb-3.5 pt-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-forest-100 text-[15px] font-semibold text-forest-900">

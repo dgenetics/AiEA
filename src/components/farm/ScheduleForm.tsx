@@ -113,7 +113,7 @@ export function ScheduleForm({
   }
 
   return (
-    <form id={formId} onSubmit={(e) => void handleSubmit(e)} className="mt-3.5 flex flex-col gap-4">
+    <form id={formId} onSubmit={(e) => void handleSubmit(e)} className="mt-3.5 flex min-w-0 max-w-full flex-col gap-4">
       {components ? (
         components.length === 0 ? (
           <p className="text-[13px] text-[#78716c]">Schedules belong to a component.</p>
@@ -146,7 +146,7 @@ export function ScheduleForm({
         <label htmlFor="sched-count" className="block text-[13px] text-[#78716c]">
           Repeats every
         </label>
-        <div className="mt-1.5 flex gap-2">
+        <div className="mt-1.5 flex min-w-0 max-w-full gap-2">
           <Input
             id="sched-count"
             inputMode="numeric"
@@ -177,13 +177,15 @@ export function ScheduleForm({
       </div>
       <label className="block text-[13px] text-[#78716c]">
         First due
-        <Input
-          type="date"
-          required
-          value={nextDueDate}
-          onChange={(e) => setNextDueDate(e.target.value)}
-          className={`date-control ${controlClass} ${nextDueDate ? "" : "text-stone-400"}`}
-        />
+        <div className="clip-x">
+          <Input
+            type="date"
+            required
+            value={nextDueDate}
+            onChange={(e) => setNextDueDate(e.target.value)}
+            className={`date-control ${controlClass} ${nextDueDate ? "" : "text-stone-400"}`}
+          />
+        </div>
       </label>
       <label className="block text-[13px] text-[#78716c]">
         Notes (optional)
