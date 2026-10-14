@@ -183,7 +183,13 @@ assert.match(view, /tracking-\[0\.14em\]/);
 assert.match(view, /uppercase/);
 assert.doesNotMatch(view, /border-b/);
 const systemsPage = readFileSync(join(root, "src/app/(app)/(farm)/systems/page.tsx"), "utf8");
-assert.match(systemsPage, /pb-28/);
+const shell = readFileSync(join(root, "src/components/app-shell.tsx"), "utf8");
+assert.match(shell, /px-4 pt-5/);
+assert.match(shell, /md:px-6 md:pt-6/);
+assert.match(systemsPage, /px-1 pt-1 pb-28/);
+assert.match(systemsPage, /min-\[700px\]:px-4 min-\[700px\]:pt-3/);
+assert.doesNotMatch(systemsPage, /md:px-/);
+assert.doesNotMatch(systemsPage, /md:pt-/);
 assert.match(systemsPage, /max-w-\[960px\]/);
 
 assert.equal(componentBubbleLine("7043", "Equipment shed"), "7043 · Equipment shed");
