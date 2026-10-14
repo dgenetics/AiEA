@@ -149,7 +149,7 @@ export function SystemDetail({ id }: { id: string }) {
       <Link href="/systems" className="inline-flex items-center gap-1 text-[13px] text-stone-500">
         ‹ Systems
       </Link>
-      <div className="mt-2.5 flex items-start justify-between gap-3">
+      <div className="mt-3.5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-stone-900">{asset.name}</h1>
           {subtitle ? <p className="mt-0.5 text-[13px] text-stone-500">{subtitle}</p> : null}
@@ -207,13 +207,13 @@ export function SystemDetail({ id }: { id: string }) {
       />
 
       {asset.notes.trim() && (
-        <details className="mt-4 text-[13px] text-stone-600">
+        <details className="mt-8 text-[13px] text-stone-600">
           <summary className="cursor-pointer font-medium text-stone-500">System notes</summary>
           <p className="mt-1.5 leading-relaxed whitespace-pre-wrap">{asset.notes}</p>
         </details>
       )}
 
-      <p className="mt-4 text-[11px] text-[#a8a29e]">
+      <p className="mt-5 text-[11px] text-[#a8a29e]">
         Updated {format(parseISO(asset.updatedAt), "MMM d, yyyy")}
       </p>
     </div>
