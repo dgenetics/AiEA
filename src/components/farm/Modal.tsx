@@ -10,6 +10,7 @@ import { fixedViewportStyle } from "@/lib/visual-viewport";
 export function Modal({
   title,
   subtitle,
+  onBack,
   onClose,
   children,
   footer,
@@ -17,6 +18,8 @@ export function Modal({
 }: {
   title: string;
   subtitle?: string;
+  /** When set, ‹ returns to the previous sheet view and Escape does the same. */
+  onBack?: () => void;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -29,11 +32,14 @@ export function Modal({
   useEffect(() => {
     if (variant !== "sheet") return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        if (onBack) onBack();
+        else onClose();
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, variant]);
+  }, [onBack, onClose, variant]);
 
   if (variant === "sheet") {
     return (
@@ -60,11 +66,23 @@ export function Modal({
         >
           <div aria-hidden className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-[#d6cdbb] min-[700px]:hidden" />
           <div className="flex min-h-10 items-start justify-between">
-            <div className="min-w-0 pt-2">
+            <div className="flex min-w-0 items-center gap-1 pt-2">
+              {onBack ? (
+                <button
+                  type="button"
+                  aria-label="Back"
+                  onClick={onBack}
+                  className="-ml-1 flex size-10 shrink-0 items-center justify-center text-[22px] leading-none text-stone-600"
+                >
+                  ‹
+                </button>
+              ) : null}
+              <div className="min-w-0">
               <h2 className="text-[19px] font-semibold tracking-tight text-stone-900">{title}</h2>
               {subtitle ? (
                 <p className="mt-0.5 text-[13px] text-[#78716c] [overflow-wrap:anywhere]">{subtitle}</p>
               ) : null}
+              </div>
             </div>
             <button
               type="button"
