@@ -21,7 +21,7 @@ function Sheet({
   useLockBodyScroll(true);
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center sm:items-center"
+      className="fixed inset-0 z-40 box-border flex max-w-full items-end justify-center overflow-x-hidden sm:items-center sm:p-4"
       style={fixedViewportStyle(frame)}
     >
       <button
@@ -34,16 +34,16 @@ function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative z-10 flex max-h-[90dvh] w-full min-w-0 max-w-[min(48rem,100vw)] flex-col overflow-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-xl sm:mx-4 sm:max-w-[min(48rem,calc(100vw-2rem))] sm:rounded-2xl"
+        className="relative z-10 box-border flex max-h-[90dvh] w-full min-w-0 max-w-full flex-col overflow-x-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-xl sm:max-w-3xl sm:rounded-2xl"
         style={frame.open ? { maxHeight: frame.height } : undefined}
       >
-        <div className="flex items-center justify-between border-b border-cream-200 px-4 py-3">
-          <h3 className="text-base font-semibold text-ink">{title}</h3>
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-cream-200 px-4 py-3">
+          <h3 className="min-w-0 break-words text-base font-semibold text-ink">{title}</h3>
           <Button size="sm" variant="ghost" onClick={onClose}>
             Close
           </Button>
         </div>
-        <div className="overflow-x-hidden overflow-y-auto px-4 py-4 break-words">{children}</div>
+        <div data-sheet-scroll className="sheet-scroll min-w-0 max-w-full px-4 py-4 break-words [overflow-wrap:anywhere]">{children}</div>
       </div>
     </div>
   );
