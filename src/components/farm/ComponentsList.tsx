@@ -22,8 +22,24 @@ import {
   MoveComponentSheet,
 } from "@/components/farm/MoveComponentSheet"
 import { ScheduleForm } from "@/components/farm/ScheduleForm"
+import { ScanComponent } from "@/components/farm/ScanComponent"
 import { Modal } from "@/components/farm/Modal"
 import { Button, Field, Input, Textarea } from "@/components/farm/ui"
+import type { ScanScheduleDraft } from "@/lib/component-scan"
+
+function ScanFrameIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M2.5 5.25V3.75A1.25 1.25 0 0 1 3.75 2.5h1.5M10.75 2.5h1.5a1.25 1.25 0 0 1 1.25 1.25v1.5M13.5 10.75v1.5a1.25 1.25 0 0 1-1.25 1.25h-1.5M5.25 13.5h-1.5a1.25 1.25 0 0 1-1.25-1.25v-1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 function moneyToInput(value: number | null): string {
   if (value == null) return ''
@@ -344,6 +360,9 @@ export function ComponentsList({
   ) => SystemComponent | undefined | Promise<SystemComponent | undefined>
 }) {
   const [showForm, setShowForm] = useState(false)
+  const [scanOpen, setScanOpen] = useState(false)
+  const [scanNote, setScanNote] = useState<string | null>(null)
+  const formRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<SystemComponentInput>(() =>
     emptyComponentInput(),
   )
@@ -355,6 +374,7 @@ export function ComponentsList({
   // Live title while editing so the row header doesn't lag / fight the input
   const [liveNames, setLiveNames] = useState<Record<string, string>>({})
   const { assets } = useData()
+  const systemName = assets.find((asset) => asset.id === systemId)?.name ?? ""
   const hasOtherSystems = hasOtherSystemsToMoveTo(assets, systemId)
   const [movePart, setMovePart] = useState<SystemComponent | null>(null)
   const [schedulePart, setSchedulePart] = useState<SystemComponent | null>(null)
@@ -427,6 +447,35 @@ export function ComponentsList({
     await onAdd({ ...draft, name: draft.name.trim() })
     setDraft(emptyComponentInput())
     setShowForm(false)
+  }
+
+  function openManual() {
+    setScanOpen(false)
+    setScanNote(null)
+    setShowForm(true)
+    window.setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    }, 50)
+  }
+
+  async function saveScanned(input: SystemComponentInput, schedule: ScanScheduleDraft | null) {
+    const created = await onAdd(input)
+    if (schedule) {
+      const componentId = created && typeof created === "object" && "id" in created ? created.id : ""
+      if (!componentId) {
+        setScanNote("Saved the component. Add the schedule from the component.")
+      } else {
+        try {
+          await maintenanceApi.createSchedule({ ...schedule, componentId })
+          setRelatedTick((tick) => tick + 1)
+        } catch {
+          setScanNote("Saved the component. Add the schedule from the component.")
+        }
+      }
+    }
+    setScanOpen(false)
+    setShowForm(false)
+    setDraft(emptyComponentInput())
   }
 
   const readMode = mode === "read"
@@ -510,7 +559,33 @@ export function ComponentsList({
 
   return (
     <>
-      <h2 className="mt-[22px] text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase">
+      {readMode ? (
+        <div className="mt-4 flex items-center justify-start gap-7">
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm(false)
+              setScanNote(null)
+              setScanOpen(true)
+            }}
+            className="inline-flex min-h-11 items-center gap-1.5 text-left text-[13px] font-semibold text-[#166534]"
+          >
+            <ScanFrameIcon />
+            Scan Component
+          </button>
+          <button
+            type="button"
+            onClick={openManual}
+            className="inline-flex min-h-11 items-center text-left text-[13px] font-semibold text-[#166534]"
+          >
+            Add Manually
+          </button>
+        </div>
+      ) : null}
+      {scanNote ? <p className="text-[13px] text-[#b91c1c]">{scanNote}</p> : null}
+      <h2
+        className={`${readMode ? "mt-4" : "mt-[22px]"} text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase`}
+      >
         Components
       </h2>
 
@@ -754,7 +829,7 @@ export function ComponentsList({
       ) : null}
 
       {showForm ? (
-        <div className="mt-2 space-y-2 rounded-xl border border-[#ebe3d3] bg-[#fffdf8] p-3">
+        <div ref={formRef} className="mt-2 space-y-2 rounded-xl border border-[#ebe3d3] bg-[#fffdf8] p-3">
           <ComponentFields
             value={draft}
             onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
@@ -778,13 +853,15 @@ export function ComponentsList({
         </div>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setShowForm((open) => !open)}
-        className="mt-2 text-[13px] font-semibold text-[#166534]"
-      >
-        + Add component
-      </button>
+      {!readMode ? (
+        <button
+          type="button"
+          onClick={() => setShowForm((open) => !open)}
+          className="mt-2 text-[13px] font-semibold text-[#166534]"
+        >
+          + Add component
+        </button>
+      ) : null}
 
       {movePart ? (
         <MoveComponentSheet
@@ -840,6 +917,15 @@ export function ComponentsList({
               }}
             />
         </Modal>
+      ) : null}
+
+      {scanOpen ? (
+        <ScanComponent
+          systemName={systemName}
+          onClose={() => setScanOpen(false)}
+          onTypeInstead={openManual}
+          onSave={saveScanned}
+        />
       ) : null}
 
       {sheetPart ? (

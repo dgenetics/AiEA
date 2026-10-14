@@ -77,6 +77,9 @@ jobs:
       - name: Unit assertions (system cards)
         run: npm run test:systems
 
+      - name: Unit assertions (scan component)
+        run: npm run test:scan
+
       - name: Unit assertions (keyboard inset)
         run: npm run test:keyboard-inset
 
