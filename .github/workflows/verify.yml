@@ -77,6 +77,9 @@ jobs:
       - name: Unit assertions (system cards)
         run: npm run test:systems
 
+      - name: Unit assertions (keyboard inset)
+        run: npm run test:keyboard-inset
+
       - name: Unit assertions (Tasks Archive links)
         run: npm run test:tasks-archive
 

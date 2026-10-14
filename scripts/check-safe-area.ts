@@ -50,13 +50,17 @@ assert.match(
   /\.pad-tab-bar::after\s*\{[\s\S]*?height:\s*calc\(\s*3\.5rem\s*\+\s*env\(\s*safe-area-inset-bottom,\s*0px\)\s*\+\s*1\.5rem\s*\+\s*var\(--browser-chrome-bottom,\s*0px\)\s*\)/,
 );
 const inset = readFileSync(join(root, "src/components/browser-chrome-inset.tsx"), "utf8");
+const viewport = readFileSync(join(root, "src/lib/visual-viewport.ts"), "utf8");
 assert.match(inset, /--browser-chrome-bottom/);
-assert.match(inset, /Math\.min\(\s*MAX_BROWSER_CHROME_BOTTOM\s*,\s*covered\s*\)/);
-assert.match(inset, /const MAX_BROWSER_CHROME_BOTTOM = 100/);
-assert.match(inset, /viewport\.scale !== 1/);
-assert.match(inset, /textFieldIsFocused\(\)/);
-assert.match(inset, /HTMLInputElement/);
-assert.match(inset, /HTMLTextAreaElement/);
+assert.match(inset, /browserChromeBottom/);
+assert.match(inset, /textFieldIsFocused\(document\.activeElement\)/);
+assert.match(inset, /visualViewport\?\.addEventListener\("resize"/);
+assert.match(inset, /visualViewport\?\.addEventListener\("scroll"/);
+assert.match(viewport, /const MAX_BROWSER_CHROME_BOTTOM = 100/);
+assert.match(viewport, /sample\.scale !== 1/);
+assert.match(viewport, /HTMLInputElement/);
+assert.match(viewport, /HTMLTextAreaElement/);
+assert.match(viewport, /Math\.min\(MAX_BROWSER_CHROME_BOTTOM, covered\)/);
 assert.match(nav, /fixed inset-x-0 bottom-0/);
 assert.match(nav, /safe-area-inset-bottom/);
 assert.doesNotMatch(nav, /href: "\/systems"[\s\S]*lucide-react/);

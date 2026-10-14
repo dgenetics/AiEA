@@ -8,6 +8,8 @@ import { boardLabel, laneOf, type BoardLane } from "@/lib/board";
 import { cn, formatRelativeDue } from "@/lib/utils";
 import { toDateInputValue, toStoredDueDate } from "@/lib/calendar";
 import { DateField } from "@/components/date-field";
+import { useKeyboardFrame, useLockBodyScroll } from "@/components/use-keyboard-frame";
+import { fixedViewportStyle } from "@/lib/visual-viewport";
 
 type Subtask = {
   id: string;
@@ -88,6 +90,10 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted, aiBoard
     setNewSubDue("");
     void loadSubtasks();
   }, [open, task, loadSubtasks]);
+
+  const frame = useKeyboardFrame();
+  useLockBodyScroll(open);
+  const viewportStyle = fixedViewportStyle(frame);
 
   if (!open) return null;
 
@@ -211,14 +217,23 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted, aiBoard
     "box-border block w-full max-w-full min-w-0 rounded-lg border border-cream-300 bg-cream-50 px-3 py-2 text-base text-ink focus:border-forest-700 focus:outline-none md:text-sm";
 
   return (
-    <div className="fixed inset-0 z-[100] flex max-w-[100vw] items-end justify-center overflow-x-hidden md:items-center md:p-4">
+    <div
+      className="fixed inset-0 z-[100] flex max-w-[100vw] items-end justify-center overflow-x-hidden md:items-center md:p-4"
+      style={viewportStyle}
+    >
       <button
         type="button"
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative box-border flex max-h-[92dvh] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-2xl safe-bottom md:max-h-[90vh] md:rounded-2xl">
+      <div
+        className={cn(
+          "relative box-border flex w-full max-w-md min-w-0 flex-col overflow-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-2xl md:rounded-2xl",
+          frame.open ? "max-h-full" : "max-h-[92dvh] safe-bottom md:max-h-[90vh]",
+        )}
+        style={frame.open ? { maxHeight: frame.height } : undefined}
+      >
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 md:p-5">
           <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0 flex-1">

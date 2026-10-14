@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useData } from "@/components/farm/data-context";
 import type { Asset } from "@/lib/farm-types";
+import { useKeyboardFrame, useLockBodyScroll } from "@/components/use-keyboard-frame";
 import { Button, Input } from "@/components/farm/ui";
+import { fixedViewportStyle } from "@/lib/visual-viewport";
 
 function Sheet({
   title,
@@ -15,8 +17,13 @@ function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const frame = useKeyboardFrame();
+  useLockBodyScroll(true);
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center">
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center sm:items-center"
+      style={fixedViewportStyle(frame)}
+    >
       <button
         type="button"
         aria-label="Close"
@@ -28,6 +35,7 @@ function Sheet({
         aria-modal="true"
         aria-label={title}
         className="relative z-10 flex max-h-[90dvh] w-full min-w-0 max-w-[min(48rem,100vw)] flex-col overflow-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-xl sm:mx-4 sm:max-w-[min(48rem,calc(100vw-2rem))] sm:rounded-2xl"
+        style={frame.open ? { maxHeight: frame.height } : undefined}
       >
         <div className="flex items-center justify-between border-b border-cream-200 px-4 py-3">
           <h3 className="text-base font-semibold text-ink">{title}</h3>

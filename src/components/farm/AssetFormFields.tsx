@@ -1,6 +1,11 @@
-import type { AssetInput } from "@/lib/farm-types"
-import { ASSET_CATEGORIES, normalizeCategory } from "@/lib/farm-types"
 import { Field, Input, Select, Textarea } from "@/components/farm/ui"
+import { ASSET_CATEGORIES, normalizeCategory } from "@/lib/farm-types"
+
+export type AssetFormValue = {
+  name: string
+  category: string
+  notes: string
+}
 
 const selectChevron =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")"
@@ -11,8 +16,8 @@ export function AssetFormFields({
   plain = false,
   variant = "default",
 }: {
-  value: AssetInput
-  onChange: (patch: Partial<AssetInput>) => void
+  value: AssetFormValue
+  onChange: (patch: Partial<AssetFormValue>) => void
   /** Edit-system page: no section headers, short hint. */
   plain?: boolean
   variant?: "default" | "plain" | "compact"
@@ -33,11 +38,15 @@ export function AssetFormFields({
         <label className="block text-[13px] text-[#78716c]">
           Category
           <Select
-            value={normalizeCategory(value.category)}
-            onChange={(e) => onChange({ category: normalizeCategory(e.target.value) })}
+            required
+            value={value.category.trim() ? normalizeCategory(value.category) : ""}
+            onChange={(e) => onChange({ category: e.target.value })}
             className="mt-1.5 h-12 appearance-none bg-[#fffdf8] bg-[length:16px_16px] bg-[position:right_14px_center] bg-no-repeat pr-10 text-base focus:border-stone-600 focus:ring-stone-600/12"
             style={{ backgroundImage: selectChevron }}
           >
+            <option value="" disabled={value.category.trim() !== ""}>
+              Choose a category
+            </option>
             {ASSET_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}

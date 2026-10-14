@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import { useKeyboardFrame, useLockBodyScroll } from "@/components/use-keyboard-frame";
 import { Button } from "@/components/farm/ui";
+import { fixedViewportStyle } from "@/lib/visual-viewport";
 
 /** Centered dialog by default. `sheet` is a bottom sheet on a phone and a 440px dialog from 700px up. */
 export function Modal({
@@ -18,6 +20,10 @@ export function Modal({
   footer?: React.ReactNode;
   variant?: "default" | "sheet";
 }) {
+  const frame = useKeyboardFrame();
+  useLockBodyScroll(true);
+  const viewportStyle = fixedViewportStyle(frame);
+
   useEffect(() => {
     if (variant !== "sheet") return;
     function onKey(event: KeyboardEvent) {
@@ -29,7 +35,10 @@ export function Modal({
 
   if (variant === "sheet") {
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center min-[700px]:items-center min-[700px]:p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center min-[700px]:items-center min-[700px]:p-4"
+        style={viewportStyle}
+      >
         <button
           type="button"
           aria-label="Close"
@@ -40,7 +49,12 @@ export function Modal({
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          className="relative z-10 max-h-[90dvh] w-full overflow-y-auto rounded-t-[22px] bg-[#fbf8f2] px-5 pt-2 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-2xl min-[700px]:max-w-[440px] min-[700px]:rounded-[20px] min-[700px]:px-6 min-[700px]:pt-5 min-[700px]:pb-6"
+          className={
+            frame.open
+              ? "relative z-10 w-full overflow-y-auto rounded-t-[22px] bg-[#fbf8f2] px-5 pt-2 pb-5 shadow-2xl min-[700px]:max-w-[440px] min-[700px]:rounded-[20px] min-[700px]:px-6 min-[700px]:pt-5 min-[700px]:pb-6"
+              : "relative z-10 max-h-[90dvh] w-full overflow-y-auto rounded-t-[22px] bg-[#fbf8f2] px-5 pt-2 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-2xl min-[700px]:max-w-[440px] min-[700px]:rounded-[20px] min-[700px]:px-6 min-[700px]:pt-5 min-[700px]:pb-6"
+          }
+          style={frame.open ? { maxHeight: frame.height } : undefined}
         >
           <div aria-hidden className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-[#d6cdbb] min-[700px]:hidden" />
           <div className="flex min-h-10 items-center justify-between">
@@ -61,7 +75,7 @@ export function Modal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={viewportStyle}>
       <button
         type="button"
         aria-label="Close"
@@ -73,6 +87,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className="relative z-10 flex max-h-[min(90dvh,40rem)] w-full min-w-0 max-w-[min(32rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-cream-200 bg-cream-50 shadow-xl"
+        style={frame.open ? { maxHeight: frame.height } : undefined}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-cream-200 px-4 py-3">
           <h2 className="text-base font-semibold text-ink">{title}</h2>

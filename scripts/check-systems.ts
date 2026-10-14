@@ -10,6 +10,7 @@ import {
   componentBubbleLine,
   componentMatchesFilter,
 } from "../src/lib/component-bubbles";
+import { normalizeCategory } from "../src/lib/farm-types";
 import {
   groupSystemsByCategory,
   systemCardLocation,
@@ -209,6 +210,35 @@ assert.match(formFields, /Anything worth remembering/);
 assert.match(formFields, /autoFocus/);
 assert.match(formFields, /variant === "compact"/);
 assert.match(formFields, /plain \|\| variant === "plain"/);
+assert.match(formFields, /Choose a category/);
+assert.doesNotMatch(formFields, /isAssetCategory\(value\.category\) \? value\.category : ""/);
+const compactFields = formFields.slice(
+  formFields.indexOf('variant === "compact"'),
+  formFields.indexOf("plain || variant"),
+);
+assert.match(compactFields, /Choose a category/);
+assert.match(
+  compactFields,
+  /value=\{value\.category\.trim\(\) \? normalizeCategory\(value\.category\) : ""\}/,
+);
+assert.match(compactFields, /disabled=\{value\.category\.trim\(\) !== ""\}/);
+function shownCompactCategory(category: string) {
+  return category.trim() ? normalizeCategory(category) : "";
+}
+assert.equal(shownCompactCategory("Outdoor"), "Farm Equipment");
+assert.equal(shownCompactCategory("Appliance"), "Culinary");
+assert.equal(shownCompactCategory(""), "");
+assert.equal(shownCompactCategory("   "), "");
+assert.equal(shownCompactCategory("Water"), "Water");
+const plainFields = formFields.slice(formFields.indexOf("plain || variant"));
+assert.doesNotMatch(plainFields, /Choose a category/);
+assert.match(plainFields, /normalizeCategory\(value\.category\)/);
+assert.match(view, /function blankSystem\(\)/);
+assert.match(view, /category: ""/);
+assert.match(view, /!isAssetCategory\(value\.category\)/);
+assert.match(view, /disabled=\{!value\.name\.trim\(\) \|\| !isAssetCategory\(value\.category\) \|\| saving\}/);
+const money = readFileSync(join(root, "src/lib/farm-money.ts"), "utf8");
+assert.match(money, /category: "Other"/);
 
 assert.equal(componentBubbleLine("7043", "Equipment shed"), "7043 · Equipment shed");
 assert.equal(componentBubbleLine("  ", "Barn"), "Barn");

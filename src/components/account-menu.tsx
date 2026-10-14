@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { ChevronRight, KeyRound, User } from "lucide-react";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { SignOutButton } from "@/components/sign-out-button";
+import { useKeyboardFrame, useLockBodyScroll } from "@/components/use-keyboard-frame";
+import { fixedViewportStyle } from "@/lib/visual-viewport";
 import { cn } from "@/lib/utils";
 
 /** Two words use the first and last initials. One word uses its first letter. */
@@ -31,6 +33,8 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
   const [open, setOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const frame = useKeyboardFrame();
+  useLockBodyScroll(open);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const firstRowRef = useRef<HTMLButtonElement>(null);
@@ -125,6 +129,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         ? createPortal(
             <div
               className="fixed inset-0 z-30 bg-[#1c19172e] md:bg-transparent"
+              style={fixedViewportStyle(frame)}
               aria-hidden="true"
             />,
             document.body,
@@ -142,7 +147,14 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
             aria-hidden="true"
             className="absolute -top-1.5 right-5 hidden h-2.5 w-2.5 rotate-45 border-l border-t border-cream-200 bg-cream-50 md:block"
           />
-          <div className="max-h-[calc(100dvh-2.5rem-3.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] overflow-y-auto pb-2 pt-1.5">
+          <div
+            className={cn(
+              "overflow-y-auto pb-2 pt-1.5",
+              !frame.open &&
+                "max-h-[calc(100dvh-2.5rem-3.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))]",
+            )}
+            style={frame.open ? { maxHeight: Math.max(160, frame.height - 64) } : undefined}
+          >
           <div className="flex items-center gap-3 border-b border-cream-200 px-4 pb-3.5 pt-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-forest-100 text-[15px] font-semibold text-forest-900">
               {initials(name, email)}
