@@ -37,9 +37,12 @@ export async function POST(req: Request) {
   try {
     const raw = await lookupComponentManual({ manufacturer, modelNumber, productNumber, name }, config);
     const described = describeScheduleLookup(raw);
-    const found = described.lookup?.schedule;
-    if (found) {
-      console.info("schedule lookup: interval", found.everyCount, found.everyUnit);
+    const found = described.lookup?.schedules ?? [];
+    if (found.length) {
+      console.info(
+        "schedule lookup: interval",
+        found.map((item) => `${item.everyCount} ${item.everyUnit}`).join(", "),
+      );
     } else if (described.scheduleNote === "manual did not include a maintenance interval") {
       console.warn("schedule lookup:", described.scheduleNote);
     } else if (described.scheduleNote) {

@@ -471,18 +471,21 @@ export function ComponentsList({
     }, 50)
   }
 
-  async function saveScanned(input: SystemComponentInput, schedule: ScanScheduleDraft | null) {
+  async function saveScanned(input: SystemComponentInput, schedules: ScanScheduleDraft[]) {
     const created = await onAdd(input)
-    if (schedule) {
+    if (schedules.length) {
       const componentId = created && typeof created === "object" && "id" in created ? created.id : ""
       if (!componentId) {
         setScanNote("Saved the component. Add the schedule from the component.")
       } else {
-        try {
-          await maintenanceApi.createSchedule({ ...schedule, componentId })
-          setRelatedTick((tick) => tick + 1)
-        } catch {
-          setScanNote("Saved the component. Add the schedule from the component.")
+        for (const schedule of schedules) {
+          try {
+            await maintenanceApi.createSchedule({ ...schedule, componentId })
+            setRelatedTick((tick) => tick + 1)
+          } catch {
+            setScanNote("Saved the component. Add the schedule from the component.")
+            break
+          }
         }
       }
     }

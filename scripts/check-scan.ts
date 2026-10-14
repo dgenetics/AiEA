@@ -100,7 +100,7 @@ assert.equal(outcome.result.productNumber.tag, "from label");
 assert.equal(outcome.result.userManual.value, "");
 assert.equal(outcome.result.userManual.tag, null);
 assert.equal(outcome.result.manualKind, "");
-assert.equal(outcome.result.schedule, null);
+assert.deepEqual(outcome.result.schedules, []);
 assert.equal(outcome.result.warrantyInfo.value, "2 years from install");
 assert.equal(outcome.result.vendorName.value, "Pond Supply Co");
 assert.equal(outcome.result.intro, "Found it from the label. Check it over, then save.");
@@ -130,18 +130,18 @@ assert.equal(makeModelTag(outcome.result.manufacturer, outcome.result.modelNumbe
 const lookedUp = manualLookupFromText(JSON.stringify(grundfos));
 assert.equal(lookedUp?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
 assert.equal(lookedUp?.manualKind, "PDF");
-assert.equal(lookedUp?.schedule?.everyUnit, "year");
+assert.equal(lookedUp?.schedules[0]?.everyUnit, "year");
 const withManual = applyManualLookup(outcome.result, lookedUp!);
 assert.equal(withManual.userManual.value, "https://www.grundfos.com/manuals/sq-sqe.pdf");
 assert.equal(withManual.userManual.tag, "found online");
 assert.equal(withManual.name.tag, "suggested");
-assert.deepEqual(scheduleSuggestionText(withManual.schedule!), {
+assert.deepEqual(scheduleSuggestionText(withManual.schedules[0]!), {
   name: "Check pressure and amp draw",
   rest: "every 1 year, per the manual",
 });
 
 const now = new Date(2026, 9, 14, 15, 0, 0);
-const draft = scanScheduleDraft(withManual.schedule!, now);
+const draft = scanScheduleDraft(withManual.schedules[0]!, now);
 assert.equal(draft?.frequency, "1y");
 assert.equal(draft?.intervalDays, 365);
 assert.equal(draft?.isRecurring, true);
@@ -218,25 +218,25 @@ const annual = manualLookupFromText(
     schedule: { name: "Check the motor", everyCount: 1, everyUnit: "annually" },
   }),
 );
-assert.equal(annual?.schedule?.everyCount, 1);
-assert.equal(annual?.schedule?.everyUnit, "year");
+assert.equal(annual?.schedules[0]?.everyCount, 1);
+assert.equal(annual?.schedules[0]?.everyUnit, "year");
 const sixMonths = manualLookupFromText(
   JSON.stringify({
     manual: { url: "https://www.grundfos.com/manuals/sq-sqe.pdf", title: "SQ", kind: "PDF" },
     schedule: { task: "Change the oil", interval: "every 6 months" },
   }),
 );
-assert.equal(sixMonths?.schedule?.name, "Change the oil");
-assert.equal(sixMonths?.schedule?.everyCount, 6);
-assert.equal(sixMonths?.schedule?.everyUnit, "month");
+assert.equal(sixMonths?.schedules[0]?.name, "Change the oil");
+assert.equal(sixMonths?.schedules[0]?.everyCount, 6);
+assert.equal(sixMonths?.schedules[0]?.everyUnit, "month");
 const yearlyPhrase = parseScanModelText(
   JSON.stringify({
     manual: { url: "https://example.com/m.pdf", kind: "PDF" },
     schedule: "Check the motor annually",
   }),
 );
-assert.equal(yearlyPhrase?.schedule?.name, "Check the motor");
-assert.equal(yearlyPhrase?.schedule?.everyUnit, "year");
+assert.equal(yearlyPhrase?.schedules[0]?.name, "Check the motor");
+assert.equal(yearlyPhrase?.schedules[0]?.everyUnit, "year");
 const noInterval = describeScheduleLookup(
   JSON.stringify({
     manual: { url: "https://www.grundfos.com/manuals/sq-sqe.pdf", title: "SQ", kind: "PDF" },
@@ -244,7 +244,7 @@ const noInterval = describeScheduleLookup(
   }),
 );
 assert.equal(noInterval.lookup?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
-assert.equal(noInterval.lookup?.schedule, null);
+assert.deepEqual(noInterval.lookup?.schedules, []);
 assert.equal(noInterval.scheduleNote, "manual did not include a maintenance interval");
 const unreadable = describeScheduleLookup(
   JSON.stringify({
@@ -253,7 +253,7 @@ const unreadable = describeScheduleLookup(
   }),
 );
 assert.equal(unreadable.lookup?.manualUrl, "https://www.grundfos.com/manuals/sq-sqe.pdf");
-assert.equal(unreadable.lookup?.schedule, null);
+assert.deepEqual(unreadable.lookup?.schedules, []);
 assert.match(unreadable.scheduleNote, /could not read the interval/);
 const maintenanceFree = describeScheduleLookup(
   JSON.stringify({
@@ -270,7 +270,7 @@ const maintenanceFree = describeScheduleLookup(
     },
   }),
 );
-assert.equal(maintenanceFree.lookup?.schedule, null);
+assert.deepEqual(maintenanceFree.lookup?.schedules, []);
 assert.match(maintenanceFree.lookup?.manualUrl ?? "", /api\.grundfos\.com/);
 assert.equal(maintenanceFree.scheduleNote, "manual did not include a maintenance interval");
 
@@ -286,7 +286,47 @@ if (!genericName.ok) throw new Error("generic name failed");
 assert.equal(genericName.result.name.value, "Grundfos SQ 3-65 Pump");
 assert.equal(genericName.result.name.tag, "suggested");
 assert.equal(genericName.result.userManual.value, "");
-assert.equal(genericName.result.schedule, null);
+assert.deepEqual(genericName.result.schedules, []);
+
+const honda = await interpretComponentScan({
+  bytes: jpeg(64),
+  mediaType: "image/jpeg",
+  decodedCode: null,
+  configured: true,
+  readModel: async () => JSON.stringify({ name: "", manufacturer: "Honda", modelNumber: "GX390" }),
+});
+assert.equal(honda.ok, true);
+if (!honda.ok) throw new Error("honda name failed");
+assert.equal(honda.result.name.value, "Honda GX390 Engine");
+assert.equal(honda.result.name.tag, "suggested");
+const unknownType = await interpretComponentScan({
+  bytes: jpeg(64),
+  mediaType: "image/jpeg",
+  decodedCode: null,
+  configured: true,
+  readModel: async () => JSON.stringify({ name: "", manufacturer: "Acme", modelNumber: "Z9" }),
+});
+assert.equal(unknownType.ok, true);
+if (!unknownType.ok) throw new Error("unknown type failed");
+assert.equal(unknownType.result.name.value, "Acme Z9");
+assert.equal(unknownType.result.name.tag, "suggested");
+
+const engineTasks = manualLookupFromText(
+  JSON.stringify({
+    manual: { url: "https://example.com/gx390.pdf", title: "GX390", kind: "PDF" },
+    schedules: [
+      { name: "Replace spark plug", everyCount: 1, everyUnit: "year", note: "per the manual" },
+      { name: "Change engine oil", everyCount: 6, everyUnit: "month", note: "per the manual" },
+      { name: "Replace spark plug", everyCount: 1, everyUnit: "year", note: "per the manual" },
+      { name: "Inspect the air cleaner", everyCount: 50, everyUnit: "day", note: "per the manual" },
+      { name: "Check the fuel", everyCount: 1, everyUnit: "year", note: "per the manual" },
+    ],
+  }),
+);
+assert.deepEqual(
+  engineTasks?.schedules.map((item) => item.name),
+  ["Inspect the air cleaner", "Change engine oil", "Replace spark plug"],
+);
 
 assert.equal(sniffScanImage(jpeg(40)), "image/jpeg");
 assert.equal(sniffScanImage(png(40)), "image/png");
@@ -369,6 +409,8 @@ assert.equal(SCAN_READ_ERROR, "Couldn't read that, try again or type it in");
 assert.match(scanUi, /SCAN_READ_ERROR/);
 assert.match(scanLib, /Couldn't read that, try again or type it in/);
 assert.match(scanUi, /\+ Add this schedule/);
+assert.match(scanUi, /review\.schedules\.map/);
+assert.match(scanUi, /Add schedule \$\{scheduleText\.name\}/);
 assert.match(scanLib, /"from label"/);
 assert.match(scanUi, /where you started/);
 assert.match(scanUi, /Make and model/);
@@ -467,6 +509,7 @@ assert.match(ai, /Do not invent URLs/);
 assert.match(features, /low detail/);
 assert.match(features, /grok-4\.3/);
 assert.match(features, /Grundfos SQ 3-65 Pump/);
+assert.match(features, /Honda GX390 Engine/);
 assert.match(envExample, /COMPONENT_SCAN_LABEL_MODEL/);
 assert.match(features, /Photo library/);
 const barcodeOnly = reviewFromCode("96510192");
@@ -477,21 +520,21 @@ const typed = applyManualLookup(
     manualUrl: "https://www.grundfos.com/manuals/sq.pdf",
     manualTitle: "SQ manual",
     manualKind: "PDF",
-    schedule: { name: "Check seals", everyCount: 1, everyUnit: "year", note: "per the manual" },
+    schedules: [{ name: "Check seals", everyCount: 1, everyUnit: "year", note: "per the manual" }],
   },
 );
 assert.equal(typed.name.value, "Well Pump");
 assert.equal(typed.name.tag, null);
 assert.equal(typed.userManual.tag, "found online");
 assert.equal(typed.userManual.value, "https://www.grundfos.com/manuals/sq.pdf");
-assert.equal(typed.schedule?.name, "Check seals");
+assert.equal(typed.schedules[0]?.name, "Check seals");
 const keptManual = applyManualLookup(
   { ...typed, userManual: { value: "https://example.com/mine", tag: null } },
   {
     manualUrl: "https://www.grundfos.com/manuals/sq.pdf",
     manualTitle: "SQ manual",
     manualKind: "PDF",
-    schedule: null,
+    schedules: [],
   },
 );
 assert.equal(keptManual.userManual.value, "https://example.com/mine");

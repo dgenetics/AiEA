@@ -44,7 +44,8 @@ export type ComponentScanReview = {
   manualKind: string;
   warrantyInfo: TaggedText;
   vendorName: TaggedText;
-  schedule: ScanSchedule | null;
+  /** Up to three tasks from the manual, shortest interval first. */
+  schedules: ScanSchedule[];
 };
 
 export type ScanScheduleDraft = {
@@ -211,23 +212,46 @@ export function emptyScanReview(configured: boolean, decodedCode: string | null)
     manualKind: "",
     warrantyInfo: blank(),
     vendorName: blank(),
-    schedule: null,
+    schedules: [],
   };
 }
 
 const GENERIC_EQUIPMENT =
-  /^(the\s+)?(pump|motor|valve|filter|heater|fan|compressor|tank|controller|sensor|unit|equipment)$/i;
+  /^(the\s+)?(pump|motor|engine|valve|filter|heater|fan|compressor|tank|controller|sensor|unit|equipment)$/i;
 
-/** "Pump" plus a printed make or model becomes "Grundfos SQ 3-65 Pump". */
+/** Honda GX / GCV style model numbers are small engines. */
+const ENGINE_MODEL = /^(?:i?GX|GXV|GCV|GXR|GP|GC)[\s-]?\d/i;
+/** Grundfos families whose nameplate is a pump. */
+const PUMP_MODEL = /^(?:SQE?|SP|CR(?:E)?|CME?|JP|MQ|MAGNA|UNILIFT|SCALA|NK|NB|TP|UPS)(?:\b|[\s-]?\d)/i;
+
+function equipmentType(manufacturer: string, modelNumber: string): string {
+  const make = manufacturer.trim();
+  const model = modelNumber.trim();
+  if (ENGINE_MODEL.test(model) && (!make || /honda/i.test(make))) return "Engine";
+  if (/grundfos/i.test(make) && PUMP_MODEL.test(model)) return "Pump";
+  return "";
+}
+
+function titleWord(word: string): string {
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : "";
+}
+
+/**
+ * A name the sheet can save. Uses the label's name when it is already specific.
+ * Otherwise "<Make> <Model> <type>", or "<Make> <Model>" when the type is unknown.
+ */
 export function specificScanName(name: string, manufacturer: string, modelNumber: string): string {
   const trimmed = name.trim().replace(/\s+/g, " ");
   const make = manufacturer.trim();
   const model = modelNumber.trim();
+  if (!make && !model) return trimmed;
   const generic = trimmed.match(GENERIC_EQUIPMENT);
-  if (!generic || (!make && !model)) return trimmed;
-  const noun = generic[2] ?? trimmed;
-  const titled = noun.charAt(0).toUpperCase() + noun.slice(1);
-  return [make, model, titled].filter(Boolean).join(" ");
+  if (trimmed && !generic) return trimmed;
+  const noun = generic ? titleWord(generic[2] ?? "") : "";
+  const type = equipmentType(make, model) || noun;
+  const parts = [make, model].filter(Boolean);
+  if (type && !parts.some((part) => part.toLowerCase() === type.toLowerCase())) parts.push(type);
+  return parts.join(" ");
 }
 
 function reviewHasFinding(review: ComponentScanReview): boolean {
@@ -240,7 +264,7 @@ function reviewHasFinding(review: ComponentScanReview): boolean {
       review.userManual.value ||
       review.warrantyInfo.value ||
       review.vendorName.value ||
-      review.schedule,
+      review.schedules.length,
   );
 }
 
@@ -248,7 +272,7 @@ function withIntro(review: ComponentScanReview): ComponentScanReview {
   const fromLabel = [review.manufacturer, review.modelNumber, review.serialNumber, review.productNumber].some(
     (field) => field.tag === "from label" && field.value,
   );
-  const lookedUp = Boolean(review.userManual.value || review.schedule || review.name.tag === "suggested");
+  const lookedUp = Boolean(review.userManual.value || review.schedules.length || review.name.tag === "suggested");
   return {
     ...review,
     intro:
@@ -363,6 +387,31 @@ function parseSchedule(value: unknown): ScanSchedule | null {
   return { name, everyCount: loose.count, everyUnit: loose.unit, note };
 }
 
+const INTERVAL_DAYS: Record<ScanEveryUnit, number> = { day: 1, week: 7, month: 30, year: 365 };
+
+/** Shortest interval first, at most three, dropping duplicate task names. */
+export function rankSchedules(schedules: ScanSchedule[]): ScanSchedule[] {
+  const seen = new Set<string>();
+  const unique = schedules.filter((item) => {
+    const key = item.name.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique
+    .map((item, index) => ({ item, index, days: item.everyCount * INTERVAL_DAYS[item.everyUnit] }))
+    .sort((a, b) => a.days - b.days || a.index - b.index)
+    .slice(0, 3)
+    .map((row) => row.item);
+}
+
+function parseSchedules(record: Record<string, unknown>): ScanSchedule[] {
+  const raw = record.schedules ?? record.schedule;
+  const items = Array.isArray(raw) ? raw : raw == null || raw === "" ? [] : [raw];
+  const parsed = items.map((item) => parseSchedule(item)).filter((item): item is ScanSchedule => item != null);
+  return rankSchedules(parsed);
+}
+
 /** Turn the model JSON into review fields. Null when the payload is not usable JSON. */
 export function parseScanModelText(text: string): Omit<
   ComponentScanReview,
@@ -399,7 +448,7 @@ export function parseScanModelText(text: string): Omit<
     manualKind,
     warrantyInfo: tagged(textOf(record.warrantyInfo), "found online"),
     vendorName: tagged(textOf(record.vendorName), "found online"),
-    schedule: parseSchedule(record.schedule),
+    schedules: parseSchedules(record),
   };
 }
 
@@ -419,7 +468,7 @@ function mergeVision(
     manualKind: vision.manualKind || base.manualKind,
     warrantyInfo: vision.warrantyInfo.value ? vision.warrantyInfo : base.warrantyInfo,
     vendorName: vision.vendorName.value ? vision.vendorName : base.vendorName,
-    schedule: vision.schedule ?? base.schedule,
+    schedules: vision.schedules.length ? vision.schedules : base.schedules,
   };
 }
 
@@ -475,7 +524,7 @@ export type ManualLookup = {
   manualUrl: string;
   manualTitle: string;
   manualKind: string;
-  schedule: ScanSchedule | null;
+  schedules: ScanSchedule[];
 };
 
 /** Manual URL and schedule from the follow-up. Ignores a suggested name. */
@@ -489,32 +538,42 @@ export function describeScheduleLookup(text: string): { lookup: ManualLookup | n
   const parsed = parseScanModelText(text);
   if (!parsed) return { lookup: null, scheduleNote: "model output was not usable JSON" };
   const lookup: ManualLookup | null =
-    parsed.userManual.value || parsed.schedule
+    parsed.userManual.value || parsed.schedules.length
       ? {
           manualUrl: parsed.userManual.value,
           manualTitle: parsed.manualTitle,
           manualKind: parsed.manualKind,
-          schedule: parsed.schedule,
+          schedules: parsed.schedules,
         }
       : null;
-  if (parsed.schedule) return { lookup, scheduleNote: "" };
+  if (parsed.schedules.length) return { lookup, scheduleNote: "" };
   const record = asRecord(extractJson(text));
-  const raw = record?.schedule;
-  if (raw == null || raw === "") return { lookup, scheduleNote: "manual did not include a maintenance interval" };
-  const rawRecord = asRecord(raw);
-  const rawName = rawRecord
-    ? textOf(rawRecord.name) || textOf(rawRecord.task) || textOf(rawRecord.title)
-    : typeof raw === "string"
-      ? raw
-      : "";
-  const rawText = typeof raw === "string" ? raw : JSON.stringify(raw);
-  if (!rawName.trim() || statesNoInterval(rawText)) {
-    return { lookup, scheduleNote: "manual did not include a maintenance interval" };
-  }
-  return { lookup, scheduleNote: `could not read the interval: ${JSON.stringify(raw).slice(0, 240)}` };
+  const raw = record?.schedules ?? record?.schedule;
+  return { lookup, scheduleNote: scheduleRawNote(raw) };
 }
 
-/** Fill an empty manual, and a schedule only when the sheet does not have one yet. */
+function scheduleItemName(value: unknown): string {
+  if (typeof value === "string") return value;
+  const record = asRecord(value);
+  if (!record) return "";
+  return textOf(record.name) || textOf(record.task) || textOf(record.title);
+}
+
+function scheduleRawNote(raw: unknown): string {
+  if (raw == null || raw === "" || (Array.isArray(raw) && raw.length === 0)) {
+    return "manual did not include a maintenance interval";
+  }
+  const items = Array.isArray(raw) ? raw : [raw];
+  const quiet = items.every((item) => {
+    const name = scheduleItemName(item);
+    const text = typeof item === "string" ? item : JSON.stringify(item ?? "");
+    return !name.trim() || statesNoInterval(text);
+  });
+  if (quiet) return "manual did not include a maintenance interval";
+  return `could not read the interval: ${JSON.stringify(raw).slice(0, 240)}`;
+}
+
+/** Fill an empty manual, and schedules only when the sheet does not have any yet. */
 export function applyManualLookup(review: ComponentScanReview, lookup: ManualLookup): ComponentScanReview {
   let next = review;
   const url = httpUrl(lookup.manualUrl);
@@ -527,7 +586,7 @@ export function applyManualLookup(review: ComponentScanReview, lookup: ManualLoo
       manualKind: pdf ? "PDF" : "page",
     };
   }
-  if (!next.schedule && lookup.schedule) next = { ...next, schedule: lookup.schedule };
+  if (next.schedules.length === 0 && lookup.schedules.length) next = { ...next, schedules: lookup.schedules };
   return next === review ? review : withIntro(next);
 }
 
@@ -558,9 +617,11 @@ export async function interpretComponentScan(input: {
       const vision = parseScanModelText(text);
       if (vision) {
         // The manual and its interval come from the follow-up request, not this read.
-        review = mergeVision(review, { ...vision, userManual: blank(), manualTitle: "", manualKind: "", schedule: null });
+        review = mergeVision(review, { ...vision, userManual: blank(), manualTitle: "", manualKind: "", schedules: [] });
         const named = specificScanName(review.name.value, review.manufacturer.value, review.modelNumber.value);
-        if (named !== review.name.value) review = { ...review, name: { value: clip(named), tag: review.name.tag } };
+        if (named && named !== review.name.value) {
+          review = { ...review, name: { value: clip(named), tag: "suggested" } };
+        }
       }
     } catch {
       if (!reviewHasFinding(review)) {

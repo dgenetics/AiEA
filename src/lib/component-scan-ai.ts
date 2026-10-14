@@ -64,13 +64,13 @@ Return only JSON with this shape:
   "warrantyInfo": "",
   "vendorName": "",
   "manual": { "url": "", "title": "", "kind": "PDF" },
-  "schedule": { "name": "", "everyCount": 1, "everyUnit": "year", "note": "per the manual" }
+  "schedules": [{ "name": "", "everyCount": 1, "everyUnit": "year", "note": "per the manual" }]
 }
 
 Rules:
 - manual.url is an http or https link to the manufacturer's own manual PDF or page. Leave it empty if search does not find one.
 - manual.kind is PDF when the link is a PDF, otherwise page.
-- schedule is one recurring task the manual itself states, with a number and a unit. everyUnit is day, week, month, or year. If the manual says annually, yearly, or once a year, use everyCount 1 and everyUnit year. If it says every 6 months, use everyCount 6 and everyUnit month. If the manual says the equipment is maintenance-free, or states no interval, leave schedule.name as an empty string. Do not invent an interval.
+- schedules lists up to 3 recurring tasks the manual itself states, with a number and a unit. Put the most frequent routine task first. For an engine, the oil change comes before the spark plug. everyUnit is day, week, month, or year. If the manual says annually, yearly, or once a year, use everyCount 1 and everyUnit year. If it says every 6 months, use everyCount 6 and everyUnit month. If the manual says the equipment is maintenance-free, or states no interval, return an empty schedules array. Do not invent an interval.
 - Leave name, manufacturer, modelNumber, productNumber, and serialNumber empty.`;
 
 function clientFor(config: ComponentScanConfig, timeout: number): OpenAI {

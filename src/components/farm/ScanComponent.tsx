@@ -151,13 +151,13 @@ export function ScanComponent({
   file: File;
   onClose: () => void;
   onTypeInstead: () => void;
-  onSave: (input: SystemComponentInput, schedule: ScanScheduleDraft | null) => Promise<void>;
+  onSave: (input: SystemComponentInput, schedules: ScanScheduleDraft[]) => Promise<void>;
 }) {
   const [review, setReview] = useState<ComponentScanReview | null>(null);
   const [readId, setReadId] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [lookupPending, setLookupPending] = useState(false);
-  const [scheduleAdded, setScheduleAdded] = useState(false);
+  const [addedSchedule, setAddedSchedule] = useState<Record<number, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -178,7 +178,7 @@ export function ScanComponent({
         const blob = await canvasJpeg(upload);
         const result = await postScan(blob, code);
         if (cancelled) return;
-        setScheduleAdded(false);
+        setAddedSchedule({});
         setReview(result);
         setReadId((id) => id + 1);
       } catch (caught) {
@@ -197,7 +197,7 @@ export function ScanComponent({
     const modelNumber = review.modelNumber.value.trim();
     const productNumber = review.productNumber.value.trim();
     const needsManual = !review.userManual.value.trim();
-    const needsSchedule = !review.schedule;
+    const needsSchedule = review.schedules.length === 0;
     if ((!manufacturer && !modelNumber && !productNumber) || (!needsManual && !needsSchedule)) return;
     const controller = new AbortController();
     let cancelled = false;
@@ -238,11 +238,15 @@ export function ScanComponent({
     if (!review || saving) return;
     const input = reviewToComponentInput(review);
     if (!input.name.trim()) return;
-    const schedule = scheduleAdded && review.schedule ? scanScheduleDraft(review.schedule) : null;
+    const schedules = review.schedules.flatMap((item, index) => {
+      if (!addedSchedule[index]) return [];
+      const draft = scanScheduleDraft(item);
+      return draft ? [draft] : [];
+    });
     setSaving(true);
     setSaveError(null);
     try {
-      await onSave(input, schedule);
+      await onSave(input, schedules);
     } catch (caught) {
       setSaveError(caught instanceof Error ? caught.message : "Couldn't save that component");
       setSaving(false);
@@ -252,7 +256,7 @@ export function ScanComponent({
   if (review) {
     const makeModel = joinMakeAndModel(review.manufacturer.value, review.modelNumber.value);
     const makeTag = makeModelTag(review.manufacturer, review.modelNumber);
-    const scheduleText = review.schedule ? scheduleSuggestionText(review.schedule) : null;
+    const scheduleRows = review.schedules.map((item) => scheduleSuggestionText(item));
     const manualKind =
       review.manualKind === "PDF" || /\.pdf($|\?)/i.test(review.userManual.value) ? "PDF" : "";
     return (
@@ -361,22 +365,34 @@ export function ScanComponent({
         ) : lookupPending ? (
           <p className="mt-3.5 text-[13px] text-[#a8a29e]">Looking up the manual…</p>
         ) : null}
-        {review.schedule && scheduleText ? (
+        {scheduleRows.length ? (
           <div className="mt-3.5">
-            <p className="text-[13px] text-[#78716c]">Suggested schedule</p>
-            <div className="mt-1.5 rounded-[14px] border border-dashed border-[#d6cdbb] px-3.5 py-3 text-[15px] leading-snug text-[#1c1917]">
-              <p>
-                <b className="font-semibold">{scheduleText.name}</b> {scheduleText.rest}
-              </p>
-              <button
-                type="button"
-                aria-pressed={scheduleAdded}
-                onClick={() => setScheduleAdded((added) => !added)}
-                className="mt-1.5 inline-flex min-h-11 items-center text-[15px] font-medium text-[#166534]"
+            <p className="text-[13px] text-[#78716c]">
+              {scheduleRows.length === 1 ? "Suggested schedule" : "Suggested schedules"}
+            </p>
+            {scheduleRows.map((scheduleText, index) => (
+              <div
+                key={`${scheduleText.name}-${index}`}
+                className="mt-1.5 rounded-[14px] border border-dashed border-[#d6cdbb] px-3.5 py-3 text-[15px] leading-snug text-[#1c1917]"
               >
-                {scheduleAdded ? "Added" : "+ Add this schedule"}
-              </button>
-            </div>
+                <p>
+                  <b className="font-semibold">{scheduleText.name}</b> {scheduleText.rest}
+                </p>
+                <button
+                  type="button"
+                  aria-pressed={Boolean(addedSchedule[index])}
+                  aria-label={
+                    addedSchedule[index] ? `Remove schedule ${scheduleText.name}` : `Add schedule ${scheduleText.name}`
+                  }
+                  onClick={() =>
+                    setAddedSchedule((current) => ({ ...current, [index]: !current[index] }))
+                  }
+                  className="mt-1.5 inline-flex min-h-11 items-center text-[15px] font-medium text-[#166534]"
+                >
+                  {addedSchedule[index] ? "Added" : "+ Add this schedule"}
+                </button>
+              </div>
+            ))}
           </div>
         ) : null}
         {saveError ? <p className="mt-3 text-[13px] text-[#b91c1c]">{saveError}</p> : null}
