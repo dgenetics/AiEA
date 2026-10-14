@@ -17,6 +17,7 @@ import {
   componentMatchesFilter,
   type BubbleDue,
 } from "@/lib/component-bubbles"
+import { componentIdentityRows } from "@/lib/component-identity"
 import {
   hasOtherSystemsToMoveTo,
   MoveComponentSheet,
@@ -497,10 +498,6 @@ export function ComponentsList({
   }
 
   function rowsFor(part: SystemComponent): { label: string; value: string; href?: string }[] {
-    const model = [part.manufacturer, part.modelNumber]
-      .map((piece) => piece.trim())
-      .filter(Boolean)
-      .join(" ")
     const vendor = [part.vendorName, part.vendorContact]
       .map((piece) => piece.trim())
       .filter(Boolean)
@@ -510,8 +507,7 @@ export function ComponentsList({
       .filter(Boolean)
       .join(" · ")
     const rows: { label: string; value: string; href?: string }[] = [
-      { label: "Model", value: model },
-      { label: "Serial", value: part.serialNumber.trim() },
+      ...componentIdentityRows(part),
       { label: "Vendor", value: vendor },
       {
         label: "Installed",

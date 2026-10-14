@@ -150,6 +150,27 @@ export function makeModelTag(manufacturer: TaggedText, modelNumber: TaggedText):
   return tags[0] ?? null;
 }
 
+/** A tag stays only while the field is still the value the scan supplied. */
+export function editTaggedField(field: TaggedText, value: string): TaggedText {
+  if (value === field.value) return field;
+  return { value, tag: null };
+}
+
+export function editMakeAndModel(
+  manufacturer: TaggedText,
+  modelNumber: TaggedText,
+  text: string,
+): { manufacturer: TaggedText; modelNumber: TaggedText } {
+  if (text === joinMakeAndModel(manufacturer.value, modelNumber.value)) {
+    return { manufacturer, modelNumber };
+  }
+  const split = splitMakeAndModel(text, manufacturer.value);
+  return {
+    manufacturer: { value: split.manufacturer, tag: null },
+    modelNumber: { value: split.modelNumber, tag: null },
+  };
+}
+
 function blank(): TaggedText {
   return { value: "", tag: null };
 }

@@ -5,11 +5,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { componentIdentityRows } from "../src/lib/component-identity";
 import { emptyComponentInput } from "../src/lib/farm-money";
 import { getComponentScanConfig } from "../src/lib/component-scan-ai";
 import {
   SCAN_READ_ERROR,
   SCAN_TOO_LARGE,
+  editMakeAndModel,
+  editTaggedField,
   firstBarcodeValue,
   interpretComponentScan,
   joinMakeAndModel,
@@ -263,6 +266,66 @@ assert.match(scanUi, /\+ Add this schedule/);
 assert.match(scanLib, /"from label"/);
 assert.match(scanUi, /where you started/);
 assert.match(scanUi, /Make and model/);
+assert.match(scanUi, /editTaggedField\(review\.name, value\)/);
+assert.doesNotMatch(scanUi, /tag: review\.name\.tag \?\? "suggested"/);
+assert.deepEqual(editTaggedField({ value: "", tag: null }, "Well Pump"), {
+  value: "Well Pump",
+  tag: null,
+});
+assert.deepEqual(editTaggedField({ value: "Well Pump", tag: "suggested" }, "Sump Pump"), {
+  value: "Sump Pump",
+  tag: null,
+});
+assert.deepEqual(editTaggedField({ value: "96510192", tag: "barcode" }, "96510192"), {
+  value: "96510192",
+  tag: "barcode",
+});
+const editedMake = editMakeAndModel(
+  { value: "Grundfos", tag: "from label" },
+  { value: "SQ 3-65", tag: "from label" },
+  "Acme Jet",
+);
+assert.equal(editedMake.manufacturer.tag, null);
+assert.equal(editedMake.modelNumber.tag, null);
+assert.equal(editedMake.manufacturer.value, "Acme");
+assert.equal(editedMake.modelNumber.value, "Jet");
+const keptMake = editMakeAndModel(
+  { value: "Grundfos", tag: "from label" },
+  { value: "SQ 3-65", tag: "from label" },
+  "Grundfos SQ 3-65",
+);
+assert.equal(keptMake.manufacturer.tag, "from label");
+assert.equal(keptMake.modelNumber.tag, "from label");
+assert.deepEqual(
+  componentIdentityRows({
+    manufacturer: "Grundfos",
+    modelNumber: "SQ 3-65",
+    productNumber: "96510192",
+    serialNumber: "0342 1187",
+  }).map((row) => row.label),
+  ["Model", "Part number", "Serial"],
+);
+assert.equal(
+  componentIdentityRows({
+    manufacturer: "Grundfos",
+    modelNumber: "SQ 3-65",
+    productNumber: "96510192",
+    serialNumber: "0342 1187",
+  })[1]?.value,
+  "96510192",
+);
+assert.deepEqual(
+  componentIdentityRows({
+    manufacturer: "Grundfos",
+    modelNumber: "SQ 3-65",
+    productNumber: "   ",
+    serialNumber: "0342 1187",
+  }).map((row) => row.label),
+  ["Model", "Serial"],
+);
+assert.match(list, /componentIdentityRows\(part\)/);
+assert.match(features, /Part number sits with the model and serial/);
+assert.match(features, /Changing it removes the tag/);
 assert.match(route, /requireWorkspace/);
 assert.match(route, /takeScanSlot/);
 assert.match(route, /SCAN_IMAGE_MAX_BYTES/);

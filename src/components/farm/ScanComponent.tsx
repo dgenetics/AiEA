@@ -8,12 +8,13 @@ import {
   SCAN_IMAGE_MAX_BYTES,
   SCAN_READ_ERROR,
   firstBarcodeValue,
+  editMakeAndModel,
+  editTaggedField,
   joinMakeAndModel,
   makeModelTag,
   reviewToComponentInput,
   scanScheduleDraft,
   scheduleSuggestionText,
-  splitMakeAndModel,
   type ComponentScanReview,
   type ScanScheduleDraft,
   type ScanTag,
@@ -366,9 +367,7 @@ export function ScanComponent({
           value={review.name.value}
           placeholder="Component name"
           tag={review.name.value ? review.name.tag : null}
-          onChange={(value) =>
-            setReview({ ...review, name: { value, tag: review.name.tag ?? "suggested" } })
-          }
+          onChange={(value) => setReview({ ...review, name: editTaggedField(review.name, value) })}
         />
         {makeModel || review.manufacturer.value || review.modelNumber.value ? (
           <TaggedInput
@@ -376,13 +375,8 @@ export function ScanComponent({
             value={makeModel}
             tag={makeTag}
             onChange={(value) => {
-              const split = splitMakeAndModel(value, review.manufacturer.value);
-              const tag = makeTag;
-              setReview({
-                ...review,
-                manufacturer: { value: split.manufacturer, tag },
-                modelNumber: { value: split.modelNumber, tag },
-              });
+              const next = editMakeAndModel(review.manufacturer, review.modelNumber, value);
+              setReview({ ...review, ...next });
             }}
           />
         ) : null}
@@ -392,7 +386,7 @@ export function ScanComponent({
             value={review.serialNumber.value}
             tag={review.serialNumber.tag}
             onChange={(value) =>
-              setReview({ ...review, serialNumber: { ...review.serialNumber, value } })
+              setReview({ ...review, serialNumber: editTaggedField(review.serialNumber, value) })
             }
           />
         ) : null}
@@ -402,7 +396,7 @@ export function ScanComponent({
             value={review.productNumber.value}
             tag={review.productNumber.tag}
             onChange={(value) =>
-              setReview({ ...review, productNumber: { ...review.productNumber, value } })
+              setReview({ ...review, productNumber: editTaggedField(review.productNumber, value) })
             }
           />
         ) : null}
@@ -413,7 +407,7 @@ export function ScanComponent({
             value={review.warrantyInfo.value}
             tag={review.warrantyInfo.tag}
             onChange={(value) =>
-              setReview({ ...review, warrantyInfo: { ...review.warrantyInfo, value } })
+              setReview({ ...review, warrantyInfo: editTaggedField(review.warrantyInfo, value) })
             }
           />
         ) : null}
@@ -422,7 +416,9 @@ export function ScanComponent({
             label="Vendor"
             value={review.vendorName.value}
             tag={review.vendorName.tag}
-            onChange={(value) => setReview({ ...review, vendorName: { ...review.vendorName, value } })}
+            onChange={(value) =>
+              setReview({ ...review, vendorName: editTaggedField(review.vendorName, value) })
+            }
           />
         ) : null}
         {review.userManual.value ? (
@@ -443,14 +439,16 @@ export function ScanComponent({
                 onChange={(event) =>
                   setReview({
                     ...review,
-                    userManual: { ...review.userManual, value: event.target.value },
+                    userManual: editTaggedField(review.userManual, event.target.value),
                   })
                 }
                 className="mt-1 w-full bg-transparent text-[13px] text-[#a8a29e] outline-none"
               />
-              <p className="mt-0.5 text-[13px] text-[#a8a29e]">
-                {manualKind ? `Found online, ${manualKind}` : "Found online"}
-              </p>
+              {review.userManual.tag === "found online" ? (
+                <p className="mt-0.5 text-[13px] text-[#a8a29e]">
+                  {manualKind ? `Found online, ${manualKind}` : "Found online"}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
