@@ -1,6 +1,7 @@
 import { normalizeCategory } from "@/lib/farm-types";
 
 type CardComponent = {
+  name?: string | null;
   location?: string | null;
   manufacturer?: string | null;
   modelNumber?: string | null;
@@ -54,6 +55,23 @@ export function systemCardLocation(asset: { components: CardComponent[] }): stri
   }
   if (!best) return "";
   return tied ? "Multiple locations" : best;
+}
+
+/** Case-insensitive match on the system, its category, or any component name or location. */
+export function systemMatchesSearch(
+  asset: { name: string; components: CardComponent[] },
+  category: string,
+  query: string,
+): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const fields = [
+    asset.name,
+    category,
+    systemCardLocation(asset),
+    ...asset.components.flatMap((component) => [component.name ?? "", component.location ?? ""]),
+  ];
+  return fields.join("\n").toLowerCase().includes(needle);
 }
 
 export function groupSystemsByCategory<T extends { name: string; category: string }>(

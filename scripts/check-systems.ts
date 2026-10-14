@@ -9,6 +9,7 @@ import {
   groupSystemsByCategory,
   systemCardLocation,
   systemCardSubtitle,
+  systemMatchesSearch,
   systemComponentCountLabel,
   systemIdsWithOpenTasks,
 } from "../src/lib/system-cards";
@@ -89,6 +90,24 @@ assert.equal(
   "",
 );
 
+const hvac = {
+  name: "HVAC",
+  components: [
+    { name: "Furnace", location: "Main house" },
+    { name: "Filter", location: "Root cellar" },
+  ],
+};
+const tractor = {
+  name: "Tractor",
+  components: [{ name: "Engine", location: "Equipment shed" }],
+};
+assert.equal(systemMatchesSearch(hvac, "Other", "furnace"), true);
+assert.equal(systemMatchesSearch(tractor, "Other", "furnace"), false);
+assert.equal(systemMatchesSearch(hvac, "Other", "root"), true);
+assert.equal(systemMatchesSearch(hvac, "Other", "HVAC"), true);
+assert.equal(systemMatchesSearch(tractor, "Other", "other"), true);
+assert.equal(systemMatchesSearch(tractor, "Other", "   "), true);
+
 const groups = groupSystemsByCategory([
   { name: "Well pump", category: "Water" },
   { name: "Tractor", category: "Farm Equipment" },
@@ -139,9 +158,10 @@ assert.doesNotMatch(view, /›/);
 assert.match(view, /bg-\[#fdf0d5\]/);
 assert.match(view, /groupSystemsByCategory/);
 assert.match(view, /systemCardLocation/);
+assert.match(view, /systemMatchesSearch/);
 assert.match(view, /aria-label="Search systems"/);
 assert.match(view, /aria-label="Close search"/);
-assert.match(view, /Search title, location, category/);
+assert.match(view, /Search title, component, location, category/);
 assert.match(view, /No systems match/);
 assert.match(view, /No systems yet/);
 assert.match(view, /event\.key !== "Escape"/);

@@ -14,6 +14,7 @@ import {
   systemCardLocation,
   systemComponentCountLabel,
   systemIdsWithOpenTasks,
+  systemMatchesSearch,
 } from "@/lib/system-cards";
 
 type OpenTask = {
@@ -53,10 +54,9 @@ export function SystemsList() {
     return grouped
       .map((group) => ({
         ...group,
-        systems: group.systems.filter((asset) => {
-          const haystack = `${asset.name} ${systemCardLocation(asset)} ${group.category}`.toLowerCase();
-          return haystack.includes(needle);
-        }),
+        systems: group.systems.filter((asset) =>
+          systemMatchesSearch(asset, group.category, needle),
+        ),
       }))
       .filter((group) => group.systems.length > 0);
   }, [assets, query]);
@@ -143,9 +143,9 @@ export function SystemsList() {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search title, location, category"
+            placeholder="Search title, component, location, category"
             autoComplete="off"
-            aria-label="Search title, location, category"
+            aria-label="Search title, component, location, category"
             className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-stone-900 outline-none placeholder:text-stone-400 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           <button
