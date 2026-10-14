@@ -11,6 +11,7 @@ import { normalizeCategory } from "@/lib/farm-types";
 import { systemCardLocation } from "@/lib/system-cards";
 import { AssetFormFields } from "@/components/farm/AssetFormFields";
 import { ComponentsList } from "@/components/farm/ComponentsList";
+import { DeleteConfirm, InlineDelete } from "@/components/farm/InlineDelete";
 import { StickySaveBar } from "@/components/farm/StickySaveBar";
 import { Button } from "@/components/farm/ui";
 
@@ -34,6 +35,7 @@ export function SystemDetail({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<AssetInput | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const handleUpdateComponent = useCallback(
@@ -71,11 +73,13 @@ export function SystemDetail({ id }: { id: string }) {
 
   function startEdit() {
     setMenuOpen(false);
+    setConfirmDelete(false);
     setDraft(toInput(asset!));
     setEditing(true);
   }
 
   function cancelEdit() {
+    setConfirmDelete(false);
     setEditing(false);
     setDraft(null);
   }
@@ -88,8 +92,7 @@ export function SystemDetail({ id }: { id: string }) {
   }
 
   function deleteSystem() {
-    if (!confirm(`Delete ${asset!.name}? This cannot be undone.`)) return;
-    void deleteAsset(asset!.id).then(() => router.push("/systems"));
+    return deleteAsset(asset!.id).then(() => router.push("/systems"));
   }
 
   const place = systemCardLocation(asset);
@@ -135,13 +138,13 @@ export function SystemDetail({ id }: { id: string }) {
           onDelete={(componentId) => deleteComponent(asset.id, componentId)}
           onDuplicate={(componentId) => duplicateComponent(asset.id, componentId)}
         />
-        <button
-          type="button"
-          onClick={deleteSystem}
-          className="mt-6 block border-t border-[#e7e0d0] pt-3.5 text-sm font-semibold text-[#b91c1c]"
-        >
-          Delete system…
-        </button>
+        <div className="mt-6 border-t border-[#e7e0d0] pt-1">
+          <InlineDelete
+            label="Delete system…"
+            message={`Delete '${asset.name}'? This cannot be undone.`}
+            onConfirm={deleteSystem}
+          />
+        </div>
         <StickySaveBar>
           <Button variant="secondary" onClick={cancelEdit}>
             Cancel
@@ -194,7 +197,7 @@ export function SystemDetail({ id }: { id: string }) {
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    deleteSystem();
+                    setConfirmDelete(true);
                   }}
                   className="block w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#b91c1c] hover:bg-cream-100"
                 >
@@ -205,6 +208,15 @@ export function SystemDetail({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {confirmDelete ? (
+        <DeleteConfirm
+          className="mt-4"
+          message={`Delete '${asset.name}'? This cannot be undone.`}
+          onDismiss={() => setConfirmDelete(false)}
+          onConfirm={deleteSystem}
+        />
+      ) : null}
 
       <ComponentsList
         mode="read"

@@ -287,6 +287,11 @@ const list = readFileSync(join(root, "src/components/farm/ComponentsList.tsx"), 
 const types = readFileSync(join(root, "src/lib/farm-types.ts"), "utf8");
 assert.match(detail, /‹ Systems/);
 assert.match(detail, /Delete system…/);
+assert.match(detail, /<InlineDelete/);
+assert.match(detail, /<DeleteConfirm/);
+assert.doesNotMatch(detail, /confirm\(/);
+assert.doesNotMatch(list, /confirm\(/);
+assert.match(list, /<DeleteConfirm/);
 assert.match(detail, /mode="read"/);
 assert.match(detail, /plain/);
 const fields = readFileSync(join(root, "src/components/farm/AssetFormFields.tsx"), "utf8");

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useData } from "@/components/farm/data-context";
 import { Modal } from "@/components/farm/Modal";
 import { ScheduleForm } from "@/components/farm/ScheduleForm";
+import { Toast } from "@/components/farm/Toast";
 import { maintenanceApi } from "@/lib/farm-api";
 import { scheduleCardFrequency } from "@/lib/chore-display";
 import type { ScheduleJson } from "@/lib/maintenance";
@@ -19,7 +20,9 @@ type OpenCard = CachedOpenCard;
 
 export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
   const { assets } = useData();
+  const router = useRouter();
   const params = useSearchParams();
+  const removedIds = useRef(new Set<string>());
   const focusId = params.get("id");
   const openedFocus = useRef<string | null>(null);
   const [schedules, setSchedules] = useState<ScheduleJson[]>(initial.schedules);
@@ -30,10 +33,13 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
   const [componentId, setComponentId] = useState("");
   const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    setSchedules(initial.schedules);
-    setOpenCards(initial.openCards);
+    setSchedules(initial.schedules.filter((row) => !removedIds.current.has(row.id)));
+    setOpenCards(
+      initial.openCards.filter((card) => !card.scheduleId || !removedIds.current.has(card.scheduleId)),
+    );
   }, [initial]);
 
   async function load() {
@@ -42,12 +48,14 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
     try {
       const [rows, taskRes] = await Promise.all([
         maintenanceApi.listSchedules(),
-        fetch("/api/tasks?view=board", { credentials: "include" }).then((r) => r.json()),
+        fetch("/api/tasks?view=board", { credentials: "include", cache: "no-store" }).then((r) => r.json()),
       ]);
       if (!schedulesFetchIsCurrent(id)) return;
       const tasks = (taskRes.tasks ?? []) as OpenCard[];
-      setSchedules(rows);
-      setOpenCards(tasks.filter((t) => t.scheduleId));
+      setSchedules(rows.filter((row) => !removedIds.current.has(row.id)));
+      setOpenCards(
+        tasks.filter((task) => task.scheduleId && !removedIds.current.has(task.scheduleId)),
+      );
     } catch (e) {
       if (!schedulesFetchIsCurrent(id)) return;
       setError(e instanceof Error ? e.message : "Could not load schedules");
@@ -164,6 +172,23 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
             }}
             busy={saving}
             formId="schedule-edit-form"
+            onDelete={async () => {
+              const id = editing.id;
+              const deleted = editing.name.trim() || "Schedule";
+              setSaving(true);
+              try {
+                await maintenanceApi.deleteSchedule(id);
+                removedIds.current.add(id);
+                setSchedules((rows) => rows.filter((row) => row.id !== id));
+                setOpenCards((cards) => cards.filter((card) => card.scheduleId !== id));
+                setEditing(null);
+                setToast(`Deleted '${deleted}'.`);
+                router.refresh();
+                await load();
+              } finally {
+                setSaving(false);
+              }
+            }}
             onSubmit={async (input) => {
               setSaving(true);
               try {
@@ -177,6 +202,8 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
           />
         </Modal>
       )}
+
+      {toast ? <Toast message={toast} onDone={() => setToast(null)} /> : null}
 
       {addOpen && (
         <Modal
