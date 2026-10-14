@@ -11,8 +11,6 @@ import { emptyAssetInput } from "@/lib/farm-money";
 import type { AssetInput } from "@/lib/farm-types";
 import {
   groupSystemsByCategory,
-  systemCardLocation,
-  systemComponentCountLabel,
   systemIdsWithOpenTasks,
   systemMatchesSearch,
 } from "@/lib/system-cards";
@@ -30,7 +28,6 @@ export function SystemsList() {
   const [value, setValue] = useState<AssetInput>(() => emptyAssetInput());
   const [saving, setSaving] = useState(false);
   const [openTasks, setOpenTasks] = useState<OpenTask[]>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -65,21 +62,9 @@ export function SystemsList() {
     [assets, openTasks],
   );
 
-  useEffect(() => {
-    if (!searchOpen) return;
-    searchRef.current?.focus();
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setQuery("");
-      setSearchOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [searchOpen]);
-
-  function closeSearch() {
+  function clearSearch() {
     setQuery("");
-    setSearchOpen(false);
+    searchRef.current?.focus();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -97,67 +82,58 @@ export function SystemsList() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-[22px] font-semibold tracking-tight text-stone-900">Systems</h1>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="Search systems"
-            aria-pressed={searchOpen}
-            onClick={() => {
-              if (searchOpen) closeSearch();
-              else setSearchOpen(true);
-            }}
-            className="flex size-11 items-center justify-center text-stone-600"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setValue(emptyAssetInput());
-              setAddOpen(true);
-            }}
-            className="text-[13px] font-semibold text-green-800"
-          >
-            + Add system
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setValue(emptyAssetInput());
+            setAddOpen(true);
+          }}
+          className="text-[13px] font-semibold text-green-800"
+        >
+          + Add system
+        </button>
       </div>
 
-      {searchOpen && (
-        <div className="mb-1.5 flex h-10 items-center gap-2 rounded-[10px] border border-[#d9cfb8] bg-[#fffdf8] px-2.5">
-          <input
-            ref={searchRef}
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search title, component, location, category"
-            autoComplete="off"
-            aria-label="Search title, component, location, category"
-            className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-stone-900 outline-none placeholder:text-stone-400 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-          />
+      <div className="mb-7 flex h-[46px] items-center gap-2 rounded-[10px] border border-[#d9cfb8] bg-[#fffdf8] px-3">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="flex-none text-stone-400"
+          aria-hidden
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          ref={searchRef}
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setQuery("");
+          }}
+          placeholder="Search systems, components, locations"
+          autoComplete="off"
+          aria-label="Search systems"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-stone-900 outline-none placeholder:text-stone-400 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+        />
+        {query ? (
           <button
             type="button"
-            aria-label="Close search"
-            onClick={closeSearch}
+            aria-label="Clear search"
+            onClick={clearSearch}
             className="px-1 text-[15px] text-stone-500"
           >
             ✕
           </button>
-        </div>
-      )}
+        ) : null}
+      </div>
 
       {error && <p className="mb-3 text-sm text-red-800">{error}</p>}
       {loading ? (
@@ -175,35 +151,28 @@ export function SystemsList() {
               <h2
                 className={
                   index === 0
-                    ? "mt-1 border-b border-[#e7e0d0] pb-1.5 text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase"
-                    : "mt-5 border-b border-[#e7e0d0] pb-1.5 text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase"
+                    ? "text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase"
+                    : "mt-8 text-[11px] font-medium tracking-[0.14em] text-[#a8a29e] uppercase"
                 }
               >
                 {group.category}
               </h2>
-              <ul className="mt-2 grid grid-cols-2 gap-2 min-[700px]:grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
+              <ul className="mt-3 flex flex-wrap items-start gap-2.5">
                 {group.systems.map((asset) => {
                   const open = openSystemIds.has(asset.id);
-                  const location = systemCardLocation(asset);
                   return (
-                    <li key={asset.id}>
+                    <li key={asset.id} className="max-w-full">
                       <Link
                         href={`/systems/${asset.id}`}
                         className={
                           open
-                            ? "block h-full rounded-xl border border-[#f3d79a] bg-[#fdf0d5] px-[11px] py-[9px] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800"
-                            : "block h-full rounded-xl border border-[#ebe3d3] bg-[#fffdf8] px-[11px] py-[9px] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800"
+                            ? "inline-flex min-h-[46px] max-w-full items-center rounded-3xl border border-[#f3d79a] bg-[#fdf0d5] px-[18px] py-[11px] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800"
+                            : "inline-flex min-h-[46px] max-w-full items-center rounded-3xl border border-[#e6dcc8] bg-[#fffdf8] px-[18px] py-[11px] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800"
                         }
                       >
-                        <div className="truncate text-sm leading-tight font-semibold text-stone-900">
+                        <span className="text-base leading-[1.3] font-semibold text-stone-900 [overflow-wrap:anywhere]">
                           {asset.name}
-                        </div>
-                        {location ? (
-                          <div className="mt-px truncate text-xs text-stone-500">{location}</div>
-                        ) : null}
-                        <div className="mt-1.5 text-xs text-stone-600">
-                          {systemComponentCountLabel(asset.components.length)}
-                        </div>
+                        </span>
                       </Link>
                     </li>
                   );
@@ -215,12 +184,12 @@ export function SystemsList() {
       )}
 
       {!loading && (
-        <p className="mt-3.5 flex items-center gap-1.5 text-xs text-stone-500">
+        <p className="mt-8 flex items-center gap-1.5 text-xs text-stone-500">
           <span
             aria-hidden
             className="inline-block size-3 rounded border border-[#f3d79a] bg-[#fdf0d5]"
           />
-          Tinted = has an open task on Tasks
+          Amber = has an open task
         </p>
       )}
 
