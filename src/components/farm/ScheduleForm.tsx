@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { CreateScheduleInput } from "@/lib/farm-api";
+import { ComponentPicker, ComponentPickerField } from "@/components/farm/ComponentPicker";
+import type { ComponentPickerOption } from "@/lib/component-picker";
 import { sheetRepeatFromSchedule, sheetRepeatToInput, type RepeatUnit } from "@/lib/schedule-sheet";
 import { Input, Select, Textarea } from "@/components/farm/ui";
 
@@ -35,6 +37,8 @@ export function ScheduleForm({
   error: errorProp = null,
   components,
   onComponentChange,
+  picking = false,
+  onPickingChange,
 }: {
   componentId: string;
   initial?: ScheduleFormInitial;
@@ -43,8 +47,10 @@ export function ScheduleForm({
   formId?: string;
   error?: string | null;
   /** Schedules page: the schedule is not already attached to a component. */
-  components?: { id: string; label: string }[];
+  components?: ComponentPickerOption[];
   onComponentChange?: (id: string) => void;
+  picking?: boolean;
+  onPickingChange?: (open: boolean) => void;
 }) {
   const repeat = sheetRepeatFromSchedule(initial);
   const [name, setName] = useState(initial?.name ?? "");
@@ -55,6 +61,7 @@ export function ScheduleForm({
     initial?.nextDueDate ? toDateInput(initial.nextDueDate) : "",
   );
   const [error, setError] = useState<string | null>(null);
+  const focusName = useRef(true);
   const cadence = sheetRepeatToInput(count, unit);
   const needsComponent = Boolean(components);
   const canSave = Boolean(
@@ -92,35 +99,42 @@ export function ScheduleForm({
   const shownError = errorProp ?? error;
   const selectClass = `h-12 flex-1 appearance-none rounded-xl bg-[#fffdf8] bg-[length:16px_16px] bg-[position:right_14px_center] bg-no-repeat pr-10 text-base focus:border-stone-600 focus:ring-stone-600/12`;
 
+  if (picking && components && components.length > 0) {
+    return (
+      <ComponentPicker
+        options={components}
+        value={componentId}
+        onChange={(id) => {
+          onComponentChange?.(id);
+          onPickingChange?.(false);
+        }}
+      />
+    );
+  }
+
   return (
     <form id={formId} onSubmit={(e) => void handleSubmit(e)} className="mt-3.5 flex flex-col gap-4">
       {components ? (
         components.length === 0 ? (
           <p className="text-[13px] text-[#78716c]">Schedules belong to a component.</p>
         ) : (
-          <label className="block text-[13px] text-[#78716c]">
+          <div className="block text-[13px] text-[#78716c]">
             Component
-            <Select
-              required
+            <ComponentPickerField
+              options={components}
               value={componentId}
-              onChange={(e) => onComponentChange?.(e.target.value)}
-              className={`${selectClass} mt-1.5 w-full ${componentId ? "" : "text-stone-400"}`}
-              style={{ backgroundImage: selectChevron }}
-            >
-              <option value="">Choose a component</option>
-              {components.map((component) => (
-                <option key={component.id} value={component.id}>
-                  {component.label}
-                </option>
-              ))}
-            </Select>
-          </label>
+              onOpen={() => {
+                focusName.current = false;
+                onPickingChange?.(true);
+              }}
+            />
+          </div>
         )
       ) : null}
       <label className="block text-[13px] text-[#78716c]">
         Name
         <Input
-          autoFocus
+          autoFocus={focusName.current}
           required
           value={name}
           onChange={(e) => setName(e.target.value)}

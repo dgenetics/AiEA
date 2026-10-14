@@ -28,6 +28,7 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
   const [addOpen, setAddOpen] = useState(params.get("add") === "1");
   const [editing, setEditing] = useState<ScheduleJson | null>(null);
   const [componentId, setComponentId] = useState("");
+  const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -73,13 +74,15 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
   }, [assets, initial.places]);
 
   const picks = useMemo(() => {
-    const list: Array<{ id: string; label: string }> = [];
+    const list: Array<{ id: string; name: string; system: string }> = [];
     for (const system of assets) {
       for (const component of system.components) {
-        list.push({ id: component.id, label: `${system.name} · ${component.name}` });
+        list.push({ id: component.id, name: component.name, system: system.name });
       }
     }
-    return list.sort((a, b) => a.label.localeCompare(b.label));
+    return list.sort(
+      (a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name),
+    );
   }, [assets]);
 
   const openIds = useMemo(
@@ -178,16 +181,20 @@ export function SchedulesView({ initial }: { initial: SchedulesPageData }) {
       {addOpen && (
         <Modal
           variant="sheet"
-          title="Add schedule"
+          title={picking ? "Choose component" : "Add schedule"}
+          onBack={picking ? () => setPicking(false) : undefined}
           onClose={() => {
             setAddOpen(false);
             setComponentId("");
+            setPicking(false);
           }}
         >
           <ScheduleForm
             componentId={componentId}
             components={picks}
             onComponentChange={setComponentId}
+            picking={picking}
+            onPickingChange={setPicking}
             busy={saving}
             onSubmit={async (input) => {
               setSaving(true);

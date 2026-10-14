@@ -6,6 +6,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { scheduleCardFrequency } from "../src/lib/chore-display";
+import {
+  componentMatchLabel,
+  componentPickCount,
+  filterComponentPicks,
+  highlightParts,
+} from "../src/lib/component-picker";
 import { sheetRepeatFromSchedule, sheetRepeatToInput } from "../src/lib/schedule-sheet";
 import {
   beginSchedulesFetch,
@@ -45,13 +51,16 @@ assert.match(view, /md:grid-cols-2/);
 assert.match(view, /lg:grid-cols-3/);
 assert.match(view, /scheduleCardFrequency/);
 assert.match(view, /title="Edit schedule"/);
-assert.match(view, /title="Add schedule"/);
+assert.match(view, /"Add schedule"/);
 assert.match(view, /variant="sheet"/);
 assert.match(view, /subtitle=\{meta\.get\(editing\.componentId\)\?\.component\}/);
 assert.match(view, /components=\{picks\}/);
 assert.match(view, /onComponentChange=\{setComponentId\}/);
-assert.match(view, /\$\{system\.name\} · \$\{component\.name\}/);
+assert.match(view, /name: component\.name, system: system\.name/);
+assert.match(view, /title=\{picking \? "Choose component" : "Add schedule"\}/);
+assert.match(view, /onBack=\{picking \? \(\) => setPicking\(false\) : undefined\}/);
 assert.doesNotMatch(view, /\$\{system\.name\} \/ \$\{component\.name\}/);
+assert.doesNotMatch(view, /<select/);
 const addBlock = view.slice(view.indexOf("{addOpen && ("));
 assert.doesNotMatch(addBlock, /subtitle=/);
 assert.doesNotMatch(view, /embedActions/);
@@ -194,12 +203,14 @@ assert.match(form, /h-\[50px\]/);
 assert.match(form, /Saving…/);
 assert.match(form, /disabled=\{unit === "once"\}/);
 assert.match(form, /disabled=\{!canSave\}/);
-assert.match(form, /Choose a component/);
-assert.ok(form.indexOf("Choose a component") < form.indexOf("e.g. Backflush filter"));
-assert.ok(form.indexOf("autoFocus") > form.indexOf("Choose a component"));
-assert.equal((form.match(/autoFocus/g) ?? []).length, 1);
+assert.match(form, /ComponentPickerField/);
+assert.match(form, /<ComponentPicker/);
+assert.ok(form.indexOf("ComponentPickerField") < form.indexOf("e.g. Backflush filter"));
+assert.match(form, /autoFocus=\{focusName\.current\}/);
 assert.match(form, /!needsComponent \|\| componentId/);
-assert.match(form, /components\?: \{ id: string; label: string \}\[\]/);
+assert.match(form, /components\?: ComponentPickerOption\[\]/);
+assert.doesNotMatch(form, /<select[\s>]/);
+assert.doesNotMatch(form, /Choose a component/);
 assert.doesNotMatch(form, /Cancel/);
 assert.doesNotMatch(form, /Recurring \(create next task/);
 assert.doesNotMatch(form, /Frequency/);
@@ -234,6 +245,59 @@ assert.match(modal, /text-\[#78716c\] \[overflow-wrap:anywhere\]/);
 assert.match(modal, /items-start justify-between/);
 assert.match(modal, /useKeyboardFrame\(\)/);
 assert.match(modal, /useLockBodyScroll\(true\)/);
+assert.match(modal, /onBack\?: \(\) => void/);
+assert.match(modal, /aria-label="Back"/);
+assert.match(modal, /if \(onBack\) onBack\(\)/);
+
+const picker = readFileSync(join(root, "src/components/farm/ComponentPicker.tsx"), "utf8");
+assert.match(picker, /Choose a component/);
+assert.match(picker, /Search components/);
+assert.match(picker, /No components match/);
+assert.match(picker, /role="listbox"/);
+assert.match(picker, /role="option"/);
+assert.match(picker, /aria-selected/);
+assert.match(picker, /useKeyboardFrame\(\)/);
+assert.match(picker, /overflow-y-auto/);
+assert.match(picker, /\[overflow-wrap:anywhere\]/);
+assert.match(picker, /min-h-12/);
+assert.match(picker, /autoFocus/);
+assert.doesNotMatch(picker, /<select[\s>]/);
+assert.doesNotMatch(picker, /truncate/);
+assert.doesNotMatch(picker, /line-clamp/);
+
+const picks = [
+  { id: "linen", name: "Linen Storage Cabinet", system: "Cabinets" },
+  { id: "bath", name: "Master Bath Linen Closet", system: "Cabinets" },
+  { id: "sand", name: "Sand Media Filter", system: "Pond Irrigation Pump" },
+  { id: "pump", name: "Main Pump", system: "Pond Irrigation Pump" },
+  { id: "fan", name: "Exhaust Fan", system: "Greenhouse" },
+];
+assert.equal(componentPickCount(filterComponentPicks(picks, "")), 5);
+const linen = filterComponentPicks(picks, "LiNeN");
+assert.equal(componentPickCount(linen), 2);
+assert.deepEqual(
+  linen.flatMap((group) => group.items.map((item) => item.id)),
+    ["linen", "bath"],
+);
+assert.equal(linen[0]?.system, "Cabinets");
+const pond = filterComponentPicks(picks, "pond");
+assert.deepEqual(
+  pond.flatMap((group) => group.items.map((item) => item.name)),
+  ["Main Pump", "Sand Media Filter"],
+);
+assert.equal(componentPickCount(filterComponentPicks(picks, "nope")), 0);
+assert.equal(componentMatchLabel(0), "0 matches");
+assert.equal(componentMatchLabel(1), "1 match");
+assert.equal(componentMatchLabel(2), "2 matches");
+assert.deepEqual(highlightParts("Linen Storage Cabinet", "linen"), [
+  { text: "Linen", match: true },
+  { text: " Storage Cabinet", match: false },
+]);
+assert.deepEqual(highlightParts("Main Pump", "c++"), [{ text: "Main Pump", match: false }]);
+assert.deepEqual(highlightParts("Pond Irrigation Pump", "pond"), [
+  { text: "Pond", match: true },
+  { text: " Irrigation Pump", match: false },
+]);
 assert.match(modal, /fixedViewportStyle\(frame\)/);
 assert.match(modal, /style=\{viewportStyle\}/);
 
