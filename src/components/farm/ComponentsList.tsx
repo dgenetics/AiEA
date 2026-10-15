@@ -281,6 +281,7 @@ function ComponentFields({
       <SheetField label="Purchase date">
         <Input
           type="date"
+          placeholder="mm/dd/yyyy"
           value={dateToInput(value.purchaseDate)}
           onChange={(e) =>
             onChange({

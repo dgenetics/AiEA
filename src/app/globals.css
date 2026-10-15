@@ -117,7 +117,6 @@ body {
 .date-field-shell .date-field-input,
 input.date-field-input[type="date"],
 input.date-field-input[type="time"] {
-  display: block;
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
@@ -128,13 +127,11 @@ input.date-field-input[type="time"] {
   background: transparent !important;
   color: #1c1917;
   color-scheme: light;
-  padding: 0.5rem 0.75rem;
+  padding-right: 0.75rem;
+  padding-left: 0.75rem;
   /* 16px default — required to stop iOS Safari zoom-on-focus */
   font-size: 16px;
-  line-height: 1.25rem;
   height: 3rem;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 @media (min-width: 768px) {
@@ -163,21 +160,13 @@ input[type="datetime-local"]:not(.date-field-input) {
   box-sizing: border-box;
 }
 
-input.sheet-date[type="date"] {
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  display: block;
+input.sheet-date[type="date"],
+input.sheet-date[type="time"] {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
   height: 3rem;
   box-sizing: border-box;
-}
-
-input.sheet-date[type="date"]::-webkit-datetime-edit,
-input.sheet-date[type="date"]::-webkit-date-and-time-value {
-  min-width: 0;
-  padding: 0;
 }
 
 /* iOS safe areas (notch / home indicator) */
@@ -212,6 +201,7 @@ input.sheet-date[type="date"]::-webkit-date-and-time-value {
   input[type="password"],
   input[type="date"],
   input[type="time"],
+  input[type="datetime-local"],
   input[type="number"],
   input[type="search"],
   input[type="tel"],
@@ -220,6 +210,76 @@ input.sheet-date[type="date"]::-webkit-date-and-time-value {
   textarea,
   .date-field-input {
     font-size: 16px !important;
+  }
+
+  input:not([type="date"]):not([type="time"]):not([type="datetime-local"]),
+  select,
+  textarea {
     line-height: 1.25rem !important;
   }
+}
+
+/**
+ * iOS WebKit paints a date or time value at the top of a fixed-height box.
+ * One rule covers every date, time, and datetime-local input.
+ * Line-height matches the content box of a 3rem control with a 1px border.
+ */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+.date-field-shell .date-field-input,
+input.sheet-date[type="date"],
+input.sheet-date[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(3rem - 2px);
+}
+
+/* The shell draws the border, so this input's content box is the full 3rem. */
+.date-field-shell .date-field-input {
+  line-height: 3rem;
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+  line-height: inherit;
+  min-height: 1.5em;
+  min-width: 0;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+  padding: 0;
+}
+
+input[type="date"][value=""]::-webkit-datetime-edit,
+input[type="time"][value=""]::-webkit-datetime-edit,
+input[type="datetime-local"][value=""]::-webkit-datetime-edit,
+input[type="date"]:not([value])::-webkit-datetime-edit,
+input[type="time"]:not([value])::-webkit-datetime-edit,
+input[type="datetime-local"]:not([value])::-webkit-datetime-edit {
+  color: #a8a29e;
+}
+
+/* Engines that drop the native empty date text still show the placeholder attribute. */
+input[type="date"][value=""]::before,
+input[type="time"][value=""]::before,
+input[type="datetime-local"][value=""]::before,
+input[type="date"]:not([value])::before,
+input[type="time"]:not([value])::before,
+input[type="datetime-local"]:not([value])::before {
+  content: attr(placeholder);
+  color: #a8a29e;
+  line-height: inherit;
+  pointer-events: none;
+  position: relative;
+  top: -2px;
 }

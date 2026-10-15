@@ -24,6 +24,8 @@
     "test:delete-cascade": "tsx scripts/check-delete-cascade.ts",
     "test:scan": "tsx scripts/check-scan.ts",
     "test:keyboard-inset": "tsx scripts/check-keyboard-inset.ts",
+    "test:date-input": "tsx scripts/check-date-input.ts",
+    "test:date-webkit": "node scripts/check-date-webkit.mjs",
     "test:tasks-archive": "tsx scripts/check-tasks-archive.ts",
     "test:tasks-cream": "tsx scripts/check-tasks-cream.ts",
     "test:account-menu": "tsx scripts/check-account-menu.ts"
