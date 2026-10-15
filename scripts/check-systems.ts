@@ -12,6 +12,10 @@ import {
 } from "../src/lib/component-bubbles";
 import { normalizeCategory } from "../src/lib/farm-types";
 import {
+  componentDeleteMessage,
+  systemDeleteMessage,
+} from "../src/components/farm/InlineDelete";
+import {
   groupSystemsByCategory,
   systemCardLocation,
   systemCardSubtitle,
@@ -289,9 +293,61 @@ assert.match(detail, /‹ Systems/);
 assert.match(detail, /Delete system…/);
 assert.match(detail, /<InlineDelete/);
 assert.match(detail, /<DeleteConfirm/);
+assert.match(detail, /systemDeleteMessage/);
 assert.doesNotMatch(detail, /confirm\(/);
+assert.doesNotMatch(detail, /This cannot be undone/);
 assert.doesNotMatch(list, /confirm\(/);
-assert.match(list, /<DeleteConfirm/);
+assert.match(list, /<InlineDelete/);
+assert.match(list, /Delete component/);
+assert.match(list, /componentDeleteMessage/);
+assert.match(list, /<Toast/);
+assert.doesNotMatch(list, /<DeleteConfirm/);
+assert.doesNotMatch(list, /title="Remove"/);
+assert.doesNotMatch(list, /Remove from this system/);
+assert.equal(
+  componentDeleteMessage("Pump", 2),
+  "Delete 'Pump'? This also deletes its 2 schedules and all their tasks, including completed ones.",
+);
+assert.equal(
+  componentDeleteMessage("Pump", 1),
+  "Delete 'Pump'? This also deletes its 1 schedule and all its tasks, including completed ones.",
+);
+assert.equal(
+  componentDeleteMessage("Pump", 0),
+  "Delete 'Pump'? This also deletes all its tasks, including completed ones.",
+);
+assert.equal(
+  systemDeleteMessage("Well house", 2, 3),
+  "Delete 'Well house'? This also deletes its 2 components, 3 schedules, and all their tasks.",
+);
+assert.equal(
+  systemDeleteMessage("Well house", 1, 1),
+  "Delete 'Well house'? This also deletes its 1 component, its 1 schedule and all its tasks.",
+);
+assert.equal(
+  systemDeleteMessage("Well house", 2, 1),
+  "Delete 'Well house'? This also deletes its 2 components, its 1 schedule and all its tasks.",
+);
+const cascade = readFileSync(join(root, "src/lib/delete-cascade.ts"), "utf8");
+assert.match(cascade, /prisma\.\$transaction|db\.\$transaction/);
+assert.match(cascade, /task\.deleteMany/);
+assert.match(cascade, /componentId: \{ in: componentIds \}/);
+assert.match(cascade, /scheduleId: \{ in: scheduleIds \}/);
+assert.match(cascade, /component\.delete/);
+assert.match(cascade, /system\.delete/);
+assert.ok(cascade.indexOf("task.deleteMany") < cascade.indexOf("component.delete"));
+assert.ok(cascade.indexOf("task.deleteMany") < cascade.indexOf("system.delete"));
+const componentRoute = readFileSync(
+  join(root, "src/app/api/systems/[id]/components/[componentId]/route.ts"),
+  "utf8",
+);
+const componentDelete = componentRoute.slice(componentRoute.indexOf("export async function DELETE"));
+assert.match(componentDelete, /deleteComponentCascade/);
+assert.doesNotMatch(componentDelete, /prisma\.component\.delete/);
+const systemRoute = readFileSync(join(root, "src/app/api/systems/[id]/route.ts"), "utf8");
+const systemDelete = systemRoute.slice(systemRoute.indexOf("export async function DELETE"));
+assert.match(systemDelete, /deleteSystemCascade/);
+assert.doesNotMatch(systemDelete, /prisma\.system\.delete/);
 assert.match(detail, /mode="read"/);
 assert.match(detail, /plain/);
 const fields = readFileSync(join(root, "src/components/farm/AssetFormFields.tsx"), "utf8");

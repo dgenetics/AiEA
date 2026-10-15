@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { deleteSystemCascade } from "@/lib/delete-cascade";
 import { mapSystem } from "@/lib/farm-mappers";
 import { normalizeCategory } from "@/lib/farm-types";
 import { requireWorkspace } from "@/lib/require-workspace";
@@ -53,6 +54,12 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     where: { id, workspaceId: auth.workspaceId },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await prisma.system.delete({ where: { id } });
+  // Same cascade as a component delete, across every component on this system.
+  // Tasks are removed in that transaction before the system row, or SetNull would keep them.
+  const deleted = await deleteSystemCascade(prisma, {
+    workspaceId: auth.workspaceId,
+    systemId: id,
+  });
+  if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return new NextResponse(null, { status: 204 });
 }

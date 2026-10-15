@@ -8,6 +8,43 @@ export function scheduleDeleteMessage(name: string): string {
   return `Delete '${label}'? This also deletes all its tasks, including completed ones.`;
 }
 
+function quoted(name: string, fallback: string): string {
+  return `'${name.trim() || fallback}'`;
+}
+
+function counted(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+/**
+ * Component confirm. N is the schedule count. With none, the schedules clause is omitted
+ * because there is nothing to name; tasks on the component are still deleted.
+ */
+export function componentDeleteMessage(name: string, scheduleCount: number): string {
+  const label = quoted(name, "this component");
+  if (scheduleCount <= 0) {
+    return `Delete ${label}? This also deletes all its tasks, including completed ones.`;
+  }
+  if (scheduleCount === 1) {
+    return `Delete ${label}? This also deletes its 1 schedule and all its tasks, including completed ones.`;
+  }
+  return `Delete ${label}? This also deletes its ${counted(scheduleCount, "schedule")} and all their tasks, including completed ones.`;
+}
+
+/** System confirm. N and M are the component and schedule counts on that system. */
+export function systemDeleteMessage(
+  name: string,
+  componentCount: number,
+  scheduleCount: number,
+): string {
+  const label = quoted(name, "this system");
+  const schedules =
+    scheduleCount === 1
+      ? "its 1 schedule and all its tasks"
+      : `${counted(scheduleCount, "schedule")}, and all their tasks`;
+  return `Delete ${label}? This also deletes its ${counted(componentCount, "component")}, ${schedules}.`;
+}
+
 export function DeleteConfirm({
   message,
   onConfirm,

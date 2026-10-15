@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { deleteComponentCascade } from "@/lib/delete-cascade";
 import { mapComponent } from "@/lib/farm-mappers";
 import type { SystemComponentPatch } from "@/lib/farm-types";
 import { requireWorkspace } from "@/lib/require-workspace";
@@ -83,7 +84,13 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     where: { id: componentId, systemId, workspaceId: auth.workspaceId },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await prisma.component.delete({ where: { id: componentId } });
-  await prisma.system.update({ where: { id: systemId }, data: { updatedAt: new Date() } });
+  // Tasks first, inside the transaction: component and schedule links are SetNull,
+  // so deleting the component alone would orphan its tasks and its schedules' tasks.
+  const deleted = await deleteComponentCascade(prisma, {
+    workspaceId: auth.workspaceId,
+    systemId,
+    componentId,
+  });
+  if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return new NextResponse(null, { status: 204 });
 }
