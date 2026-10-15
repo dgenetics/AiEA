@@ -31,6 +31,7 @@ export function DateField({
       <input
         type="date"
         value={value}
+        placeholder="mm/dd/yyyy"
         onChange={(e) => onChange(e.target.value)}
         className={cn("date-field-input", inputClassName)}
       />

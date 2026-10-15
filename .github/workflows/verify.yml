@@ -83,6 +83,9 @@ jobs:
       - name: Unit assertions (keyboard inset)
         run: npm run test:keyboard-inset
 
+      - name: Unit assertions (date input alignment)
+        run: npm run test:date-input
+
       - name: Unit assertions (Tasks Archive links)
         run: npm run test:tasks-archive
 
@@ -100,6 +103,12 @@ jobs:
 
       - name: Install verify harness (playwright-core)
         run: npm ci --prefix .cursor/skills/verify-aiea/scripts
+
+      - name: WebKit date input is vertically centered
+        run: |
+          node .cursor/skills/verify-aiea/scripts/node_modules/playwright-core/cli.js install-deps webkit
+          node .cursor/skills/verify-aiea/scripts/node_modules/playwright-core/cli.js install webkit
+          node scripts/check-date-webkit.mjs --fixture-only
 
       - name: Poteto gate (local launch + doctor + core features)
         env:
