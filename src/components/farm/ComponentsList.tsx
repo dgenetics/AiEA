@@ -973,42 +973,6 @@ export function ComponentsList({
         />
       ) : null}
 
-      {schedulePart ? (
-        <Modal
-          variant="sheet"
-          title="Add schedule"
-          subtitle={liveNames[schedulePart.id] ?? schedulePart.name}
-          onClose={() => {
-            if (scheduleSaving) return
-            setSchedulePart(null)
-            setScheduleError(null)
-          }}
-        >
-            <ScheduleForm
-              key={schedulePart.id}
-              error={scheduleError}
-              formId="system-part-schedule-add-form"
-              componentId={schedulePart.id}
-              busy={scheduleSaving}
-              onSubmit={async (input: CreateScheduleInput) => {
-                setScheduleSaving(true)
-                setScheduleError(null)
-                try {
-                  await maintenanceApi.createSchedule(input)
-                  setSchedulePart(null)
-                  setRelatedTick((tick) => tick + 1)
-                } catch (error) {
-                  setScheduleError(
-                    error instanceof Error ? error.message : "Failed to save schedule",
-                  )
-                } finally {
-                  setScheduleSaving(false)
-                }
-              }}
-            />
-        </Modal>
-      ) : null}
-
       {scanOpen && scanFile ? (
         <ScanComponent
           key={`${scanFile.name}-${scanFile.size}-${scanFile.lastModified}`}
@@ -1063,6 +1027,52 @@ export function ComponentsList({
                 }}
               />
             }
+          />
+        </Modal>
+      ) : null}
+
+      {schedulePart ? (
+        <Modal
+          variant="sheet"
+          stacked={sheetPart != null}
+          title="Add schedule"
+          subtitle={liveNames[schedulePart.id] ?? schedulePart.name}
+          onBack={
+            sheetPart
+              ? () => {
+                  if (scheduleSaving) return
+                  setSchedulePart(null)
+                  setScheduleError(null)
+                }
+              : undefined
+          }
+          onClose={() => {
+            if (scheduleSaving) return
+            setSchedulePart(null)
+            setScheduleError(null)
+          }}
+        >
+          <ScheduleForm
+            key={schedulePart.id}
+            error={scheduleError}
+            formId="system-part-schedule-add-form"
+            componentId={schedulePart.id}
+            busy={scheduleSaving}
+            onSubmit={async (input: CreateScheduleInput) => {
+              setScheduleSaving(true)
+              setScheduleError(null)
+              try {
+                await maintenanceApi.createSchedule(input)
+                setSchedulePart(null)
+                setRelatedTick((tick) => tick + 1)
+              } catch (error) {
+                setScheduleError(
+                  error instanceof Error ? error.message : "Failed to save schedule",
+                )
+              } finally {
+                setScheduleSaving(false)
+              }
+            }}
           />
         </Modal>
       ) : null}

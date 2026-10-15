@@ -40,6 +40,7 @@ export function Modal({
   children,
   footer,
   variant = "default",
+  stacked = false,
 }: {
   title: string;
   subtitle?: string;
@@ -49,6 +50,8 @@ export function Modal({
   children: React.ReactNode;
   footer?: React.ReactNode;
   variant?: "default" | "sheet";
+  /** Paint above an already-open sheet, with this sheet's own backdrop. */
+  stacked?: boolean;
 }) {
   const frame = useKeyboardFrame();
   useLockBodyScroll(true);
@@ -246,18 +249,20 @@ export function Modal({
     if (variant !== "sheet") return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (stacked) event.stopImmediatePropagation();
         if (onBack) onBack();
         else beginClose();
       }
     }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onBack, onClose, variant]);
+    // Capture so a sheet stacked on another one handles Escape before the one underneath.
+    document.addEventListener("keydown", onKey, stacked);
+    return () => document.removeEventListener("keydown", onKey, stacked);
+  }, [onBack, onClose, stacked, variant]);
 
   if (variant === "sheet") {
     return (
       <div
-        className="fixed inset-0 z-50 flex max-w-full items-end justify-center overflow-x-hidden min-[700px]:items-center min-[700px]:p-4"
+        className={`fixed inset-0 ${stacked ? "z-[70]" : "z-50"} flex max-w-full items-end justify-center overflow-x-hidden min-[700px]:items-center min-[700px]:p-4`}
         style={viewportStyle}
       >
         <button
