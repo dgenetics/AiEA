@@ -25,6 +25,9 @@ export function componentDeleteMessage(name: string, scheduleCount: number): str
   if (scheduleCount <= 0) {
     return `Delete ${label}? This also deletes all its tasks, including completed ones.`;
   }
+  if (scheduleCount === 1) {
+    return `Delete ${label}? This also deletes its 1 schedule and all its tasks, including completed ones.`;
+  }
   return `Delete ${label}? This also deletes its ${counted(scheduleCount, "schedule")} and all their tasks, including completed ones.`;
 }
 
@@ -35,7 +38,11 @@ export function systemDeleteMessage(
   scheduleCount: number,
 ): string {
   const label = quoted(name, "this system");
-  return `Delete ${label}? This also deletes its ${counted(componentCount, "component")}, ${counted(scheduleCount, "schedule")}, and all their tasks.`;
+  const schedules =
+    scheduleCount === 1
+      ? "its 1 schedule and all its tasks"
+      : `${counted(scheduleCount, "schedule")}, and all their tasks`;
+  return `Delete ${label}? This also deletes its ${counted(componentCount, "component")}, ${schedules}.`;
 }
 
 export function DeleteConfirm({

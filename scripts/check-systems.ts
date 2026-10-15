@@ -310,7 +310,7 @@ assert.equal(
 );
 assert.equal(
   componentDeleteMessage("Pump", 1),
-  "Delete 'Pump'? This also deletes its 1 schedule and all their tasks, including completed ones.",
+  "Delete 'Pump'? This also deletes its 1 schedule and all its tasks, including completed ones.",
 );
 assert.equal(
   componentDeleteMessage("Pump", 0),
@@ -322,7 +322,11 @@ assert.equal(
 );
 assert.equal(
   systemDeleteMessage("Well house", 1, 1),
-  "Delete 'Well house'? This also deletes its 1 component, 1 schedule, and all their tasks.",
+  "Delete 'Well house'? This also deletes its 1 component, its 1 schedule and all its tasks.",
+);
+assert.equal(
+  systemDeleteMessage("Well house", 2, 1),
+  "Delete 'Well house'? This also deletes its 2 components, its 1 schedule and all its tasks.",
 );
 const cascade = readFileSync(join(root, "src/lib/delete-cascade.ts"), "utf8");
 assert.match(cascade, /prisma\.\$transaction|db\.\$transaction/);
