@@ -132,8 +132,9 @@ input.date-field-input[type="time"] {
   /* 16px default — required to stop iOS Safari zoom-on-focus */
   font-size: 16px;
   line-height: 1.25rem;
-  /* Do NOT set appearance:none or overflow:hidden on the input —
-     that breaks year/month field editing in Safari/Chrome. */
+  height: 3rem;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 @media (min-width: 768px) {
@@ -149,14 +150,34 @@ input.date-field-input[type="time"] {
   opacity: 0.75;
 }
 
-/* Fallback for any bare date inputs not using the shell */
+/* Fallback for any bare date inputs not using the shell.
+   appearance:none lets WebKit honor width so the control matches text inputs. */
 input[type="date"]:not(.date-field-input),
 input[type="time"]:not(.date-field-input),
 input[type="datetime-local"]:not(.date-field-input) {
+  -webkit-appearance: none;
+  appearance: none;
   max-width: 100% !important;
   min-width: 0 !important;
   width: 100%;
   box-sizing: border-box;
+}
+
+input.sheet-date[type="date"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  display: block;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: 3rem;
+  box-sizing: border-box;
+}
+
+input.sheet-date[type="date"]::-webkit-datetime-edit,
+input.sheet-date[type="date"]::-webkit-date-and-time-value {
+  min-width: 0;
+  padding: 0;
 }
 
 /* iOS safe areas (notch / home indicator) */

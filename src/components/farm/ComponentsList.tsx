@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react'
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { ExternalLink } from 'lucide-react'
 import { useData } from "@/components/farm/data-context"
@@ -27,7 +27,7 @@ import { Toast } from "@/components/farm/Toast"
 import { ScheduleForm } from "@/components/farm/ScheduleForm"
 import { ScanComponent } from "@/components/farm/ScanComponent"
 import { Modal } from "@/components/farm/Modal"
-import { Button, Field, Input, Textarea } from "@/components/farm/ui"
+import { Button, Input } from "@/components/farm/ui"
 import type { ScanScheduleDraft } from "@/lib/component-scan"
 
 function ScanFrameIcon() {
@@ -63,89 +63,171 @@ function toInput(part: SystemComponent): SystemComponentInput {
   return rest
 }
 
+const controlClass =
+  "mt-1.5 h-12 appearance-none border-[#d6d3d1] bg-[#fffdf8] px-3.5 py-0 text-base text-stone-900 focus:border-stone-600 focus:ring-stone-600/12"
+
+function SheetField({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <label className="mt-3.5 block min-w-0 text-[13px] text-[#78716c]">
+      {label}
+      {children}
+    </label>
+  )
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <p className="mt-[26px] text-[11px] font-semibold tracking-[0.12em] text-[#a8a29e] uppercase">
+      {children}
+    </p>
+  )
+}
+
+/** Two columns until a value is wider than its box, then stack so nothing is cut off. */
+function FieldPair({
+  watch,
+  children,
+}: {
+  watch: string
+  children: React.ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [stack, setStack] = useState(false)
+
+  useLayoutEffect(() => {
+    const root = ref.current
+    if (!root || stack) return
+    const clipped = [...root.querySelectorAll("input")].some(
+      (input) => input.scrollWidth > input.clientWidth + 1,
+    )
+    if (clipped) setStack(true)
+  }, [watch, stack])
+
+  return (
+    <div
+      ref={ref}
+      className={
+        stack
+          ? "flex min-w-0 flex-col"
+          : "grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2.5"
+      }
+    >
+      {children}
+    </div>
+  )
+}
+
+function GrowingNotes({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  function fit() {
+    const el = ref.current
+    if (!el) return
+    el.style.height = "0px"
+    el.style.height = `${Math.max(76, el.scrollHeight)}px`
+  }
+
+  useLayoutEffect(() => {
+    fit()
+  }, [value])
+
+  return (
+    <textarea
+      ref={ref}
+      rows={2}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="mt-1.5 min-h-[76px] w-full min-w-0 resize-none overflow-hidden rounded-xl border border-[#d6d3d1] bg-[#fffdf8] px-3.5 py-3 text-base leading-snug text-stone-900 focus:border-stone-600 focus:ring-2 focus:ring-stone-600/12 focus:outline-none"
+    />
+  )
+}
+
 function ComponentFields({
   value,
   onChange,
-  onBlurSave,
   autoFocusName,
 }: {
   value: SystemComponentInput
   onChange: (patch: Partial<SystemComponentInput>) => void
-  onBlurSave?: () => void
   autoFocusName?: boolean
 }) {
   return (
-    <div className="space-y-2">
-      <Field label="Component name">
+    <div>
+      <SheetField label="Name">
         <Input
           value={value.name}
           onChange={(e) => onChange({ name: e.target.value })}
-          onBlur={onBlurSave}
           placeholder="Component name"
           autoFocus={autoFocusName}
+          className={controlClass}
         />
-      </Field>
-      <Field label="Location">
+      </SheetField>
+      <SheetField label="Location">
         <Input
           value={value.location}
           onChange={(e) => onChange({ location: e.target.value })}
-          onBlur={onBlurSave}
           placeholder="House, barn, office…"
+          className={controlClass}
         />
-      </Field>
+      </SheetField>
 
-      <p className="pt-1 text-[10px] font-semibold tracking-wide text-forest-800 uppercase">
-        Identification
-      </p>
-      <Field label="Manufacturer">
+      <SectionLabel>Equipment</SectionLabel>
+      <SheetField label="Make">
         <Input
           value={value.manufacturer}
           onChange={(e) => onChange({ manufacturer: e.target.value })}
-          onBlur={onBlurSave}
+          className={controlClass}
         />
-      </Field>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Field label="Model #">
+      </SheetField>
+      <FieldPair watch={`${value.modelNumber}\n${value.productNumber}`}>
+        <SheetField label="Model #">
           <Input
             value={value.modelNumber}
             onChange={(e) => onChange({ modelNumber: e.target.value })}
-            onBlur={onBlurSave}
+            className={controlClass}
           />
-        </Field>
-        <Field label="SKU">
+        </SheetField>
+        <SheetField label="SKU">
           <Input
             value={value.productNumber}
             onChange={(e) => onChange({ productNumber: e.target.value })}
-            onBlur={onBlurSave}
+            className={controlClass}
           />
-        </Field>
-        <Field label="Serial #">
-          <Input
-            value={value.serialNumber}
-            onChange={(e) => onChange({ serialNumber: e.target.value })}
-            onBlur={onBlurSave}
-          />
-        </Field>
-      </div>
-
-      <p className="pt-1 text-[10px] font-semibold tracking-wide text-forest-800 uppercase">
-        Warranty & manual
-      </p>
-      <Field label="Warranty info">
-        <Textarea
-          rows={2}
+        </SheetField>
+      </FieldPair>
+      <SheetField label="Serial #">
+        <Input
+          value={value.serialNumber}
+          onChange={(e) => onChange({ serialNumber: e.target.value })}
+          className={controlClass}
+        />
+      </SheetField>
+      <SheetField label="Warranty">
+        <Input
           value={value.warrantyInfo}
           onChange={(e) => onChange({ warrantyInfo: e.target.value })}
-          onBlur={onBlurSave}
-          placeholder="Coverage period, expiration, claim phone, policy #…"
+          placeholder="e.g. 2 yr parts"
+          className={controlClass}
         />
-      </Field>
-      <Field label="User manual">
+      </SheetField>
+      <SheetField label="Manual">
         <Input
           value={value.userManual}
           onChange={(e) => onChange({ userManual: e.target.value })}
-          onBlur={onBlurSave}
           placeholder="URL or filing note"
+          className={controlClass}
         />
         {isUrl(value.userManual) && (
           <a
@@ -157,117 +239,88 @@ function ComponentFields({
             Open manual <ExternalLink className="h-3 w-3" />
           </a>
         )}
-      </Field>
+      </SheetField>
 
-      <p className="pt-1 text-[10px] font-semibold tracking-wide text-forest-800 uppercase">
-        Vendor / installer
-      </p>
-      <Field label="Name">
-        <Input
-          value={value.vendorName}
-          onChange={(e) => onChange({ vendorName: e.target.value })}
-          onBlur={onBlurSave}
-        />
-      </Field>
-      <Field label="Contact info">
-        <Textarea
-          rows={2}
-          value={value.vendorContact}
-          onChange={(e) => onChange({ vendorContact: e.target.value })}
-          onBlur={onBlurSave}
-          placeholder="Phone, email, account #…"
-        />
-      </Field>
-
-      <p className="pt-1 text-[10px] font-semibold tracking-wide text-forest-800 uppercase">
-        Maintenance / repair
-      </p>
-      <Field label="Company name">
-        <Input
-          value={value.serviceCompanyName}
-          onChange={(e) => onChange({ serviceCompanyName: e.target.value })}
-          onBlur={onBlurSave}
-        />
-      </Field>
-      <Field label="Contact info">
-        <Textarea
-          rows={2}
-          value={value.serviceCompanyContact}
-          onChange={(e) =>
-            onChange({ serviceCompanyContact: e.target.value })
-          }
-          onBlur={onBlurSave}
-          placeholder="Phone, email, after-hours…"
-        />
-      </Field>
-
-      <p className="pt-1 text-[10px] font-semibold tracking-wide text-forest-800 uppercase">
-        Purchase & replacement
-      </p>
-      <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
-        <Field label="Purchase date">
-          <div className="clip-x">
-            <Input
-              type="date"
-              value={dateToInput(value.purchaseDate)}
-              onChange={(e) =>
-                onChange({
-                  purchaseDate: e.target.value
-                    ? new Date(e.target.value + 'T12:00:00').toISOString()
-                    : null,
-                })
-              }
-              onBlur={onBlurSave}
-            />
-          </div>
-        </Field>
-        <Field label="Purchase cost">
+      <SectionLabel>Contacts</SectionLabel>
+      <FieldPair watch={`${value.vendorName}\n${value.vendorContact}`}>
+        <SheetField label="Vendor">
           <Input
-            inputMode="decimal"
-            value={moneyToInput(value.purchaseCost)}
-            onChange={(e) =>
-              onChange({ purchaseCost: parseMoney(e.target.value) })
-            }
-            onBlur={onBlurSave}
-            placeholder="0"
+            value={value.vendorName}
+            onChange={(e) => onChange({ vendorName: e.target.value })}
+            className={controlClass}
           />
-        </Field>
-      </div>
-      <Field label="Replacement cost">
+        </SheetField>
+        <SheetField label="Vendor contact">
+          <Input
+            value={value.vendorContact}
+            onChange={(e) => onChange({ vendorContact: e.target.value })}
+            placeholder="Phone or email"
+            className={controlClass}
+          />
+        </SheetField>
+      </FieldPair>
+      <FieldPair watch={`${value.serviceCompanyName}\n${value.serviceCompanyContact}`}>
+        <SheetField label="Service co.">
+          <Input
+            value={value.serviceCompanyName}
+            onChange={(e) => onChange({ serviceCompanyName: e.target.value })}
+            className={controlClass}
+          />
+        </SheetField>
+        <SheetField label="Service contact">
+          <Input
+            value={value.serviceCompanyContact}
+            onChange={(e) => onChange({ serviceCompanyContact: e.target.value })}
+            placeholder="Phone or email"
+            className={controlClass}
+          />
+        </SheetField>
+      </FieldPair>
+
+      <SectionLabel>Purchase</SectionLabel>
+      <SheetField label="Purchase date">
+        <Input
+          type="date"
+          value={dateToInput(value.purchaseDate)}
+          onChange={(e) =>
+            onChange({
+              purchaseDate: e.target.value
+                ? new Date(e.target.value + "T12:00:00").toISOString()
+                : null,
+            })
+          }
+          className={`sheet-date ${controlClass}`}
+        />
+      </SheetField>
+      <SheetField label="Cost">
         <Input
           inputMode="decimal"
-          value={moneyToInput(value.replacementCost)}
-          onChange={(e) =>
-            onChange({ replacementCost: parseMoney(e.target.value) })
-          }
-          onBlur={onBlurSave}
-          placeholder="Current estimate"
+          value={moneyToInput(value.purchaseCost)}
+          onChange={(e) => onChange({ purchaseCost: parseMoney(e.target.value) })}
+          placeholder="0"
+          className={controlClass}
         />
-      </Field>
+      </SheetField>
 
-      <p className="pt-1 text-[10px] font-semibold tracking-wide text-forest-800 uppercase">
-        Notes
-      </p>
-      <Field label="Notes">
-        <Textarea
-          rows={2}
-          value={value.notes}
-          onChange={(e) => onChange({ notes: e.target.value })}
-          onBlur={onBlurSave}
-        />
-      </Field>
+      <SheetField label="Notes">
+        <GrowingNotes value={value.notes} onChange={(notes) => onChange({ notes })} />
+      </SheetField>
     </div>
   )
 }
 
 /**
- * Fully local draft while editing. Saves only on blur / unmount / collapse —
- * never mid-keystroke — so React state + API responses cannot clobber typing.
+ * Fully local draft while the sheet is open. Save writes the draft, including
+ * the stored replacement cost, which this sheet no longer shows.
  */
 function EditableComponent({
   part,
   onUpdate,
   onDraftName,
+  onAddSchedule,
+  onSaved,
+  scheduleDisabled,
+  deleteSlot,
 }: {
   part: SystemComponent
   onUpdate: (
@@ -275,53 +328,76 @@ function EditableComponent({
     patch: Partial<SystemComponentInput>,
   ) => void | Promise<void>
   onDraftName?: (name: string) => void
+  onAddSchedule: () => void
+  onSaved: () => void
+  scheduleDisabled?: boolean
+  deleteSlot: React.ReactNode
 }) {
   const [draft, setDraft] = useState<SystemComponentInput>(() => toInput(part))
   const draftRef = useRef(draft)
-  const dirtyRef = useRef(false)
-  const onUpdateRef = useRef(onUpdate)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const partId = part.id
 
   draftRef.current = draft
-  onUpdateRef.current = onUpdate
 
-  // Only re-seed when opening a different component
   useEffect(() => {
     setDraft(toInput(part))
-    dirtyRef.current = false
     onDraftName?.(part.name)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partId])
 
-  function flush() {
-    if (!dirtyRef.current) return
-    dirtyRef.current = false
-    void onUpdateRef.current(partId, draftRef.current)
+  async function save() {
+    const next = draftRef.current
+    if (!next.name.trim() || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await onUpdate(partId, {
+        ...next,
+        name: next.name.trim(),
+        replacementCost: next.replacementCost,
+      })
+      onSaved()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save that")
+      setSaving(false)
+    }
   }
 
-  useEffect(() => {
-    return () => {
-      if (dirtyRef.current) {
-        dirtyRef.current = false
-        void onUpdateRef.current(partId, draftRef.current)
-      }
-    }
-  }, [partId])
-
   return (
-    <ComponentFields
-      value={draft}
-      onChange={(patch) => {
-        dirtyRef.current = true
-        setDraft((d) => {
-          const next = { ...d, ...patch }
-          draftRef.current = next
-          if (patch.name !== undefined) onDraftName?.(patch.name)
-          return next
-        })
-      }}
-      onBlurSave={flush}
-    />
+    <div>
+      <ComponentFields
+        value={draft}
+        autoFocusName
+        onChange={(patch) => {
+          setDraft((d) => {
+            const next = { ...d, ...patch, replacementCost: d.replacementCost }
+            draftRef.current = next
+            if (patch.name !== undefined) onDraftName?.(patch.name)
+            return next
+          })
+        }}
+      />
+      <button
+        type="button"
+        disabled={scheduleDisabled || saving}
+        onClick={onAddSchedule}
+        className="mt-3.5 flex min-h-12 w-full items-center bg-transparent text-left text-[17px] font-semibold text-[#166534] disabled:opacity-40"
+      >
+        + Add Schedule
+      </button>
+      {error ? <p className="mt-2 text-xs font-medium text-red-700">{error}</p> : null}
+      <button
+        type="button"
+        disabled={saving || !draft.name.trim()}
+        onClick={() => void save()}
+        className="mt-1.5 h-[50px] w-full rounded-[14px] bg-stone-900 text-base font-semibold text-[#f7f3eb] disabled:opacity-40"
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+      {deleteSlot}
+    </div>
   )
 }
 
@@ -548,10 +624,6 @@ export function ComponentsList({
       {
         label: "Purchase",
         value: part.purchaseCost != null ? formatMoney(part.purchaseCost) : "",
-      },
-      {
-        label: "Replacement",
-        value: part.replacementCost != null ? formatMoney(part.replacementCost) : "",
       },
       { label: "Warranty", value: part.warrantyInfo.trim() },
       { label: "Manual", value: part.userManual.trim(), href: isUrl(part.userManual) ? part.userManual.trim() : undefined },
@@ -901,42 +973,6 @@ export function ComponentsList({
         />
       ) : null}
 
-      {schedulePart ? (
-        <Modal
-          variant="sheet"
-          title="Add schedule"
-          subtitle={liveNames[schedulePart.id] ?? schedulePart.name}
-          onClose={() => {
-            if (scheduleSaving) return
-            setSchedulePart(null)
-            setScheduleError(null)
-          }}
-        >
-            <ScheduleForm
-              key={schedulePart.id}
-              error={scheduleError}
-              formId="system-part-schedule-add-form"
-              componentId={schedulePart.id}
-              busy={scheduleSaving}
-              onSubmit={async (input: CreateScheduleInput) => {
-                setScheduleSaving(true)
-                setScheduleError(null)
-                try {
-                  await maintenanceApi.createSchedule(input)
-                  setSchedulePart(null)
-                  setRelatedTick((tick) => tick + 1)
-                } catch (error) {
-                  setScheduleError(
-                    error instanceof Error ? error.message : "Failed to save schedule",
-                  )
-                } finally {
-                  setScheduleSaving(false)
-                }
-              }}
-            />
-        </Modal>
-      ) : null}
-
       {scanOpen && scanFile ? (
         <ScanComponent
           key={`${scanFile.name}-${scanFile.size}-${scanFile.lastModified}`}
@@ -960,36 +996,82 @@ export function ComponentsList({
             onDraftName={(name) =>
               setLiveNames((names) => ({ ...names, [sheetPart.id]: name }))
             }
-          />
-          <button
-            type="button"
-            className="mt-3 text-[13px] font-semibold text-[#166534]"
-            onClick={() => {
+            scheduleDisabled={scheduleSaving}
+            onAddSchedule={() => {
               setScheduleError(null)
               setSchedulePart(sheetPart)
             }}
-          >
-            Add schedule
-          </button>
-          <InlineDelete
-            label="Delete component"
-            disabled={!schedulesReady}
-            message={componentDeleteMessage(
-              liveNames[sheetPart.id] ?? sheetPart.name,
-              schedules.filter((schedule) => schedule.componentId === sheetPart.id).length,
-            )}
-            onConfirm={async () => {
-              const id = sheetPart.id
-              const name = (liveNames[id] ?? sheetPart.name).trim() || "Component"
-              await onDelete(id)
-              setEditingPart(null)
-              setExpandedId((current) => (current === id ? null : current))
-              setLiveNames((names) => {
-                const next = { ...names }
-                delete next[id]
-                return next
-              })
-              setToast(`Deleted '${name}'.`)
+            onSaved={() => setEditingPart(null)}
+            deleteSlot={
+              <InlineDelete
+                label="Delete component"
+                disabled={!schedulesReady}
+                className="mt-7"
+                buttonClassName="flex h-12 w-full items-center justify-center text-base font-semibold text-[#b91c1c] disabled:opacity-40"
+                message={componentDeleteMessage(
+                  liveNames[sheetPart.id] ?? sheetPart.name,
+                  schedules.filter((schedule) => schedule.componentId === sheetPart.id).length,
+                )}
+                onConfirm={async () => {
+                  const id = sheetPart.id
+                  const name = (liveNames[id] ?? sheetPart.name).trim() || "Component"
+                  await onDelete(id)
+                  setEditingPart(null)
+                  setExpandedId((current) => (current === id ? null : current))
+                  setLiveNames((names) => {
+                    const next = { ...names }
+                    delete next[id]
+                    return next
+                  })
+                  setToast(`Deleted '${name}'.`)
+                }}
+              />
+            }
+          />
+        </Modal>
+      ) : null}
+
+      {schedulePart ? (
+        <Modal
+          variant="sheet"
+          stacked={sheetPart != null}
+          title="Add schedule"
+          subtitle={liveNames[schedulePart.id] ?? schedulePart.name}
+          onBack={
+            sheetPart
+              ? () => {
+                  if (scheduleSaving) return
+                  setSchedulePart(null)
+                  setScheduleError(null)
+                }
+              : undefined
+          }
+          onClose={() => {
+            if (scheduleSaving) return
+            setSchedulePart(null)
+            setScheduleError(null)
+          }}
+        >
+          <ScheduleForm
+            key={schedulePart.id}
+            error={scheduleError}
+            formId="system-part-schedule-add-form"
+            componentId={schedulePart.id}
+            busy={scheduleSaving}
+            onSubmit={async (input: CreateScheduleInput) => {
+              setScheduleSaving(true)
+              setScheduleError(null)
+              try {
+                await maintenanceApi.createSchedule(input)
+                setSchedulePart(null)
+                setRelatedTick((tick) => tick + 1)
+              } catch (error) {
+                setScheduleError(
+                  error instanceof Error ? error.message : "Failed to save schedule",
+                )
+              } finally {
+                setScheduleSaving(false)
+              }
             }}
           />
         </Modal>

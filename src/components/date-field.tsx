@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * Native date input clipped to the parent content box.
- * WebKit/iOS date controls ignore max-width and paint past padding unless
- * the border lives on a shell with overflow:hidden.
+ * appearance:none plus min-width:0 lets the control match a text input's box.
+ * The border stays on the shell so WebKit cannot paint past it.
  */
 export function DateField({
   value,

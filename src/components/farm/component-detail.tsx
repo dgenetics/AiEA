@@ -233,31 +233,8 @@ export function ComponentDetail({
           <ul className="divide-y divide-cream-200">
             {schedules.map((s) => (
               <li key={s.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-ink">{s.name}</p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      Next due{" "}
-                      {format(parseISO(s.nextDueDate), "MMM d, yyyy")}
-                      {s.frequency ? ` · ${s.frequency}` : ""}
-                      {s.isRecurring ? " · recurring" : " · one-off"}
-                    </p>
-                    {s.description && (
-                      <p className="mt-1 text-sm text-muted">{s.description}</p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="text-muted hover:text-red-700"
-                    aria-label={`Delete ${s.name}`}
-                    onClick={() => setConfirmScheduleId(s.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
                 {confirmScheduleId === s.id ? (
                   <DeleteConfirm
-                    className="mt-2"
                     message={scheduleDeleteMessage(s.name)}
                     onDismiss={() => setConfirmScheduleId(null)}
                     onConfirm={async () => {
@@ -267,7 +244,30 @@ export function ComponentDetail({
                       await load();
                     }}
                   />
-                ) : null}
+                ) : (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-ink">{s.name}</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Next due{" "}
+                        {format(parseISO(s.nextDueDate), "MMM d, yyyy")}
+                        {s.frequency ? ` · ${s.frequency}` : ""}
+                        {s.isRecurring ? " · recurring" : " · one-off"}
+                      </p>
+                      {s.description && (
+                        <p className="mt-1 text-sm text-muted">{s.description}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="text-muted hover:text-red-700"
+                      aria-label={`Delete ${s.name}`}
+                      onClick={() => setConfirmScheduleId(s.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

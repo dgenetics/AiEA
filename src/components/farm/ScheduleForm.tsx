@@ -187,7 +187,7 @@ export function ScheduleForm({
             required
             value={nextDueDate}
             onChange={(e) => setNextDueDate(e.target.value)}
-            className={`date-control ${controlClass} ${nextDueDate ? "" : "text-stone-400"}`}
+            className={`sheet-date date-control appearance-none w-full min-w-0 ${controlClass} ${nextDueDate ? "" : "text-stone-400"}`}
           />
         </div>
       </label>

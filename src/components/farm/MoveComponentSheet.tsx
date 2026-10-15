@@ -34,7 +34,7 @@ function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative z-10 box-border flex max-h-[90dvh] w-full min-w-0 max-w-full flex-col overflow-x-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-xl sm:max-w-3xl sm:rounded-2xl"
+        className="relative z-10 box-border flex max-h-[90dvh] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-2xl border border-cream-200 bg-cream-50 shadow-xl sm:max-w-3xl sm:rounded-2xl"
         style={frame.open ? { maxHeight: frame.height } : undefined}
       >
         <div className="flex min-w-0 items-center justify-between gap-2 border-b border-cream-200 px-4 py-3">
@@ -43,7 +43,7 @@ function Sheet({
             Close
           </Button>
         </div>
-        <div data-sheet-scroll className="sheet-scroll min-w-0 max-w-full px-4 py-4 break-words [overflow-wrap:anywhere]">{children}</div>
+        <div data-sheet-scroll className="sheet-scroll min-h-0 min-w-0 max-w-full flex-1 px-4 py-4 break-words [overflow-wrap:anywhere]">{children}</div>
       </div>
     </div>
   );
