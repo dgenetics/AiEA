@@ -20,6 +20,7 @@ export function StickySaveBar({
       {/* Spacer so form content isn't hidden behind the bar + tab nav */}
       <div className="h-20" aria-hidden />
       <div
+        data-sticky-save
         className={cn(
           "pointer-events-none fixed inset-x-0",
           frame.open ? "z-50" : "z-30 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]",

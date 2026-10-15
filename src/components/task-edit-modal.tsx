@@ -234,23 +234,22 @@ export function TaskEditModal({ task, open, onClose, onSaved, onDeleted, aiBoard
         )}
         style={frame.open ? { maxHeight: frame.height } : undefined}
       >
-        <div data-sheet-scroll className="sheet-scroll min-h-0 min-w-0 max-w-full flex-1 p-4 md:p-5">
-          <div className="mb-4 flex min-w-0 items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-ink">Edit task</h2>
-              <p className="text-[11px] leading-snug text-muted">
-                Break big work into parts with their own due dates
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-cream-200/60 hover:text-ink"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="flex min-w-0 shrink-0 items-start justify-between gap-2 border-b border-cream-200 px-4 py-3 md:px-5">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-ink">Edit task</h2>
+            <p className="text-[11px] leading-snug text-muted">
+              Break big work into parts with their own due dates
+            </p>
           </div>
-
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-cream-200/60 hover:text-ink"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div data-sheet-scroll className="sheet-scroll min-h-0 min-w-0 max-w-full flex-1 p-4 md:p-5">
           <div className="min-w-0 space-y-3">
             <label className="block min-w-0">
               <span className="mb-1 block text-xs text-stone-600">Title</span>

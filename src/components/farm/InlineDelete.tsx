@@ -1,6 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/** Pixels of the visual viewport covered by the keyboard. */
+function keyboardCover(): number {
+  const viewport = window.visualViewport;
+  if (!viewport) return 0;
+  return Math.max(0, Math.round(window.innerHeight - (viewport.height + viewport.offsetTop)));
+}
+
+function safeAreaBottom(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none";
+  document.body.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  probe.remove();
+  return height;
+}
+
+/**
+ * Put the confirm's bottom (the Delete button) inside the visible area.
+ * Sheets cover the tab bar; pages sit above it and any sticky save bar.
+ * scroll-margin is applied before scrollIntoView so the alignment leaves
+ * room for the safe area, keyboard, and those bars.
+ */
+function revealDeleteConfirm(el: HTMLElement) {
+  const viewport = window.visualViewport;
+  const viewportBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+  const inSheet = Boolean(el.closest("[data-sheet-scroll]"));
+  const keyboard = keyboardCover();
+  let limit = viewportBottom - 8;
+  if (keyboard > 100) {
+    limit = viewportBottom - 12;
+  } else if (!inSheet) {
+    const bar = document.querySelector("[data-sticky-save]");
+    const nav = document.querySelector('nav[aria-label="Farm Manager"]');
+    const obstacle = bar ?? nav;
+    if (obstacle) {
+      const top = obstacle.getBoundingClientRect().top;
+      if (top < limit) limit = top - 8;
+    }
+  } else {
+    limit -= safeAreaBottom();
+  }
+  el.style.scrollMarginBottom = `${Math.max(0, Math.round(viewportBottom - limit))}px`;
+  el.scrollIntoView({ block: "end", behavior: "smooth" });
+}
 
 /** Copy for the schedule confirm. Task rows for that schedule are deleted with it. */
 export function scheduleDeleteMessage(name: string): string {
@@ -58,6 +104,14 @@ export function DeleteConfirm({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => revealDeleteConfirm(el));
+    return () => cancelAnimationFrame(id);
+  }, [error]);
 
   async function go() {
     if (working) return;
@@ -72,7 +126,10 @@ export function DeleteConfirm({
   }
 
   return (
-    <div className={`rounded-[14px] border border-[#f3c0c0] bg-[#fdecec] px-3.5 py-3 ${className}`}>
+    <div
+      ref={ref}
+      className={`rounded-[14px] border border-[#f3c0c0] bg-[#fdecec] px-3.5 py-3 ${className}`}
+    >
       <p className="text-[14px] leading-snug text-[#7f1d1d]">{message}</p>
       {error ? <p className="mt-2 text-xs font-medium text-red-800">{error}</p> : null}
       <div className="mt-3 flex gap-2">
@@ -103,11 +160,15 @@ export function InlineDelete({
   message,
   disabled,
   onConfirm,
+  className = "mt-5",
+  buttonClassName = "flex min-h-11 w-full items-center justify-center text-[15px] font-semibold text-[#dc2626] disabled:opacity-40",
 }: {
   label: string;
   message: string;
   disabled?: boolean;
   onConfirm: () => Promise<void> | void;
+  className?: string;
+  buttonClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   if (!open) {
@@ -116,7 +177,7 @@ export function InlineDelete({
         type="button"
         disabled={disabled}
         onClick={() => setOpen(true)}
-        className="mt-5 flex min-h-11 w-full items-center justify-center text-[15px] font-semibold text-[#dc2626] disabled:opacity-40"
+        className={`${buttonClassName} ${className}`}
       >
         {label}
       </button>
@@ -124,7 +185,7 @@ export function InlineDelete({
   }
   return (
     <DeleteConfirm
-      className="mt-5"
+      className={className}
       message={message}
       onDismiss={() => setOpen(false)}
       onConfirm={onConfirm}
