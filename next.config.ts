@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
     "@prisma/adapter-libsql",
     "sharp",
   ],
-  // Backup if proxy.ts is not applied. Proxy sends `/` to `/tasks` with 307.
+  // Backup redirects if proxy.ts is not applied.
+  // Signed-in `/` → `/tasks` is handled in proxy.ts and src/app/page.tsx.
   async redirects() {
     return [
       { source: "/today", destination: "/tasks", permanent: false },

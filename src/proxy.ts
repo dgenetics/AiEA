@@ -16,14 +16,19 @@ function go(
 }
 
 /**
- * `/` is a temporary redirect (307). Other retired AiEA pages are 308.
+ * Logged-out `/` is the public landing page.
+ * A session cookie means this browser is signed in, so `/` goes straight
+ * to the app (307). The page repeats that redirect when the proxy does not run.
+ * Other retired AiEA pages are 308.
  * Old `/maintenance/*` bookmarks are permanent (301) for one release.
  */
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname.replace(/\/+$/, "") || "/";
 
   if (path === "/") {
-    return go(request, "/tasks", 307);
+    const session = request.cookies.get("aiea_session")?.value;
+    if (session) return go(request, "/tasks", 307);
+    return NextResponse.next();
   }
 
   if (

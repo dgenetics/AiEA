@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AccountMenu } from "@/components/account-menu";
 
@@ -16,10 +16,21 @@ function tabActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** Landing, login, and register draw their own chrome. */
+export function isAppChromeHidden(pathname: string) {
+  return (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname === "/register" ||
+    pathname.startsWith("/register/")
+  );
+}
+
 /**
  * Header is only the centered title and an Account icon.
  * Systems, Schedules, and Tasks are a fixed bottom bar at every width.
- * Hidden on login and register, which sit outside the shell.
+ * Hidden on the public landing page, login, and register.
  */
 export function SiteNav() {
   const pathname = usePathname() || "/";
@@ -28,11 +39,7 @@ export function SiteNav() {
   const query = search ? `?${search}` : "";
   const [me, setMe] = useState<{ signedIn: boolean; name: string; email: string } | null>(null);
 
-  const authPage =
-    pathname === "/login" ||
-    pathname.startsWith("/login/") ||
-    pathname === "/register" ||
-    pathname.startsWith("/register/");
+  const authPage = isAppChromeHidden(pathname);
 
   useEffect(() => {
     if (authPage) return;
@@ -105,5 +112,20 @@ export function SiteNav() {
         })}
       </nav>
     </>
+  );
+}
+
+/** Skips the app bar on the landing page and auth screens, including its fallback. */
+export function SiteNavGate() {
+  const pathname = usePathname() || "/";
+  if (isAppChromeHidden(pathname)) return null;
+  return (
+    <Suspense
+      fallback={
+        <header className="site-nav sticky top-0 z-40 min-h-10 shrink-0 border-b border-white/10 bg-[#12141c] safe-top" />
+      }
+    >
+      <SiteNav />
+    </Suspense>
   );
 }

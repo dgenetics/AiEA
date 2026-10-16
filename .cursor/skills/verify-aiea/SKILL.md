@@ -24,7 +24,7 @@ App account **email + password** (BF PIN path is going away — do not use PIN h
 | Mode | Credentials |
 |------|-------------|
 | Local / CI (`gate.sh --local`) | Doctor **auto-registers** a disposable `verify+…@aiea.test` user into the run’s SQLite DB and writes `evidence/<run-id>/verify-user.json`. No secrets required for the core gate. `AIEA_SMOKE_*` is **ignored** on local bases. |
-| Live / post-auth (`gate.sh --live-smoke`) | Set **`AIEA_SMOKE_EMAIL`** + **`AIEA_SMOKE_PASSWORD`** (both). Real AiEA User row — **Hong creates**; verify does **not** create the smoke user. When **both** set, and this is not a pull request → login + post-auth path on live. When **absent** → **clean-skip**. On **`GITHUB_EVENT_NAME=pull_request`** → **clean-skip** even if secrets are set: production is still the pre-merge app (`GET /` is 200). The 307 check stays strict on `main` and on the local gate. |
+| Live / post-auth (`gate.sh --live-smoke`) | Set **`AIEA_SMOKE_EMAIL`** + **`AIEA_SMOKE_PASSWORD`** (both). Real AiEA User row — **Hong creates**; verify does **not** create the smoke user. When **both** set, and this is not a pull request → login + post-auth path on live. When **absent** → **clean-skip**. On **`GITHUB_EVENT_NAME=pull_request`** → **clean-skip** even if secrets are set: production is still the pre-merge app. This revision’s logged-out `GET /` is the landing page (200); a signed-in `GET /` is 307 to `/tasks`. That check stays strict on `main` and on the local gate. |
 
 **Smoke user only — never Will’s personal login / 1Password.**
 
@@ -46,7 +46,7 @@ Helpers still accept the old pair with a **WARN** and document this migration. P
 (cd .cursor/skills/verify-aiea/scripts && npm install)
 
 ./.cursor/skills/verify-aiea/scripts/launch.sh 3200
-# prints run-id; ready when GET http://127.0.0.1:3200/ answers (307 to /tasks)
+# prints run-id; ready when GET http://127.0.0.1:3200/ answers (200 landing, or a redirect)
 ```
 
 `launch.sh` builds if needed, creates a disposable SQLite DB under the evidence run dir, clears Turso env so local verify never hits prod, starts `next start -p 3200 -H 127.0.0.1`, writes `evidence/<run-id>/server.pid`.
@@ -72,7 +72,7 @@ VERIFY_BASE_URL=… \
 
 Must pass:
 
-1. `GET /` → **307** to `/tasks` (curl does not follow redirects)
+1. Logged-out `GET /` → **200** landing page (hero “Nothing on the farm slips through the cracks.”, “Get started free” → `/register`, “Log in” → `/login`). After auth, `GET /` with the session cookie → **307** to `/tasks` (curl does not follow redirects).
 2. Wrong login → `401`/`400` on `POST /api/auth/login`
 3. Auth: **local** disposable register **or** live login via `AIEA_SMOKE_*` (legacy `AIEA_EMAIL`/`AIEA_PASSWORD` demoted) → 200 + `aiea_session` cookie with **Path=/**
 4. Local gate: `GET /api/session` with no cookie → **401** JSON. A bearer secret is not a session. (Skipped on live smoke; that host may not be this revision yet.)
@@ -146,7 +146,7 @@ All under `.cursor/skills/verify-aiea/scripts/`:
   --feature capture-accept,tasks-board,board-lanes,bf-sync
 
 # live/post-auth (needs AIEA_SMOKE_* both; clean-skips when unset)
-# pull_request CI clean-skips: prod is still the pre-merge app (GET / is 200)
+# pull_request CI clean-skips: prod is still the pre-merge app (no public landing page yet)
 AIEA_SMOKE_EMAIL=… AIEA_SMOKE_PASSWORD=… \
   ./.cursor/skills/verify-aiea/scripts/gate.sh --live-smoke
 ```

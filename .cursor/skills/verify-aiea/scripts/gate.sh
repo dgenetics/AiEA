@@ -7,8 +7,9 @@
 #   gate.sh --local --feature capture-accept
 #   gate.sh --local --feature capture-accept,tasks-board,board-lanes,bf-sync
 #   gate.sh --live-smoke
-#     → pull_request CI: clean-skip. Production is still the pre-merge app
-#       (GET / is 200). Doctor's 307 check stays strict on main and locally.
+#     → pull_request CI: clean-skip. Production is still the pre-merge app.
+#       This revision's logged-out GET / is the landing page (200); a signed-in
+#       GET / is 307 to /tasks. That check stays strict on main and locally.
 #     → when AIEA_SMOKE_EMAIL+PASSWORD set (not a pull request): doctor+live-smoke
 #     → when secrets absent: clean-skip (exit 0), evidence shows SKIP
 #
@@ -104,10 +105,10 @@ if [[ "$LIVE_SMOKE" == "1" ]]; then
   SKIP_REASON=""
   SKIP_LABEL=""
   # Production (aiea-cyan) is still the pre-merge app until this branch lands.
-  # Its GET / is 200. This revision's doctor requires 307 to /tasks, and
-  # GET /capture 308. Those checks stay strict on main and on local runs.
+  # This revision serves the public landing page to logged-out visitors and
+  # 307s a signed-in session to /tasks. Those checks stay strict on main and locally.
   if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
-    SKIP_REASON="Pull request: production is still the pre-merge app (GET / returns 200, not 307 to /tasks). Live-smoke stays strict on main. The local gate checks this revision."
+    SKIP_REASON="Pull request: production is still the pre-merge app (no public landing page; signed-in GET / 307 to /tasks is this revision). Live-smoke stays strict on main. The local gate checks this revision."
     SKIP_LABEL="pre-merge production"
   elif ! has_smoke_creds; then
     SKIP_REASON="AIEA_SMOKE_EMAIL and/or AIEA_SMOKE_PASSWORD not set — clean-skip live/post-auth (not a failure)"

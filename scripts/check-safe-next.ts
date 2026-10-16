@@ -122,6 +122,8 @@ assert.doesNotMatch(navText, /Maintenance/);
 assert.doesNotMatch(navText, /zone === "maintenance"/);
 
 const layout = readFileSync(join(import.meta.dirname, "../src/app/layout.tsx"), "utf8");
-assert.match(layout, /<Suspense[\s\S]*<SiteNav \/>[\s\S]*<\/Suspense>/);
+assert.match(layout, /<SiteNavGate \/>/);
+assert.match(navText, /<Suspense[\s\S]*<SiteNav \/>[\s\S]*<\/Suspense>/);
+assert.match(navText, /isAppChromeHidden\(pathname\)/);
 
 console.log(`safe-next: open redirects fall back to ${FALLBACK}`);
