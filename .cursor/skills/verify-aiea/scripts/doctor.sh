@@ -28,12 +28,28 @@ echo "base: $BASE"
 echo "repo_sha: $SHA"
 echo "package_version: $PKG_VERSION"
 
-# 1) Port / process answering
+# 1) Logged-out visitors get the public landing page. No redirect.
 code=$(curl -s -D /tmp/aiea-doctor-root.hdr -o /tmp/aiea-doctor-root.html -w '%{http_code}' --max-time 10 "$BASE/" || echo "000")
 echo "GET / -> $code"
-[[ "$code" == "307" ]] || { echo "FAIL: root must 307 to /tasks (got $code)"; exit 1; }
-if ! grep -qiE '^location: .*/tasks' /tmp/aiea-doctor-root.hdr; then
-  echo "FAIL: GET / Location is not /tasks"
+[[ "$code" == "200" ]] || { echo "FAIL: logged-out GET / must be the landing page (got $code)"; exit 1; }
+if grep -qiE '^location:' /tmp/aiea-doctor-root.hdr; then
+  echo "FAIL: logged-out GET / must not redirect"
+  exit 1
+fi
+if ! grep -q 'Nothing on the farm slips through the cracks' /tmp/aiea-doctor-root.html; then
+  echo "FAIL: landing page missing the hero"
+  exit 1
+fi
+if ! grep -q 'Get started free' /tmp/aiea-doctor-root.html; then
+  echo "FAIL: landing page missing the signup CTA"
+  exit 1
+fi
+if ! grep -q 'href="/register"' /tmp/aiea-doctor-root.html; then
+  echo "FAIL: Get started free must link to /register"
+  exit 1
+fi
+if ! grep -q 'href="/login"' /tmp/aiea-doctor-root.html; then
+  echo "FAIL: landing page must link to /login"
   exit 1
 fi
 
@@ -174,6 +190,16 @@ json.dump({
 }, open("$CRED_FILE", "w"))
 print("wrote credentials: $CRED_FILE")
 PY
+fi
+
+# Signed-in `/` still opens the app. Checked once the session cookie exists.
+signed=$(curl -s -b "$jar" -D /tmp/aiea-doctor-root-auth.hdr -o /dev/null -w '%{http_code}' --max-time 15 "$BASE/" || echo "000")
+echo "GET / (signed in) -> $signed"
+[[ "$signed" == "307" ]] || { echo "FAIL: signed-in GET / must 307 to /tasks (got $signed)"; rm -f "$jar"; exit 1; }
+if ! grep -qiE '^location: .*/tasks' /tmp/aiea-doctor-root-auth.hdr; then
+  echo "FAIL: signed-in GET / Location is not /tasks"
+  rm -f "$jar"
+  exit 1
 fi
 
 # 4) Tasks board must not 500 (a pre-board live deploy still serves /today)

@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { BrowserChromeInset } from "@/components/browser-chrome-inset";
-import { SiteNav } from "@/components/site-nav";
+import { SiteNavGate } from "@/components/site-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -49,14 +48,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-cream-100 text-ink">
         <BrowserChromeInset />
-        {/* useSearchParams() in the shared bar — required for static rendering. */}
-        <Suspense
-          fallback={
-            <header className="site-nav sticky top-0 z-40 min-h-10 shrink-0 border-b border-white/10 bg-[#12141c] safe-top" />
-          }
-        >
-          <SiteNav />
-        </Suspense>
+        <SiteNavGate />
         {children}
       </body>
     </html>

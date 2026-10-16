@@ -28,7 +28,7 @@ Verification source for Farm Manager (capture field, Tasks board, lanes, schedul
 - Record feature id and base URL in `drive-<feature>.json` / `SUMMARY.md`.
 - `bf-sync` always runs in-app. It does not skip for missing BF secrets.
 - `live-smoke` without `AIEA_SMOKE_*` → **skipped** with `live-smoke-skipped.txt` (gate green).
-- `live-smoke` on a pull request → **skipped** the same way. Production is still the pre-merge app (`GET /` is 200). On `main` the doctor still requires 307 to `/tasks`.
+- `live-smoke` on a pull request → **skipped** the same way. Production is still the pre-merge app. On `main` the doctor still requires the public landing page for logged-out `GET /` and 307 to `/tasks` when signed in.
 - Unreachable path → report attempted command + unmet precondition; do not claim verified via a different entry point.
 
 ## Feature entry contract

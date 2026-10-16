@@ -9,7 +9,7 @@
 
 ## How to get to it (user POV)
 
-- Sign in. `/` goes to `/tasks`.
+- Sign in. `/` goes to `/tasks`. Logged out, `/` is the public landing page.
 - The bottom bar switches to Systems and Schedules.
 
 ## Driving it with Playwright
