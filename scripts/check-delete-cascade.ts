@@ -21,7 +21,9 @@ process.env.DATABASE_URL = `file:${dbFile}`;
 delete process.env.TURSO_DATABASE_URL;
 delete process.env.TURSO_AUTH_TOKEN;
 
-execSync("npx prisma db push --accept-data-loss", {
+// Fresh temp file. Do not pass --accept-data-loss: Prisma 7.10 blocks that
+// flag when an agent is driving the CLI, and a new database has nothing to drop.
+execSync("npx prisma db push", {
   stdio: "inherit",
   env: process.env,
 });
