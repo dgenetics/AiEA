@@ -30,6 +30,8 @@ export function isAppChromeHidden(pathname: string) {
 /**
  * Header is only the centered title and an Account icon.
  * Systems, Schedules, and Tasks are a fixed bottom bar at every width.
+ * Below md the tabs share that bar equally. From md up they sit together
+ * in a centered cluster (360px, about 120px each) while the bar stays full width.
  * Hidden on the public landing page, login, and register.
  */
 export function SiteNav() {
@@ -94,22 +96,24 @@ export function SiteNav() {
       </header>
       <nav
         aria-label="Farm Manager"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#12141c] pb-[env(safe-area-inset-bottom,0px)]"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#12141c] pb-[env(safe-area-inset-bottom,0px)]"
       >
-        {TABS.map((tab) => {
-          const active = tabActive(pathname, tab.href);
-          const tone = active ? "font-bold text-white" : "font-medium text-zinc-400";
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              aria-current={active ? "page" : undefined}
-              className={`flex min-h-14 flex-1 items-center justify-center px-2 text-[15px] ${tone}`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
+        <div className="flex w-full md:mx-auto md:w-[360px]">
+          {TABS.map((tab) => {
+            const active = tabActive(pathname, tab.href);
+            const tone = active ? "font-bold text-white" : "font-medium text-zinc-400";
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-14 flex-1 items-center justify-center px-2 text-[15px] ${tone}`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
     </>
   );
